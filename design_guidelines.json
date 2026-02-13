@@ -1,0 +1,123 @@
+{
+  "identity": {
+    "persona": "E1",
+    "mission": "Create a premium, high-stakes betting environment that feels like a luxury fintech dashboard mixed with a night stadium atmosphere.",
+    "principles": [
+      "Fusion: Fintech Precision + Stadium Adrenaline",
+      "Emotion: High Stakes, Exclusivity, Focus",
+      "Content: Data is the art. Odds are the hero.",
+      "Contrast: Deepest Blacks vs. Electric Gold/Green"
+    ]
+  },
+  "typography": {
+    "primary_font": "Manrope",
+    "secondary_font": "Oswald",
+    "instructions": "Use Oswald for all Headings, Scores, and Team Names (Condensed, aggressive). Use Manrope for all UI text, odds, and metadata (Clean, legible).",
+    "scale": {
+      "h1": "text-4xl md:text-6xl font-oswald font-bold tracking-tight uppercase",
+      "h2": "text-3xl md:text-4xl font-oswald font-semibold tracking-tight",
+      "h3": "text-xl md:text-2xl font-oswald font-medium",
+      "body": "text-base font-manrope text-neutral-400",
+      "odds": "text-lg font-manrope font-bold tracking-wide",
+      "label": "text-xs font-manrope font-semibold uppercase tracking-widest text-neutral-500"
+    }
+  },
+  "colors": {
+    "theme_name": "Midnight Gold",
+    "palette": {
+      "background": {
+        "main": "#050505",
+        "card": "#0A0A0A",
+        "sidebar": "#080808",
+        "overlay": "rgba(5, 5, 5, 0.8)"
+      },
+      "primary": {
+        "gold": "#D4AF37",
+        "gold_hover": "#F4C430",
+        "gold_dim": "rgba(212, 175, 55, 0.1)"
+      },
+      "status": {
+        "live": "#00FF94",
+        "live_bg": "rgba(0, 255, 148, 0.1)",
+        "danger": "#FF3B30",
+        "success": "#00FF94"
+      },
+      "text": {
+        "primary": "#EDEDED",
+        "secondary": "#A3A3A3",
+        "muted": "#525252"
+      },
+      "border": {
+        "subtle": "#262626",
+        "active": "#D4AF37"
+      }
+    },
+    "gradients": {
+      "gold_glow": "linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%)",
+      "dark_fade": "linear-gradient(to bottom, rgba(5,5,5,0) 0%, #050505 100%)"
+    }
+  },
+  "layout": {
+    "structure": "Three-Column Layout (Sidebar - Main - BetSlip)",
+    "grid_system": {
+      "main": "grid grid-cols-12 gap-6 p-6",
+      "sidebar": "col-span-2 hidden lg:flex flex-col h-screen sticky top-0 border-r border-neutral-900 bg-[#080808]",
+      "content": "col-span-12 lg:col-span-7 xl:col-span-8 space-y-8",
+      "betslip": "col-span-3 hidden xl:flex flex-col h-screen sticky top-0 border-l border-neutral-900 bg-[#080808]"
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-8",
+      "card_padding": "p-6",
+      "section_gap": "gap-8"
+    }
+  },
+  "components": {
+    "match_card": {
+      "style": "Bento Grid Style. Dark card (#0A0A0A) with 1px border (#262626). Hover effect: Border turns Gold (#D4AF37) with subtle glow.",
+      "elements": [
+        "Team Logos: Large, centered or split.",
+        "Score: Oswald font, huge size.",
+        "Live Indicator: Pulsing Green dot + 'LIVE' text.",
+        "Odds: Row of 3 buttons (Home/Draw/Away) at bottom."
+      ]
+    },
+    "sidebar_nav": {
+      "style": "Minimalist. Vertical list.",
+      "item_style": "Flex row, gap-4, p-3 rounded-lg hover:bg-neutral-900 transition-all group",
+      "active_state": "bg-neutral-900 text-gold border-l-2 border-gold",
+      "icons": "Use Lucide React icons (Trophy, Activity, Calendar)."
+    },
+    "betslip": {
+      "style": "Receipt style. White background? NO. Keep it Dark. #0A0A0A.",
+      "header": "Gold text 'BET SLIP'.",
+      "item": "Dismissible cards with odds multiplier highlighted."
+    },
+    "buttons": {
+      "primary": "bg-gold text-black font-bold uppercase tracking-wider hover:bg-gold_hover rounded-sm",
+      "secondary": "bg-neutral-800 text-white hover:bg-neutral-700 rounded-sm",
+      "odds": "bg-neutral-900 border border-neutral-800 hover:border-gold hover:text-gold transition-colors flex flex-col items-center justify-center py-2 rounded-sm"
+    }
+  },
+  "assets": {
+    "images": {
+      "cricket_hero": "https://images.unsplash.com/photo-1750716413349-df33aeca8429?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHw0fHxjcmlja2V0JTIwbWF0Y2glMjBzdGFkaXVtJTIwbmlnaHQlMjBsaWdodHN8ZW58MHx8fHwxNzcwOTkxMTA5fDA&ixlib=rb-4.1.0&q=85",
+      "soccer_hero": "https://images.unsplash.com/photo-1762013315117-1c8005ad2b41?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBtYXRjaCUyMHN0YWRpdW0lMjBuaWdodCUyMGFjdGlvbnxlbnwwfHx8fDE3NzA5OTExMTR8MA&ixlib=rb-4.1.0&q=85"
+    },
+    "icons": "Use lucide-react. Icons: Trophy (Sports), Activity (Live), Calendar (Schedule), Wallet (Balance), User (Profile)."
+  },
+  "universal_guidelines": {
+    "do_not": [
+      "Do NOT use gradients for backgrounds. Use solid deep blacks.",
+      "Do NOT use rounded-xl or rounded-2xl. Use rounded-sm or rounded-md for a 'sharp' precision look.",
+      "Do NOT center text. Left align most content for readability.",
+      "Do NOT use 'Inter' for headings."
+    ],
+    "must_do": [
+      "MUST use 'Oswald' font for all numbers (scores, odds, money).",
+      "MUST add 'data-testid' to all interactive elements.",
+      "MUST use 'sonner' for toasts.",
+      "MUST implement a 'Live' pulsing effect for live matches."
+    ]
+  },
+  "instructions_to_main_agent": "1. Install 'Oswald' and 'Manrope' from Google Fonts in index.css. 2. Configure Tailwind colors with the 'Midnight Gold' palette. 3. Build the Layout (Sidebar, Main, Right). 4. Create the MatchCard component first - it is the core of the app. 5. Use the provided images for the category headers."
+}
