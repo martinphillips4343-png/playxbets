@@ -53,22 +53,23 @@ export default function UserMenu({ user, onLogout }) {
             <p className="text-xs text-gray-500 capitalize">{user.role}</p>
           </div>
 
-          <button
-            onClick={() => handleNavigate(user.role === "admin" ? "/admin" : "/user")}
-            className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
-          >
-            <Home className="w-4 h-4" />
-            <span className="text-sm">Dashboard</span>
-          </button>
-
+          {/* For regular users */}
           {user.role === "user" && (
             <>
               <button
-                onClick={() => handleNavigate("/user/betting")}
+                onClick={() => handleNavigate("/")}
+                className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
+              >
+                <Home className="w-4 h-4" />
+                <span className="text-sm">Dashboard</span>
+              </button>
+
+              <button
+                onClick={() => handleNavigate("/user/history")}
                 className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
               >
                 <Wallet className="w-4 h-4" />
-                <span className="text-sm">Place Bets</span>
+                <span className="text-sm">My Bets</span>
               </button>
 
               <button
@@ -79,6 +80,17 @@ export default function UserMenu({ user, onLogout }) {
                 <span className="text-sm">Withdrawals</span>
               </button>
             </>
+          )}
+
+          {/* For admin users */}
+          {user.role === "admin" && (
+            <button
+              onClick={() => handleNavigate("/admin")}
+              className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
+            >
+              <Home className="w-4 h-4" />
+              <span className="text-sm">Admin Dashboard</span>
+            </button>
           )}
 
           <div className="border-t border-gray-100 mt-2 pt-2">
