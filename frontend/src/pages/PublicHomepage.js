@@ -57,7 +57,7 @@ export default function PublicHomepage({ onShowAuth }) {
       </div>
 
       {/* Sport Tabs */}
-      <div className="container mx-auto px-6 py-6">
+      <div className="container mx-auto px-6 py-6" id="matches-section">
         <div className="flex gap-4 mb-6 border-b">
           <button
             onClick={() => setActiveTab("all")}
