@@ -132,7 +132,7 @@ function App() {
               user && user.role === "user" ? (
                 <UserLayout user={user} onLogout={handleLogout} />
               ) : (
-                <Navigate to="/login" />
+                <Navigate to="/" />
               )
             }
           >
