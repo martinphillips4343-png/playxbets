@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
+import PublicHomepage from "@/pages/PublicHomepage";
 import Login from "@/pages/Login";
 import AdminLayout from "@/layouts/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -40,6 +41,7 @@ api.interceptors.request.use((config) => {
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -63,6 +65,7 @@ function App() {
     localStorage.setItem("token", token);
     localStorage.setItem("role", userData.role);
     setUser(userData);
+    setShowAuth(null);
   };
 
   const handleLogout = () => {
@@ -83,6 +86,18 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <Routes>
+          {/* Public Homepage */}
+          <Route
+            path="/"
+            element={
+              user ? (
+                <Navigate to={user.role === "admin" ? "/admin" : "/user"} />
+              ) : (
+                <PublicHomepage onShowAuth={setShowAuth} />
+              )
+            }
+          />
+
           <Route
             path="/login"
             element={
@@ -132,19 +147,27 @@ function App() {
             <Route path="withdrawals" element={<MyWithdrawals />} />
             <Route path="tickets" element={<MyTickets />} />
           </Route>
-
-          <Route
-            path="/"
-            element={
-              <Navigate
-                to={user ? (user.role === "admin" ? "/admin" : "/user") : "/login"}
-              />
-            }
-          />
         </Routes>
 
         <Toaster position="top-right" theme="dark" />
       </BrowserRouter>
+
+      {/* Auth Modal */}
+      {showAuth && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="relative">
+            <button
+              onClick={() => setShowAuth(null)}
+              className="absolute -top-4 -right-4 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 shadow-lg"
+            >
+              ✕
+            </button>
+            <div className="bg-white rounded-lg">
+              <Login onLogin={handleLogin} isModal={true} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp Floating Button */}
       <a
