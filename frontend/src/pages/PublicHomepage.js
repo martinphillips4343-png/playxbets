@@ -176,7 +176,7 @@ function MatchCard({ match, onPlaceBet }) {
       <div className="p-6">
         <div className="space-y-4 mb-6">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-lg">{match.home_team}</span>
+            <span className="font-semibold text-lg text-gray-900">{match.home_team}</span>
             {match.home_odds && (
               <span className="text-2xl font-bold text-blue-600">
                 {match.home_odds.toFixed(2)}
@@ -184,7 +184,7 @@ function MatchCard({ match, onPlaceBet }) {
             )}
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-lg">{match.away_team}</span>
+            <span className="font-semibold text-lg text-gray-900">{match.away_team}</span>
             {match.away_odds && (
               <span className="text-2xl font-bold text-blue-600">
                 {match.away_odds.toFixed(2)}
@@ -194,7 +194,7 @@ function MatchCard({ match, onPlaceBet }) {
         </div>
 
         {/* Time */}
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-gray-700 mb-4 font-medium">
           {new Date(match.commence_time).toLocaleString()}
         </p>
 
