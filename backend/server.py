@@ -679,6 +679,11 @@ async def get_my_tickets(current_user: User = Depends(get_current_user)):
     tickets = await db.support_tickets.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [SupportTicket(**t) for t in tickets]
 
+@api_router.get("/transactions/my", response_model=List[Transaction])
+async def get_my_transactions(current_user: User = Depends(get_current_user)):
+    transactions = await db.transactions.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [Transaction(**t) for t in transactions]
+
 # Include router
 app.include_router(api_router)
 
