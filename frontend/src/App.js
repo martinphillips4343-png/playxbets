@@ -4,6 +4,7 @@ import axios from "axios";
 import { Toaster } from "sonner";
 import PublicHomepage from "@/pages/PublicHomepage";
 import Login from "@/pages/Login";
+import SignUp from "@/pages/SignUp";
 import AdminLayout from "@/layouts/AdminLayout";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import ManageBettors from "@/pages/admin/ManageBettors";
@@ -89,13 +90,7 @@ function App() {
           {/* Public Homepage */}
           <Route
             path="/"
-            element={
-              user ? (
-                <Navigate to={user.role === "admin" ? "/admin" : "/user"} />
-              ) : (
-                <PublicHomepage onShowAuth={setShowAuth} />
-              )
-            }
+            element={<PublicHomepage onShowAuth={setShowAuth} user={user} onLogout={handleLogout} />}
           />
 
           <Route
@@ -104,7 +99,7 @@ function App() {
               user ? (
                 <Navigate to={user.role === "admin" ? "/admin" : "/user"} />
               ) : (
-                <Login onLogin={handleLogin} />
+                <Login onLogin={handleLogin} onSwitchToSignUp={() => setShowAuth("signup")} />
               )
             }
           />
@@ -158,12 +153,24 @@ function App() {
           <div className="relative">
             <button
               onClick={() => setShowAuth(null)}
-              className="absolute -top-4 -right-4 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 shadow-lg"
+              className="absolute -top-4 -right-4 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 shadow-lg z-10"
             >
               ✕
             </button>
             <div className="bg-white rounded-lg">
-              <Login onLogin={handleLogin} isModal={true} />
+              {showAuth === "login" ? (
+                <Login 
+                  onLogin={handleLogin} 
+                  onSwitchToSignUp={() => setShowAuth("signup")}
+                  isModal={true} 
+                />
+              ) : (
+                <SignUp 
+                  onSignUp={handleLogin} 
+                  onSwitchToLogin={() => setShowAuth("login")}
+                  isModal={true} 
+                />
+              )}
             </div>
           </div>
         </div>
