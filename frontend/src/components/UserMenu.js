@@ -61,15 +61,7 @@ export default function UserMenu({ user, onLogout }) {
                 className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
               >
                 <Home className="w-4 h-4" />
-                <span className="text-sm">Homepage</span>
-              </button>
-
-              <button
-                onClick={() => handleNavigate("/user")}
-                className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
-              >
-                <User className="w-4 h-4" />
-                <span className="text-sm">My Dashboard</span>
+                <span className="text-sm">Dashboard</span>
               </button>
 
               <button
