@@ -13,6 +13,19 @@ export default function BettingPage() {
 
   useEffect(() => {
     fetchMatches();
+    
+    // Check if match ID is in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const matchId = urlParams.get('match');
+    if (matchId) {
+      // Will select after matches load
+      setTimeout(() => {
+        const match = matches.find(m => m.match_id === matchId);
+        if (match) {
+          setSelectedMatch(match);
+        }
+      }, 500);
+    }
   }, []);
 
   const fetchMatches = async () => {
