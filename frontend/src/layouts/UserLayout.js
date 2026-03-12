@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut } from "lucide-react";
+import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut, Users } from "lucide-react";
 
 export default function UserLayout({ user, onLogout }) {
   const location = useLocation();
@@ -7,7 +7,7 @@ export default function UserLayout({ user, onLogout }) {
   const menuItems = [
     { path: "/user", label: "Dashboard", icon: Home, exact: true },
     { path: "/user/betting", label: "Place Bets", icon: TrendingUp },
-    { path: "/user/history", label: "Bet History", icon: History },
+    { path: "/user/history", label: "My Bets", icon: History },
     { path: "/user/withdrawals", label: "Withdrawals", icon: ArrowDownCircle },
     { path: "/user/tickets", label: "Support", icon: MessageSquare },
   ];
@@ -43,6 +43,20 @@ export default function UserLayout({ user, onLogout }) {
               <span className="text-sm font-medium">{item.label}</span>
             </Link>
           ))}
+
+          {/* Quick Actions */}
+          <div className="mt-6 px-6">
+            <p className="text-xs text-blue-300 uppercase mb-2 font-semibold">Quick Actions</p>
+            <a
+              href="https://wa.me/?text=Hello%20Recharge%20300"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-2 bg-green-500 hover:bg-green-600 rounded text-sm transition-colors"
+            >
+              <ArrowDownCircle className="w-4 h-4" />
+              <span>Deposit via WhatsApp</span>
+            </a>
+          </div>
         </nav>
 
         <div className="p-6 border-t border-blue-700">
@@ -71,3 +85,4 @@ export default function UserLayout({ user, onLogout }) {
     </div>
   );
 }
+
