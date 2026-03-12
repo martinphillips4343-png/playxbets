@@ -4,7 +4,7 @@ import PublicHeader from "@/components/PublicHeader";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export default function PublicHomepage({ onShowAuth }) {
+export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
