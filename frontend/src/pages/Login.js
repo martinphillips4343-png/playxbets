@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, isModal = false }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,9 +32,13 @@ export default function Login({ onLogin }) {
     }
   };
 
+  const containerClass = isModal
+    ? "bg-white rounded-lg p-8 w-full max-w-md"
+    : "min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+    <div className={containerClass}>
+      <div className={isModal ? "" : "bg-white rounded-lg shadow-2xl p-8 w-full max-w-md"}>
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-blue-600 mb-2">PlayXBets</h1>
           <p className="text-gray-600">Sports Betting Platform</p>
