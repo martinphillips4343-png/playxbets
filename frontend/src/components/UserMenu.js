@@ -57,7 +57,7 @@ export default function UserMenu({ user, onLogout }) {
           {user.role === "user" && (
             <>
               <button
-                onClick={() => handleNavigate("/")}
+                onClick={() => handleNavigate("/user")}
                 className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors text-left"
               >
                 <Home className="w-4 h-4" />
