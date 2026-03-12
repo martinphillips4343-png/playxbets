@@ -39,17 +39,17 @@ export default function PublicHomepage({ onShowAuth }) {
       <PublicHeader onShowAuth={onShowAuth} />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 text-white py-12">
+      <div className="bg-gradient-to-r from-[#1a1d3a] via-[#2d1b69] to-[#1a1d3a] text-white py-16">
         <div className="container mx-auto px-6 text-center">
-          <h1 className="text-5xl font-bold mb-4">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-white drop-shadow-lg">
             Bet on Your Favorite Sports
           </h1>
-          <p className="text-xl text-gray-300 mb-8">
+          <p className="text-xl md:text-2xl text-gray-200 mb-8 drop-shadow">
             Live Cricket & Football Betting with Best Odds
           </p>
           <Button
             onClick={() => onShowAuth("signup")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-8 py-6"
+            className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-10 py-7 shadow-xl"
           >
             Start Betting Now
           </Button>
