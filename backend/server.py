@@ -346,6 +346,32 @@ def start_scheduler():
     logger.info("Scheduler started - will run daily at midnight")
 
 # ==================== AUTH ROUTES ====================
+@api_router.post("/auth/register", response_model=User)
+async def register(user_input: UserCreate):
+    # Check if username exists
+    existing_user = await db.users.find_one({"username": user_input.username}, {"_id": 0})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Create new user
+    new_user = User(
+        username=user_input.username,
+        email=user_input.email,
+        password_hash=get_password_hash(user_input.password),
+        role=UserRole.USER
+    )
+    
+    await db.users.insert_one(new_user.model_dump())
+    
+    # Create wallet for user
+    await db.wallets.insert_one({
+        "user_id": new_user.user_id,
+        "balance": 0.0,
+        "updated_at": datetime.now(timezone.utc)
+    })
+    
+    return new_user
+
 @api_router.post("/auth/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await db.users.find_one({"username": form_data.username}, {"_id": 0})
