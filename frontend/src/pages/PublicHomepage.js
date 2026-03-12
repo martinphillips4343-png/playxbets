@@ -154,8 +154,18 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   );
 }
 
-function MatchCard({ match, onPlaceBet }) {
+function MatchCard({ match, onPlaceBet, user }) {
   const isLive = match.status === "live";
+
+  const handleBetClick = () => {
+    if (user) {
+      // User is logged in, navigate to betting page with this match
+      window.location.href = `/user/betting?match=${match.match_id}`;
+    } else {
+      // User not logged in, show login modal
+      onPlaceBet();
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
@@ -200,7 +210,7 @@ function MatchCard({ match, onPlaceBet }) {
 
         {/* Place Bet Button */}
         <Button
-          onClick={onPlaceBet}
+          onClick={handleBetClick}
           className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
           data-testid="place-bet-btn"
         >
