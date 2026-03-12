@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-export default function Login({ onLogin, isModal = false }) {
+export default function Login({ onLogin, onSwitchToSignUp, isModal = false }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,11 +85,25 @@ export default function Login({ onLogin, isModal = false }) {
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Default Accounts:</p>
-          <p className="mt-2">Admin: admin / 123456</p>
-          <p>User: user / 123456</p>
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <button
+              onClick={onSwitchToSignUp}
+              className="text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              Sign up here
+            </button>
+          </p>
         </div>
+
+        {!isModal && (
+          <div className="mt-6 text-center text-sm text-gray-600 border-t pt-4">
+            <p className="font-medium mb-2">Demo Accounts:</p>
+            <p>Admin: admin / 123456</p>
+            <p>User: user / 123456</p>
+          </div>
+        )}
       </div>
     </div>
   );
