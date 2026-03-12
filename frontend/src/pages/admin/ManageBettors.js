@@ -47,7 +47,7 @@ export default function ManageBettors() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {new Date(bettor.created_at).toLocaleDateString()}
+                  {formatIndianDate(bettor.created_at)}
                 </td>
               </tr>
             ))}
