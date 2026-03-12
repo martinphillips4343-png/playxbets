@@ -208,7 +208,7 @@ function MatchCard({ match, onPlaceBet, user }) {
 
         {/* Time */}
         <p className="text-sm text-gray-700 mb-4 font-medium">
-          {new Date(match.commence_time).toLocaleString()}
+          {formatIndianDateTime(match.commence_time)}
         </p>
 
         {/* Place Bet Button */}
