@@ -5,7 +5,7 @@ export default function UserLayout({ user, onLogout }) {
   const location = useLocation();
 
   const menuItems = [
-    { path: "/", label: "Dashboard", icon: Home, exact: true },
+    { path: "/user", label: "Dashboard", icon: Home, exact: true },
     { path: "/user/betting", label: "Place Bets", icon: TrendingUp },
     { path: "/user/history", label: "My Bets", icon: History },
     { path: "/user/withdrawals", label: "Withdrawals", icon: ArrowDownCircle },
