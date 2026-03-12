@@ -39,7 +39,7 @@ export default function ManageGames() {
                 <td className="px-6 py-4 capitalize">{match.sport}</td>
                 <td className="px-6 py-4">{match.league}</td>
                 <td className="px-6 py-4">{match.home_team} vs {match.away_team}</td>
-                <td className="px-6 py-4 text-sm">{new Date(match.commence_time).toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm">{formatIndianDateTime(match.commence_time)}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded ${match.status === 'live' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
                     {match.status}
