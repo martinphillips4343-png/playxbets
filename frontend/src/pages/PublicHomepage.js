@@ -36,7 +36,7 @@ export default function PublicHomepage({ onShowAuth }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PublicHeader onShowAuth={onShowAuth} />
+      <PublicHeader onShowAuth={onShowAuth} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-[#1a1d3a] via-[#2d1b69] to-[#1a1d3a] text-white py-16">
