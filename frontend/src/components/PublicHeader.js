@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-export default function PublicHeader({ onShowAuth }) {
+export default function PublicHeader({ onShowAuth, activeTab, onTabChange }) {
+  const scrollToMatches = (tab) => {
+    onTabChange(tab);
+    const matchesSection = document.getElementById("matches-section");
+    if (matchesSection) {
+      matchesSection.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <header className="bg-[#1a1d3a] text-white sticky top-0 z-50 shadow-lg">
       <div className="container mx-auto px-6 py-4">
@@ -17,22 +24,31 @@ export default function PublicHeader({ onShowAuth }) {
           </div>
 
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#live" className="hover:text-yellow-400 transition-colors">
+            <button 
+              onClick={() => scrollToMatches("all")}
+              className="hover:text-yellow-400 transition-colors font-medium"
+            >
               Live
-            </a>
-            <a href="#cricket" className="hover:text-yellow-400 transition-colors">
+            </button>
+            <button 
+              onClick={() => scrollToMatches("cricket")}
+              className="hover:text-yellow-400 transition-colors font-medium"
+            >
               Cricket
-            </a>
-            <a href="#soccer" className="hover:text-yellow-400 transition-colors">
+            </button>
+            <button 
+              onClick={() => scrollToMatches("soccer")}
+              className="hover:text-yellow-400 transition-colors font-medium"
+            >
               Soccer
-            </a>
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">
             <Button
               onClick={() => onShowAuth("login")}
               variant="ghost"
-              className="text-white hover:text-yellow-400"
+              className="text-white hover:text-yellow-400 hover:bg-transparent"
               data-testid="header-login-btn"
             >
               Login
