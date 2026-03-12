@@ -135,6 +135,7 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                       key={match.match_id}
                       match={match}
                       onPlaceBet={() => onShowAuth("login")}
+                      user={user}
                     />
                   ))}
                 </div>
