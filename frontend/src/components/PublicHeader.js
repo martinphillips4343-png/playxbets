@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import UserMenu from "@/components/UserMenu";
 
-export default function PublicHeader({ onShowAuth, activeTab, onTabChange }) {
+export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user, onLogout }) {
   const scrollToMatches = (tab) => {
     onTabChange(tab);
     const matchesSection = document.getElementById("matches-section");
@@ -45,21 +46,27 @@ export default function PublicHeader({ onShowAuth, activeTab, onTabChange }) {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button
-              onClick={() => onShowAuth("login")}
-              variant="ghost"
-              className="text-white hover:text-yellow-400 hover:bg-transparent"
-              data-testid="header-login-btn"
-            >
-              Login
-            </Button>
-            <Button
-              onClick={() => onShowAuth("signup")}
-              className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
-              data-testid="header-signup-btn"
-            >
-              Sign Up
-            </Button>
+            {user ? (
+              <UserMenu user={user} onLogout={onLogout} />
+            ) : (
+              <>
+                <Button
+                  onClick={() => onShowAuth("login")}
+                  variant="ghost"
+                  className="text-white hover:text-yellow-400 hover:bg-transparent"
+                  data-testid="header-login-btn"
+                >
+                  Login
+                </Button>
+                <Button
+                  onClick={() => onShowAuth("signup")}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
+                  data-testid="header-signup-btn"
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
