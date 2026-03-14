@@ -138,7 +138,8 @@ function App() {
             }
           >
             <Route index element={<UserDashboard />} />
-            <Route path="betting" element={<BettingPage />} />
+            <Route path="betting" element={<BettingExchange />} />
+            <Route path="match/:matchId" element={<MatchDetail />} />
             <Route path="history" element={<BetHistory />} />
             <Route path="withdrawals" element={<MyWithdrawals />} />
             <Route path="tickets" element={<MyTickets />} />
