@@ -125,7 +125,7 @@ export default function UserDashboard() {
           <h2 className="text-3xl font-bold mb-2">Ready to Win Big?</h2>
           <p className="text-lg mb-6 opacity-90">Place your bets on live Cricket & Football matches</p>
           <Button
-            onClick={() => window.location.href = '/user/betting'}
+            onClick={() => window.location.href = '/'}
             className="bg-white text-green-700 hover:bg-gray-100 font-bold text-lg px-8 py-6"
           >
             🎯 BET NOW
