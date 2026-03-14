@@ -81,7 +81,8 @@ class TestAuth:
         """Test admin login with valid credentials"""
         response = api_client.post(
             f"{BASE_URL}/api/auth/login",
-            data=ADMIN_CREDS
+            data=ADMIN_CREDS,
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -94,7 +95,8 @@ class TestAuth:
         """Test user login with valid credentials"""
         response = api_client.post(
             f"{BASE_URL}/api/auth/login",
-            data=USER_CREDS
+            data=USER_CREDS,
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -107,7 +109,8 @@ class TestAuth:
         """Test login with invalid credentials"""
         response = api_client.post(
             f"{BASE_URL}/api/auth/login",
-            data={"username": "invalid", "password": "wrong"}
+            data={"username": "invalid", "password": "wrong"},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         assert response.status_code == 401
     
