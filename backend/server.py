@@ -522,6 +522,11 @@ async def run_cron_now(current_user: User = Depends(get_current_admin)):
     matches = await OddsService.manual_refresh()
     return {"success": True, "matches_fetched": len(matches)}
 
+@api_router.get("/admin/bets", response_model=List[Bet])
+async def get_all_bets(current_user: User = Depends(get_current_admin)):
+    bets = await db.bets.find({}, {"_id": 0}).sort("placed_at", -1).to_list(1000)
+    return [Bet(**b) for b in bets]
+
 @api_router.get("/admin/tickets", response_model=List[SupportTicket])
 async def get_all_tickets(current_user: User = Depends(get_current_admin)):
     tickets = await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
