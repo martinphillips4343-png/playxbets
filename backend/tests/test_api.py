@@ -26,7 +26,8 @@ def admin_token(api_client):
     """Get admin authentication token"""
     response = api_client.post(
         f"{BASE_URL}/api/auth/login",
-        data=ADMIN_CREDS
+        data=ADMIN_CREDS,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
     if response.status_code == 200:
         return response.json().get("access_token")
@@ -38,7 +39,8 @@ def user_token(api_client):
     """Get user authentication token"""
     response = api_client.post(
         f"{BASE_URL}/api/auth/login",
-        data=USER_CREDS
+        data=USER_CREDS,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
     if response.status_code == 200:
         return response.json().get("access_token")
