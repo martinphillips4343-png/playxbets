@@ -741,7 +741,3 @@ async def shutdown_event():
     scheduler.shutdown()
     client.close()
     logger.info("Application shutdown")
-
-@api_router.get("/health")
-async def health_check():
-    return {"status": "healthy"}
