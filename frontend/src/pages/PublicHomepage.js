@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { api } from "@/App";
 import PublicHeader from "@/components/PublicHeader";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { formatIndianDateTime } from "@/utils/dateFormat";
+import { toast } from "sonner";
 
 export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [activeTab, setActiveTab] = useState("cricket");
+  const [betSlip, setBetSlip] = useState(null);
+  const [stake, setStake] = useState("");
 
   useEffect(() => {
     fetchMatches();
@@ -21,22 +22,48 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
       const response = await api.get("/matches");
       setMatches(response.data);
     } catch (error) {
-      console.error("Failed to load matches");
-    } finally {
-      setLoading(false);
+      console.error(error);
     }
   };
 
-  const filteredMatches = matches.filter((m) => {
-    if (activeTab === "all") return true;
-    return m.sport === activeTab;
-  });
+  const filteredMatches = matches.filter((m) => m.sport === activeTab);
 
-  const liveMatches = filteredMatches.filter((m) => m.status === "live");
-  const upcomingMatches = filteredMatches.filter((m) => m.status === "scheduled");
+  const handleBetClick = (match, team, odds, type) => {
+    if (!user) {
+      onShowAuth("login");
+      return;
+    }
+    setBetSlip({ match, team, odds, type });
+  };
+
+  const handlePlaceBet = async () => {
+    if (!user) {
+      onShowAuth("login");
+      return;
+    }
+
+    if (!stake || parseFloat(stake) <= 0) {
+      toast.error("Enter valid stake amount");
+      return;
+    }
+
+    try {
+      await api.post("/bets", {
+        match_id: betSlip.match.match_id,
+        selected_team: betSlip.team,
+        odds: betSlip.odds,
+        stake: parseFloat(stake),
+      });
+      toast.success("Bet placed successfully!");
+      setBetSlip(null);
+      setStake("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to place bet");
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       <PublicHeader 
         onShowAuth={onShowAuth} 
         activeTab={activeTab} 
@@ -45,180 +72,208 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
         onLogout={onLogout}
       />
 
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-[#1a1d3a] via-[#2d1b69] to-[#1a1d3a] text-white py-16">
-        <div className="container mx-auto px-6 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-white drop-shadow-lg">
-            Bet on Your Favorite Sports
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-200 mb-8 drop-shadow">
-            Live Cricket & Football Betting with Best Odds
-          </p>
-          <Button
-            onClick={() => onShowAuth("signup")}
-            className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-10 py-7 shadow-xl"
-          >
-            Start Betting Now
-          </Button>
-        </div>
-      </div>
-
-      {/* Sport Tabs */}
-      <div className="container mx-auto px-6 py-6" id="matches-section">
-        <div className="flex gap-4 mb-6 border-b">
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-6 py-3 font-semibold transition-colors ${
-              activeTab === "all"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-600 hover:text-blue-600"
-            }`}
-          >
-            All Sports
-          </button>
+      <div className="container mx-auto px-6 py-6">
+        {/* Sport Tabs */}
+        <div className="flex gap-2 mb-4">
           <button
             onClick={() => setActiveTab("cricket")}
-            className={`px-6 py-3 font-semibold transition-colors ${
+            className={`px-6 py-2 font-bold rounded-t text-base ${
               activeTab === "cricket"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "bg-white text-gray-900 shadow"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
             🏏 Cricket
           </button>
           <button
             onClick={() => setActiveTab("soccer")}
-            className={`px-6 py-3 font-semibold transition-colors ${
+            className={`px-6 py-2 font-bold rounded-t text-base ${
               activeTab === "soccer"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "bg-white text-gray-900 shadow"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
             ⚽ Football
           </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading matches...</p>
-          </div>
-        ) : (
-          <>
-            {/* Live Matches */}
-            {liveMatches.length > 0 && (
-              <section className="mb-12">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                  <h2 className="text-2xl font-bold text-gray-800">Live Now</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {liveMatches.map((match) => (
-                    <MatchCard
-                      key={match.match_id}
-                      match={match}
-                      onPlaceBet={() => onShowAuth("login")}
-                      user={user}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+        {/* Matches List */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <table className="w-full">
+            <thead className="bg-[#243a5e] text-white">
+              <tr>
+                <th className="px-6 py-3 text-left font-bold text-base">Game</th>
+                <th className="px-6 py-3 text-center font-bold text-base w-32">1</th>
+                <th className="px-6 py-3 text-center font-bold text-base w-32">X</th>
+                <th className="px-6 py-3 text-center font-bold text-base w-32">2</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMatches.map((match) => (
+                <tr
+                  key={match.match_id}
+                  className="border-b hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedMatch(match)}
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      {match.status === "live" && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-green-600">LIVE</span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-bold text-gray-900 text-base">
+                          {match.home_team} v {match.away_team}
+                        </div>
+                        <div className="text-xs text-gray-700 font-medium">
+                          {formatIndianDateTime(match.commence_time)}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  
+                  {/* Home Odds */}
+                  <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleBetClick(match, match.home_team, match.home_odds, "back")}
+                        className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
+                      >
+                        <div className="text-sm font-bold text-gray-900">
+                          {match.home_odds?.toFixed(2) || "-"}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleBetClick(match, match.home_team, match.home_odds + 0.01, "lay")}
+                        className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
+                      >
+                        <div className="text-sm font-bold text-gray-900">
+                          {(match.home_odds + 0.01)?.toFixed(2) || "-"}
+                        </div>
+                      </button>
+                    </div>
+                  </td>
 
-            {/* Upcoming Matches */}
-            {upcomingMatches.length > 0 && (
-              <section>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                  Upcoming Matches
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {upcomingMatches.map((match) => (
-                    <MatchCard
-                      key={match.match_id}
-                      match={match}
-                      onPlaceBet={() => onShowAuth("login")}
-                      user={user}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+                  {/* Draw Odds */}
+                  <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
+                    {match.sport === "soccer" ? (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleBetClick(match, "Draw", match.odds_draw, "back")}
+                          className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
+                        >
+                          <div className="text-sm font-bold text-gray-900">
+                            {match.odds_draw?.toFixed(2) || "-"}
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleBetClick(match, "Draw", match.odds_draw + 0.01, "lay")}
+                          className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
+                        >
+                          <div className="text-sm font-bold text-gray-900">
+                            {(match.odds_draw + 0.01)?.toFixed(2) || "-"}
+                          </div>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400 font-medium">-</div>
+                    )}
+                  </td>
 
-            {filteredMatches.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-600 text-lg">
-                  No matches available at the moment
+                  {/* Away Odds */}
+                  <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleBetClick(match, match.away_team, match.away_odds, "back")}
+                        className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
+                      >
+                        <div className="text-sm font-bold text-gray-900">
+                          {match.away_odds?.toFixed(2) || "-"}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleBetClick(match, match.away_team, match.away_odds + 0.01, "lay")}
+                        className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
+                      >
+                        <div className="text-sm font-bold text-gray-900">
+                          {(match.away_odds + 0.01)?.toFixed(2) || "-"}
+                        </div>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bet Slip */}
+        {betSlip && (
+          <div className="bg-white rounded-lg shadow p-6 max-w-md mx-auto">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Place Bet</h3>
+            <div className="space-y-3 mb-4">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700 font-semibold">Match:</span>
+                <span className="font-bold text-gray-900">{betSlip.match.home_team} v {betSlip.match.away_team}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700 font-semibold">Selection:</span>
+                <span className="font-bold text-gray-900">{betSlip.team}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700 font-semibold">Odds:</span>
+                <span className="font-bold text-gray-900">{betSlip.odds.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700 font-semibold">Type:</span>
+                <span className={`font-bold ${betSlip.type === "back" ? "text-blue-600" : "text-pink-600"}`}>
+                  {betSlip.type.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-bold text-gray-900 mb-2">Stake (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={stake}
+                onChange={(e) => setStake(e.target.value)}
+                placeholder="Enter amount"
+                className="w-full px-4 py-2 border border-gray-300 rounded text-gray-900 font-medium"
+              />
+            </div>
+
+            {stake && (
+              <div className="bg-green-50 p-3 rounded mb-4">
+                <p className="text-sm text-gray-700 font-semibold">Potential Profit</p>
+                <p className="text-2xl font-bold text-green-600">
+                  ₹{(parseFloat(stake) * betSlip.odds - parseFloat(stake)).toFixed(2)}
                 </p>
               </div>
             )}
-          </>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handlePlaceBet}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded"
+              >
+                Place Bet
+              </button>
+              <button
+                onClick={() => {
+                  setBetSlip(null);
+                  setStake("");
+                }}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-3 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MatchCard({ match, onPlaceBet, user }) {
-  const isLive = match.status === "live";
-
-  const handleBetClick = () => {
-    if (user) {
-      // User is logged in, navigate to betting page with this match
-      window.location.href = `/user/betting?match=${match.match_id}`;
-    } else {
-      // User not logged in, show login modal
-      onPlaceBet();
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-      {/* Header */}
-      <div className="bg-gray-800 text-white px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase">{match.league}</span>
-          {isLive && (
-            <span className="flex items-center gap-2 bg-red-600 px-2 py-1 rounded text-xs">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-              LIVE
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Teams */}
-      <div className="p-6">
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-lg text-gray-900">{match.home_team}</span>
-            {match.home_odds && (
-              <span className="text-2xl font-bold text-blue-600">
-                {match.home_odds.toFixed(2)}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-lg text-gray-900">{match.away_team}</span>
-            {match.away_odds && (
-              <span className="text-2xl font-bold text-blue-600">
-                {match.away_odds.toFixed(2)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Time */}
-        <p className="text-sm text-gray-700 mb-4 font-medium">
-          {formatIndianDateTime(match.commence_time)}
-        </p>
-
-        {/* Place Bet Button */}
-        <Button
-          onClick={handleBetClick}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
-          data-testid="place-bet-btn"
-        >
-          Place Bet
-        </Button>
       </div>
     </div>
   );
