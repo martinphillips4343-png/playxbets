@@ -738,6 +738,6 @@ async def shutdown_event():
     client.close()
     logger.info("Application shutdown")
 
-@app.get("/health")
+@api_router.get("/health")
 async def health_check():
     return {"status": "healthy"}
