@@ -72,6 +72,26 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
         onLogout={onLogout}
       />
 
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-[#1a1d3a] via-[#2d1b69] to-[#1a1d3a] text-white py-16">
+        <div className="container mx-auto px-6 text-center">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-white drop-shadow-lg">
+            Bet on Your Favorite Sports
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-200 mb-8 drop-shadow">
+            Live Cricket & Football Betting with Best Odds
+          </p>
+          {!user && (
+            <button
+              onClick={() => onShowAuth("signup")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-10 py-7 rounded shadow-xl"
+            >
+              Start Betting Now
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="container mx-auto px-6 py-6">
         {/* Sport Tabs */}
         <div className="flex gap-2 mb-4">
