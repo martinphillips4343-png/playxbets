@@ -689,6 +689,10 @@ async def get_my_transactions(current_user: User = Depends(get_current_user)):
     transactions = await db.transactions.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Transaction(**t) for t in transactions]
 
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 # Include router
 app.include_router(api_router)
 
