@@ -791,13 +791,16 @@ def create_micro_betting_router(db: AsyncIOMotorDatabase) -> APIRouter:
         return markets
     
     @router.post("/bets")
-    async def place_micro_bet(bet_input: MicroBetCreate, user_id: str):
+    async def place_micro_bet(bet_input: MicroBetCreate, user_id: str = None):
         """
         Place a micro bet on a ball outcome.
         
         Note: In production, user_id should come from JWT auth.
-        For this extension, we accept user_id as a parameter.
+        For this extension, we accept user_id as a query parameter.
         """
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID is required")
+        
         server_time = datetime.now(timezone.utc)
         
         # Get market
