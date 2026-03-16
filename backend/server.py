@@ -696,6 +696,24 @@ async def health_check():
 # Include router
 app.include_router(api_router)
 
+# ==================== CRICKET MICRO BETTING EXTENSION ====================
+# Import and include cricket micro betting routes (extension module)
+from cricket_micro_betting import create_micro_betting_router, websocket_endpoint as cricket_ws_endpoint
+from fastapi import WebSocket
+
+# Create micro betting router with database
+micro_betting_router = create_micro_betting_router(db)
+app.include_router(micro_betting_router, prefix="/api")
+
+# WebSocket endpoint for cricket micro betting
+@app.websocket("/ws/cricket-micro")
+async def cricket_micro_websocket(websocket: WebSocket):
+    await cricket_ws_endpoint(websocket)
+
+@app.websocket("/ws/cricket-micro/{match_id}")
+async def cricket_micro_websocket_match(websocket: WebSocket, match_id: str):
+    await cricket_ws_endpoint(websocket, match_id)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
