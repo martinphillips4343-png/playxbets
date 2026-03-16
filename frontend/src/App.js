@@ -95,6 +95,12 @@ function App() {
             element={<PublicHomepage onShowAuth={setShowAuth} user={user} onLogout={handleLogout} />}
           />
 
+          {/* Cricket Micro Betting */}
+          <Route
+            path="/cricket-live"
+            element={<CricketMicroBetting onShowAuth={setShowAuth} user={user} onLogout={handleLogout} />}
+          />
+
           <Route
             path="/login"
             element={
