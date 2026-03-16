@@ -22,8 +22,14 @@ export default function Login({ onLogin, onSwitchToSignUp, isModal = false }) {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
 
-      const { access_token, role, username: user } = response.data;
-      onLogin({ username: user, role }, access_token);
+      const { access_token } = response.data;
+      
+      // Fetch full user data including user_id
+      const userResponse = await api.get("/auth/me", {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      
+      onLogin(userResponse.data, access_token);
       toast.success("Login successful!");
     } catch (error) {
       toast.error("Invalid credentials");
