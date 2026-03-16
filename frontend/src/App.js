@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
 import PublicHomepage from "@/pages/PublicHomepage";
+import CricketMicroBetting from "@/pages/CricketMicroBetting";
 import Login from "@/pages/Login";
 import SignUp from "@/pages/SignUp";
 import AdminLayout from "@/layouts/AdminLayout";
