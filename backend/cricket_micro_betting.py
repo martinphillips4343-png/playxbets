@@ -817,6 +817,9 @@ def create_micro_betting_router(db: AsyncIOMotorDatabase) -> APIRouter:
         if closes_at:
             if isinstance(closes_at, str):
                 closes_at = datetime.fromisoformat(closes_at.replace("Z", "+00:00"))
+            elif isinstance(closes_at, datetime) and closes_at.tzinfo is None:
+                # Make timezone-naive datetime aware (assume UTC)
+                closes_at = closes_at.replace(tzinfo=timezone.utc)
             if server_time > closes_at:
                 raise HTTPException(status_code=400, detail="Betting window has closed")
         
