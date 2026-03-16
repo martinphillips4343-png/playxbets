@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/UserMenu";
 
 export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user, onLogout }) {
+  const location = useLocation();
+  
   const scrollToMatches = (tab) => {
-    onTabChange(tab);
+    if (onTabChange) onTabChange(tab);
     const matchesSection = document.getElementById("matches-section");
     if (matchesSection) {
       matchesSection.scrollIntoView({ behavior: "smooth" });
@@ -15,22 +18,29 @@ export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user,
     <header className="bg-[#1a1d3a] text-white sticky top-0 z-50 shadow-lg">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-red-500 rounded-lg flex items-center justify-center">
               <span className="text-xl font-bold text-white">X</span>
             </div>
             <h1 className="text-2xl font-bold">
               Play<span className="text-yellow-400">X</span>Bets
             </h1>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <button 
-              onClick={() => scrollToMatches("all")}
-              className="hover:text-yellow-400 transition-colors font-medium"
+            <Link 
+              to="/"
+              className={`hover:text-yellow-400 transition-colors font-medium ${location.pathname === "/" ? "text-yellow-400" : ""}`}
             >
-              Live
-            </button>
+              Home
+            </Link>
+            <Link 
+              to="/cricket-live"
+              className={`hover:text-yellow-400 transition-colors font-medium flex items-center gap-1 ${location.pathname === "/cricket-live" ? "text-yellow-400" : ""}`}
+            >
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              Cricket Live
+            </Link>
             <button 
               onClick={() => scrollToMatches("cricket")}
               className="hover:text-yellow-400 transition-colors font-medium"
