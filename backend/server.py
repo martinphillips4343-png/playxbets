@@ -602,9 +602,26 @@ async def declare_outcome(match_id: str, winner: str, current_user: User = Depen
 # ==================== USER ROUTES ====================
 @api_router.get("/matches", response_model=List[Match])
 async def get_matches(sport: Optional[str] = None):
-    query = {}
+    """
+    Get all live and upcoming matches.
+    Filters out completed/ended matches automatically.
+    """
+    # Calculate cutoff time - matches that started more than 4 hours ago are likely completed
+    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=4)
+    
+    query = {
+        # Exclude completed matches
+        "status": {"$nin": ["completed", "ended", "finished"]},
+        # Also filter by commence_time to exclude old matches
+        "$or": [
+            {"status": "live"},
+            {"commence_time": {"$gte": cutoff_time.isoformat()}}
+        ]
+    }
+    
     if sport:
         query["sport"] = sport
+    
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(1000)
     return [Match(**m) for m in matches]
 
