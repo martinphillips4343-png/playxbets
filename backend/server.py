@@ -324,26 +324,38 @@ class OddsService:
 scheduler = BackgroundScheduler()
 
 async def scheduled_odds_fetch():
-    """Scheduled task to fetch odds"""
+    """Scheduled task to fetch odds - runs once daily at Indian midnight"""
     try:
-        logger.info("Running scheduled odds fetch...")
+        logger.info("Running scheduled odds fetch at Indian midnight (00:00:01 IST)...")
         await OddsService.fetch_sports_data()
+        
+        # Also clean up old completed matches (older than 24 hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+        result = await db.matches.delete_many({
+            "status": {"$in": ["completed", "ended", "finished"]},
+            "commence_time": {"$lt": cutoff_time.isoformat()}
+        })
+        logger.info(f"Cleaned up {result.deleted_count} old completed matches")
+        
         logger.info("Scheduled odds fetch completed")
     except Exception as e:
         logger.error(f"Scheduled odds fetch failed: {e}")
 
 def start_scheduler():
-    """Start the scheduler"""
+    """Start the scheduler - runs daily at Indian midnight (00:00:01 AM IST = 18:30:01 UTC previous day)"""
+    # IST is UTC+5:30, so Indian midnight (00:00:01 IST) = 18:30:01 UTC (previous day)
     scheduler.add_job(
         scheduled_odds_fetch,
         'cron',
-        hour=0,
-        minute=0,
+        hour=18,
+        minute=30,
+        second=1,
         id='fetch_odds_job',
         replace_existing=True
     )
     scheduler.start()
-    logger.info("Scheduler started - will run daily at midnight")
+    logger.info("Scheduler started - will run daily at 00:00:01 AM IST (18:30:01 UTC)")
+
 
 # ==================== AUTH ROUTES ====================
 @api_router.post("/auth/register", response_model=User)
