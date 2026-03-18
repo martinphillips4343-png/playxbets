@@ -606,24 +606,46 @@ async def get_matches(sport: Optional[str] = None):
     Get all live and upcoming matches.
     Filters out completed/ended matches automatically.
     """
-    # Calculate cutoff time - matches that started more than 4 hours ago are likely completed
-    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=4)
-    
     query = {
         # Exclude completed matches
-        "status": {"$nin": ["completed", "ended", "finished"]},
-        # Also filter by commence_time to exclude old matches
-        "$or": [
-            {"status": "live"},
-            {"commence_time": {"$gte": cutoff_time.isoformat()}}
-        ]
+        "status": {"$nin": ["completed", "ended", "finished"]}
     }
     
     if sport:
         query["sport"] = sport
     
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(1000)
-    return [Match(**m) for m in matches]
+    
+    # Filter in Python to handle date comparison correctly
+    now = datetime.now(timezone.utc)
+    cutoff_time = now - timedelta(hours=4)
+    
+    filtered_matches = []
+    for m in matches:
+        # Keep live matches always
+        if m.get("status") == "live":
+            filtered_matches.append(m)
+            continue
+        
+        # For non-live matches, check if they haven't started yet or started recently
+        commence_time_str = m.get("commence_time", "")
+        if commence_time_str:
+            try:
+                if "T" in commence_time_str:
+                    commence_time = datetime.fromisoformat(commence_time_str.replace("Z", "+00:00"))
+                else:
+                    commence_time = datetime.fromisoformat(commence_time_str)
+                
+                # If match hasn't started yet, or started within last 4 hours
+                if commence_time > cutoff_time:
+                    filtered_matches.append(m)
+            except:
+                # If we can't parse the date, include the match
+                filtered_matches.append(m)
+        else:
+            filtered_matches.append(m)
+    
+    return [Match(**m) for m in filtered_matches]
 
 @api_router.post("/bets", response_model=Bet)
 async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_current_user)):
