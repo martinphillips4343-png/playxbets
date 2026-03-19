@@ -102,6 +102,12 @@ function App() {
             element={<CricketMicroBetting onShowAuth={setShowAuth} user={user} onLogout={handleLogout} />}
           />
 
+          {/* BluBridge Cricket Exchange (Demo) */}
+          <Route
+            path="/blubridge"
+            element={<BluBridgeCricket />}
+          />
+
           <Route
             path="/login"
             element={
