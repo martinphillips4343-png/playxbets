@@ -110,6 +110,30 @@ function App() {
             element={<BluBridgeCricket />}
           />
 
+          {/* PlayXbets Exchange - Cricket Live with Auth */}
+          <Route
+            path="/exchange"
+            element={
+              <PlayXbetsExchange 
+                user={user} 
+                onShowAuth={setShowAuth} 
+                onLogout={handleLogout}
+              />
+            }
+          />
+
+          {/* Football Live */}
+          <Route
+            path="/football-live"
+            element={
+              <FootballLive 
+                user={user} 
+                onShowAuth={setShowAuth} 
+                onLogout={handleLogout}
+              />
+            }
+          />
+
           <Route
             path="/login"
             element={
