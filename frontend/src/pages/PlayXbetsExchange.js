@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { api } from "@/App";
 
 // ==================== CONSTANTS ====================
 const BALL_DURATION = 11; // seconds
@@ -57,17 +58,36 @@ const createInitialOdds = () => ({
 });
 
 // ==================== MAIN COMPONENT ====================
-export default function PlayXbetsExchange() {
+export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
   const location = useLocation();
   const [match, setMatch] = useState(createInitialMatch);
   const [odds, setOdds] = useState(createInitialOdds);
   const [betSlip, setBetSlip] = useState([]);
   const [activeFilter, setActiveFilter] = useState("all");
-  const [balance, setBalance] = useState(1500);
+  const [balance, setBalance] = useState(0);
   const [ballTimer, setBallTimer] = useState(BALL_DURATION);
   const [isBettingOpen, setIsBettingOpen] = useState(true);
   const [mobileTab, setMobileTab] = useState("odds");
   const timerRef = useRef(null);
+
+  // ==================== FETCH USER WALLET ====================
+  useEffect(() => {
+    if (user) {
+      fetchWallet();
+    } else {
+      setBalance(1500); // Demo balance for non-logged in users
+    }
+  }, [user]);
+
+  const fetchWallet = async () => {
+    try {
+      const response = await api.get("/wallet");
+      setBalance(response.data.balance || 0);
+    } catch (error) {
+      console.error("Failed to fetch wallet:", error);
+      setBalance(1500); // Fallback demo balance
+    }
+  };
 
   // ==================== BALL TIMER LOGIC ====================
   useEffect(() => {
