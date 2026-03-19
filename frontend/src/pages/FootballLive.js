@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { api } from "@/App";
 
 // Mock football match data
 const MOCK_MATCHES = [
@@ -36,17 +37,35 @@ const MOCK_MATCHES = [
   },
 ];
 
-export default function FootballLive() {
+export default function FootballLive({ user, onShowAuth, onLogout }) {
   const location = useLocation();
   const [matches, setMatches] = useState(MOCK_MATCHES);
   const [selectedMatch, setSelectedMatch] = useState(MOCK_MATCHES[0]);
   const [betSlip, setBetSlip] = useState([]);
-  const [balance, setBalance] = useState(1500);
+  const [balance, setBalance] = useState(0);
   const [odds, setOdds] = useState({
     home: { back: [2.10, 2.12, 2.14], lay: [2.18, 2.20, 2.22] },
     draw: { back: [3.20, 3.25, 3.30], lay: [3.35, 3.40, 3.45] },
     away: { back: [3.50, 3.55, 3.60], lay: [3.65, 3.70, 3.75] },
   });
+
+  // Fetch wallet
+  useEffect(() => {
+    if (user) {
+      fetchWallet();
+    } else {
+      setBalance(1500);
+    }
+  }, [user]);
+
+  const fetchWallet = async () => {
+    try {
+      const response = await api.get("/wallet");
+      setBalance(response.data.balance || 0);
+    } catch (error) {
+      setBalance(1500);
+    }
+  };
 
   // Simulate live updates
   useEffect(() => {
