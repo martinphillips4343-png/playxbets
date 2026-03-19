@@ -398,12 +398,27 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
                 <span className="text-gray-400 text-sm">Balance</span>
                 <span className="text-cyan-400 font-bold ml-2">₹{balance.toFixed(0)}</span>
               </div>
-              <div className="hidden md:flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-bold">D</span>
+              {user ? (
+                <div className="hidden md:flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold">{user.username?.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <span className="text-sm">{user.username}</span>
+                  <button
+                    onClick={onLogout}
+                    className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    Logout
+                  </button>
                 </div>
-                <span className="text-sm">Demo User</span>
-              </div>
+              ) : (
+                <button
+                  onClick={() => onShowAuth && onShowAuth("login")}
+                  className="hidden md:block bg-cyan-500 hover:bg-cyan-600 text-white font-bold px-4 py-2 rounded-lg transition-colors"
+                >
+                  Login
+                </button>
+              )}
             </div>
           </div>
         </div>
