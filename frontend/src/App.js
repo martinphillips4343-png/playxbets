@@ -4,6 +4,7 @@ import axios from "axios";
 import { Toaster } from "sonner";
 import PublicHomepage from "@/pages/PublicHomepage";
 import CricketMicroBetting from "@/pages/CricketMicroBetting";
+import BluBridgeCricket from "@/pages/BluBridgeCricket";
 import Login from "@/pages/Login";
 import SignUp from "@/pages/SignUp";
 import AdminLayout from "@/layouts/AdminLayout";
