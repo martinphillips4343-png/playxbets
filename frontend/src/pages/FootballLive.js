@@ -99,6 +99,12 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
   }, []);
 
   const addToBetSlip = (selection, type, selectedOdds) => {
+    if (!user) {
+      onShowAuth && onShowAuth("login");
+      toast.error("Please login to place bets");
+      return;
+    }
+    
     setBetSlip((prev) => {
       const exists = prev.find((b) => b.selection === selection && b.type === type);
       if (exists) {
@@ -123,6 +129,12 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
   };
 
   const placeBet = () => {
+    if (!user) {
+      onShowAuth && onShowAuth("login");
+      toast.error("Please login to place bets");
+      return;
+    }
+    
     const total = betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0);
     if (total <= 0) {
       toast.error("Enter stake");
@@ -135,6 +147,7 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
     setBalance((prev) => prev - total);
     toast.success(`Bet placed! ₹${total}`);
     setBetSlip([]);
+    if (user) fetchWallet();
   };
 
   // Goal markets
