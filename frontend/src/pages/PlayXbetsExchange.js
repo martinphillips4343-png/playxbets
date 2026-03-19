@@ -206,6 +206,12 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
 
   // ==================== ADD TO BET SLIP ====================
   const addToBetSlip = (selection, type, selectedOdds, marketType = "match") => {
+    if (!user && marketType === "ball") {
+      onShowAuth && onShowAuth("login");
+      toast.error("Please login to place bets");
+      return;
+    }
+    
     if (!isBettingOpen && marketType === "ball") {
       toast.error("Betting closed for this ball!");
       return;
@@ -244,7 +250,13 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
     toast.info("Bet slip cleared");
   };
 
-  const placeBet = () => {
+  const placeBet = async () => {
+    if (!user) {
+      onShowAuth && onShowAuth("login");
+      toast.error("Please login to place bets");
+      return;
+    }
+    
     const totalStake = betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0);
     if (totalStake <= 0) {
       toast.error("Enter stake amount");
@@ -254,8 +266,16 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
       toast.error("Insufficient balance");
       return;
     }
+    
+    // For demo, just deduct from local balance
     setBalance((prev) => prev - totalStake);
     toast.success(`Bet placed! Total: ₹${totalStake}`);
+    setBetSlip([]);
+    
+    // Refresh wallet balance
+    if (user) {
+      fetchWallet();
+    }
   };
 
   // ==================== FILTER TABS ====================
