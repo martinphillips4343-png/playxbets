@@ -39,27 +39,15 @@ export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user,
               className={`hover:text-cyan-400 transition-colors font-medium flex items-center gap-1 ${location.pathname === "/exchange" ? "text-cyan-400" : ""}`}
             >
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-              Cricket Live
+              Cricket
             </Link>
             <Link 
               to="/football-live"
               className={`hover:text-cyan-400 transition-colors font-medium flex items-center gap-1 ${location.pathname === "/football-live" ? "text-cyan-400" : ""}`}
             >
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Football Live
-            </Link>
-            <button 
-              onClick={() => scrollToMatches("cricket")}
-              className="hover:text-yellow-400 transition-colors font-medium"
-            >
-              Cricket
-            </button>
-            <button 
-              onClick={() => scrollToMatches("soccer")}
-              className="hover:text-yellow-400 transition-colors font-medium"
-            >
               Soccer
-            </button>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
