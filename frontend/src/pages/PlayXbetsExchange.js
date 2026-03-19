@@ -382,13 +382,16 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
                 }`}
               >
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                Cricket Live
+                Cricket
               </Link>
               <Link
                 to="/football-live"
-                className="font-medium text-gray-400 hover:text-white transition-colors"
+                className={`font-medium transition-colors flex items-center gap-2 ${
+                  location.pathname === "/football-live" ? "text-cyan-400" : "text-gray-400 hover:text-white"
+                }`}
               >
-                Football Live
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Soccer
               </Link>
             </nav>
 
