@@ -41,6 +41,13 @@ export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user,
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
               Cricket Live
             </Link>
+            <Link 
+              to="/blubridge"
+              className={`hover:text-cyan-400 transition-colors font-medium flex items-center gap-1 ${location.pathname === "/blubridge" ? "text-cyan-400" : ""}`}
+            >
+              <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
+              BluBridge
+            </Link>
             <button 
               onClick={() => scrollToMatches("cricket")}
               className="hover:text-yellow-400 transition-colors font-medium"
