@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 import PublicHomepage from "@/pages/PublicHomepage";
 import CricketMicroBetting from "@/pages/CricketMicroBetting";
 import BluBridgeCricket from "@/pages/BluBridgeCricket";
+import PlayXbetsExchange from "@/pages/PlayXbetsExchange";
+import FootballLive from "@/pages/FootballLive";
 import Login from "@/pages/Login";
 import SignUp from "@/pages/SignUp";
 import AdminLayout from "@/layouts/AdminLayout";
