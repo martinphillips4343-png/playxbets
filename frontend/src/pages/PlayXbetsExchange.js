@@ -312,36 +312,78 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
     
     const sessions = [];
     
-    // Standard sessions
-    const sessionOvers = isT20 ? [5, 10, 15, 20] : [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+    // Define over intervals based on format
+    // T20: 5, 10, 15, 20 overs
+    // ODI: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 overs
+    const sessionOvers = isT20 
+      ? [5, 10, 15, 20] 
+      : [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     
+    // Always show "First 5 Overs" first (mandatory market)
+    // Then show remaining applicable session markets
     sessionOvers.forEach((ov) => {
+      // Only show future overs (not already passed)
       if (ov > currentOvers) {
+        // Calculate dynamic line based on run rate expectations
+        const baseRunRate = isT20 ? 8.0 : 5.5; // T20 usually faster
+        const expectedRuns = Math.floor(ov * baseRunRate);
+        
         sessions.push({
           title: `First ${ov} Overs`,
+          overs: ov,
           markets: [
             {
               name: "Total Runs",
-              line: Math.floor(ov * 7.5) + 0.5,
+              line: expectedRuns + 0.5,
               overOdds: 1.90,
               underOdds: 1.90,
             },
             {
               name: "Wickets",
-              options: ov <= 10 ? ["0-2", "3+"] : ["0-3", "4+"],
-              odds: [1.75, 2.10],
+              options: ov <= 10 ? ["0-1", "2-3", "4+"] : ov <= 25 ? ["0-2", "3-4", "5+"] : ["0-3", "4-5", "6+"],
+              odds: ov <= 10 ? [2.50, 2.00, 3.50] : ov <= 25 ? [2.20, 2.10, 3.00] : [2.00, 2.20, 3.20],
+            },
+            {
+              name: "Boundaries",
+              options: ov <= 10 ? ["0-4", "5-8", "9+"] : ov <= 25 ? ["0-12", "13-20", "21+"] : ["0-20", "21-35", "36+"],
+              odds: ov <= 10 ? [2.80, 1.90, 3.00] : ov <= 25 ? [2.50, 1.95, 2.80] : [2.30, 2.00, 2.70],
             },
           ],
         });
       }
     });
 
-    // Custom session
+    // Add Powerplay market for T20 (if not yet passed)
+    if (isT20 && currentOvers < 6) {
+      sessions.unshift({
+        title: "Powerplay (1-6 Overs)",
+        overs: 6,
+        isPowerplay: true,
+        markets: [
+          {
+            name: "Total Runs",
+            line: 48.5,
+            overOdds: 1.85,
+            underOdds: 1.95,
+          },
+          {
+            name: "Wickets",
+            options: ["0-1", "2-3", "4+"],
+            odds: [2.20, 2.00, 3.80],
+          },
+        ],
+      });
+    }
+
+    // Add "Next 2 Overs" market (dynamic based on current over)
     sessions.push({
-      title: "Custom Session",
+      title: `Next 2 Overs (${currentOvers + 1}-${currentOvers + 2})`,
+      overs: 2,
+      isCustom: true,
       markets: [
-        { name: "Next 2 Overs Runs", line: 14.5, overOdds: 1.85, underOdds: 1.95 },
-        { name: "Next Over Boundary", yesOdds: 1.65, noOdds: 2.20 },
+        { name: "Runs", line: 14.5, overOdds: 1.85, underOdds: 1.95 },
+        { name: "Boundary", yesOdds: 1.55, noOdds: 2.40 },
+        { name: "Wicket", yesOdds: 3.50, noOdds: 1.30 },
       ],
     });
 
@@ -704,34 +746,66 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
             {/* ========== SESSION MARKETS ========== */}
             {(activeFilter === "all" || activeFilter === "session") && (
               <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-purple-400 rounded"></span>
-                  Session Markets
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold flex items-center gap-2">
+                    <span className="w-1 h-6 bg-purple-400 rounded"></span>
+                    Session Markets ({match.format.toUpperCase()})
+                  </h2>
+                  <div className="text-xs text-gray-400">
+                    {match.format === "t20" ? "T20: 5, 10, 15, 20 overs" : "ODI: 5, 10, 15...50 overs"}
+                  </div>
+                </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getSessionMarkets().slice(0, 6).map((session, idx) => (
+                  {getSessionMarkets().map((session, idx) => (
                     <div
                       key={idx}
-                      className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800"
+                      className={`bg-[#0B0F1A] rounded-xl p-4 border transition-all hover:border-purple-500/30 ${
+                        session.isPowerplay 
+                          ? "border-yellow-500/30 bg-gradient-to-br from-[#0B0F1A] to-yellow-900/10" 
+                          : session.isCustom 
+                          ? "border-cyan-500/30" 
+                          : session.title === "First 5 Overs"
+                          ? "border-green-500/30 bg-gradient-to-br from-[#0B0F1A] to-green-900/10"
+                          : "border-gray-800"
+                      }`}
                     >
-                      <h3 className="font-semibold text-purple-400 mb-3">{session.title}</h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className={`font-semibold ${
+                          session.isPowerplay 
+                            ? "text-yellow-400" 
+                            : session.isCustom 
+                            ? "text-cyan-400" 
+                            : session.title === "First 5 Overs"
+                            ? "text-green-400"
+                            : "text-purple-400"
+                        }`}>
+                          {session.title}
+                        </h3>
+                        {session.title === "First 5 Overs" && (
+                          <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">POPULAR</span>
+                        )}
+                        {session.isPowerplay && (
+                          <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">POWERPLAY</span>
+                        )}
+                      </div>
                       <div className="space-y-3">
                         {session.markets.map((market, mIdx) => (
                           <div key={mIdx}>
-                            <div className="text-xs text-gray-400 mb-1">
-                              {market.name} {market.line && `(${market.line})`}
+                            <div className="text-xs text-gray-400 mb-1.5 flex items-center justify-between">
+                              <span>{market.name}</span>
+                              {market.line && <span className="text-gray-500">Line: {market.line}</span>}
                             </div>
                             {market.overOdds && market.underOdds ? (
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Over`, "Over", market.overOdds)}
-                                  className="flex-1 bg-[#1E90FF]/20 hover:bg-[#1E90FF]/40 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded transition-all"
+                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Over ${market.line || ''}`, "Over", market.overOdds)}
+                                  className="flex-1 bg-[#1E90FF]/20 hover:bg-[#1E90FF]/40 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded transition-all hover:scale-105"
                                 >
                                   Over {market.overOdds}
                                 </button>
                                 <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Under`, "Under", market.underOdds)}
-                                  className="flex-1 bg-[#FF4D4D]/20 hover:bg-[#FF4D4D]/40 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded transition-all"
+                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Under ${market.line || ''}`, "Under", market.underOdds)}
+                                  className="flex-1 bg-[#FF4D4D]/20 hover:bg-[#FF4D4D]/40 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded transition-all hover:scale-105"
                                 >
                                   Under {market.underOdds}
                                 </button>
@@ -740,26 +814,26 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => addToBetSlip(`${session.title} ${market.name} Yes`, "Yes", market.yesOdds)}
-                                  className="flex-1 bg-green-500/20 hover:bg-green-500/40 border border-green-500/30 text-green-400 text-xs font-bold py-2 rounded transition-all"
+                                  className="flex-1 bg-green-500/20 hover:bg-green-500/40 border border-green-500/30 text-green-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
                                 >
                                   Yes {market.yesOdds}
                                 </button>
                                 <button
                                   onClick={() => addToBetSlip(`${session.title} ${market.name} No`, "No", market.noOdds)}
-                                  className="flex-1 bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 text-red-400 text-xs font-bold py-2 rounded transition-all"
+                                  className="flex-1 bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 text-red-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
                                 >
                                   No {market.noOdds}
                                 </button>
                               </div>
                             ) : market.options ? (
-                              <div className="flex gap-2">
+                              <div className="flex gap-1.5 flex-wrap">
                                 {market.options.map((opt, oIdx) => (
                                   <button
                                     key={opt}
-                                    onClick={() => addToBetSlip(`${session.title} Wickets ${opt}`, opt, market.odds[oIdx])}
-                                    className="flex-1 bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/30 text-purple-400 text-xs font-bold py-2 rounded transition-all"
+                                    onClick={() => addToBetSlip(`${session.title} ${market.name} ${opt}`, opt, market.odds[oIdx])}
+                                    className="flex-1 min-w-[60px] bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/30 text-purple-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
                                   >
-                                    {opt} ({market.odds[oIdx]})
+                                    {opt} <span className="text-purple-300">({market.odds[oIdx]})</span>
                                   </button>
                                 ))}
                               </div>

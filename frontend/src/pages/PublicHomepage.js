@@ -31,18 +31,26 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
     // Filter by sport tab
     if (m.sport !== activeTab) return false;
     
-    // Filter out completed matches
+    // Filter out explicitly completed matches
     if (m.status === "completed" || m.status === "ended" || m.status === "finished") return false;
     
-    // Check if match date is in the past (more than 3 hours ago = likely completed)
+    // For scheduled/upcoming matches, be more lenient with date filtering
+    // Include matches up to 7 days in the past (allows for delayed API updates)
     const matchTime = new Date(m.commence_time);
     const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // If match is scheduled/upcoming, include it if within 7 days
+    if (m.status === "scheduled" || m.status === "upcoming") {
+      return matchTime > sevenDaysAgo;
+    }
+    
+    // For live matches, always show
+    if (m.status === "live") return true;
+    
+    // For other statuses, use 3-hour rule
     const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-    
-    // If match started more than 3 hours ago and not marked as live, consider it completed
-    if (matchTime < threeHoursAgo && m.status !== "live") return false;
-    
-    return true;
+    return matchTime > threeHoursAgo;
   });
 
   const handleBetClick = (match, team, odds, type) => {
@@ -203,24 +211,28 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                     {/* Draw Odds */}
                     <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
                       {match.sport === "soccer" ? (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleBetClick(match, "Draw", match.odds_draw, "back")}
-                            className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
-                          >
-                            <div className="text-sm font-bold text-gray-900">
-                              {match.odds_draw?.toFixed(2) || "-"}
-                            </div>
-                          </button>
-                          <button
-                            onClick={() => handleBetClick(match, "Draw", match.odds_draw + 0.01, "lay")}
-                            className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
-                          >
-                            <div className="text-sm font-bold text-gray-900">
-                              {(match.odds_draw + 0.01)?.toFixed(2) || "-"}
-                            </div>
-                          </button>
-                        </div>
+                        match.odds_draw ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleBetClick(match, "Draw", match.odds_draw, "back")}
+                              className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
+                            >
+                              <div className="text-sm font-bold text-gray-900">
+                                {match.odds_draw.toFixed(2)}
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => handleBetClick(match, "Draw", match.odds_draw + 0.01, "lay")}
+                              className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
+                            >
+                              <div className="text-sm font-bold text-gray-900">
+                                {(match.odds_draw + 0.01).toFixed(2)}
+                              </div>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-400 font-medium">-</div>
+                        )
                       ) : (
                         <div className="text-center text-gray-400 font-medium">-</div>
                       )}

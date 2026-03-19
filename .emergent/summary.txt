@@ -1,129 +1,112 @@
 <analysis>**original_problem_statement:**
-The user wants to build a premium, dark-themed sports betting application named PlayXBets. The initial request was for a simple homepage showing Cricket and Soccer games with a sidebar. However, the requirements have evolved significantly through multiple user feedback cycles.
+The user wants to build a premium, dark-themed sports betting application named PlayXBets. The project has evolved from a simple sportsbook to a sophisticated betting exchange UI, inspired by  but with a cleaner, more modern design.
 
 **PRODUCT REQUIREMENTS (latest version):**
-1.  **UI/UX:** The primary interface should be a **betting exchange**, inspired by the design and layout of . This includes:
-    *   A public homepage accessible to all users (pre-login).
-    *   The homepage must feature a hero section at the top.
-    *   Below the hero section, display the betting exchange interface for Cricket and Football.
-    *   The exchange must show Back (blue boxes) and Lay (pink boxes) odds in a professional tabular format.
-    *   The design should include Ball by ball (fancy) betting markets as shown in user screenshots.
-    *   All date and time information must be displayed in Indian Standard Time (IST).
-    *   **CRITICAL**: Fix all text visibility issues where dark text appears on dark backgrounds, making it unreadable. This is a recurring problem across the app.
-2.  **User Flow:**
-    *   Users can browse all betting markets on the public homepage without an account.
-    *   A login/signup modal should appear only when a user attempts to place a bet.
-    *   After logging in, a user menu/dropdown should appear in the header with options like My Dashboard and Logout.
-    *   The My Dashboard page should be a separate view with wallet information, recent transactions, and a prominent BET NOW button that navigates back to the main homepage betting exchange.
-3.  **Admin Panel:**
-    *   A full-featured admin panel is required with modules for: Dashboard, Manage Bettors, Manage Games, Bets Placed, Declare Outcomes, Deposits, Withdrawals, and Support Tickets.
-    *   The **Deposits** page must allow an admin to search for a user by typing their name (displaying a list of matches) and credit their wallet.
-4.  **Authentication:**
-    *   Standard JWT-based authentication with roles for 'admin' and 'user'.
-    *   Admin credentials: , .
-    *   User credentials: , .
+1.  **UI/UX:**
+    *   Create a modern, advanced cricket live betting dashboard named PlayXbets Exchange with a clean, card-based UI, proper navigation, a ball-by-ball countdown timer, and a format toggle (T20/ODI).
+    *   The UI must include multiple market types: Match Odds, Ball-by-Ball, Over Markets, and Session Markets.
+    *   Create a similar, consistent UI for a Football Live page.
+    *   The main homepage () should show live and upcoming matches for both cricket and football in the original table-based layout.
+    *   The header navigation should be consistent across all pages (Home, Cricket, Soccer).
+    *   The Session Markets in the Cricket Exchange must be dynamically generated based on the match format (T20/ODI) and **must** include the First 5 Overs market.
+2.  **Functionality:**
+    *   The exchange pages should be in a **DEMO mode**, with all data being mocked and simulated.
+    *   A ball timer should automatically simulate a new ball every 11 seconds, updating scores and markets.
+    *   Betting should be disabled when the timer is at zero.
+    *   Clicking on odds should add the selection to a bet slip on the right panel.
+    *   Backend login should be properly connected, with user balance displayed in the header.
+3.  **Technical:**
+    *   The scheduled job to fetch odds from The Odds API should run once daily at Indian midnight (00:00:01 AM IST).
+    *   The application should only display live and upcoming matches, filtering out completed ones.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is a full-stack project using FastAPI, React, and MongoDB. The agent has pivoted multiple times, and the current codebase reflects a heavily modified version of a PlayXBets application.
+The application is a full-stack project using FastAPI and React. It features a sophisticated, dark-themed PlayXbets Exchange UI for Cricket () and a similar page for Football (). These pages are in a feature-rich demo mode, with simulated data, a live ball-by-ball countdown timer, and multiple betting market types (Match Odds, Ball-by-Ball, Over Markets, Sessions). JWT authentication is connected, and the frontend correctly displays the logged-in user's balance.
 
-*   **Frontend:** A React application with routing is in place. It features a public homepage that now functions as a betting exchange. It includes pages for login, signup, a user dashboard, and a skeleton for an extensive admin panel.
-*   **Backend:** A single  file contains all FastAPI endpoints for user authentication, fetching match data (mocked/API), placing bets, and admin functions like depositing funds. It uses  for background tasks.
-*   **Functionality:** User registration and login are functional. The admin can successfully deposit money into a user's wallet, and the user can see the updated balance. The UI has been changed to a Back and Lay betting exchange format on the homepage.
+The original homepage () and a large admin panel exist but have fallen behind the new exchange UI in terms of functionality and styling. A separate Cricket Micro Betting module with WebSocket integration was also completed.
 
 **Last working item**:
-*   **Last item agent was working**: The user requested to restore the homepage's original hero section, placing it above the newly created betting exchange interface.
-*   **Status**: NOT STARTED
-*   **Agent Testing Done**: N
-*   **Which testing method agent to use?**: Use the screenshot tool to visually verify that the homepage correctly displays the hero section at the top, with the betting exchange table directly below it.
-*   **User Testing Done**: N
+- **Last item agent was working**: The user reported three issues after the creation of the new PlayXbets Exchange UI:
+    1.  The main homepage () is not showing any football matches.
+    2.  The header on the main homepage () is inconsistent with the new exchange pages.
+    3.  The Session Markets section in the cricket exchange is missing the mandatory First 5 Overs market and is not structured correctly for T20 vs. ODI formats.
+- **Status**: NOT STARTED
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: screenshot tool.
+    1.  Navigate to the homepage () to verify the header is updated and that both cricket and football matches are visible in the table.
+    2.  Navigate to the Cricket Exchange () to check the new Session Markets structure.
+    3.  On the  page, toggle the match format between T20 and ODI to ensure the session market cards update dynamically.
+- **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-*   **Issue 1**: Restore the hero section on the homepage. (Priority: P0)
-*   **Issue 2**: Widespread text visibility problems. (Priority: P0)
-*   **Issue 3**: Implement Ball by ball betting markets. (Priority: P1)
-*   **Issue 4**: Admin deposit page UI enhancement (user search dropdown). (Priority: P2)
-*   **Issue 5**: Most Admin Panel modules are non-functional placeholders. (Priority: P3)
+- **Issue 1**: Football matches are not showing on the main homepage. (Priority: P0)
+- **Issue 2**: The header on the main homepage is inconsistent with the rest of the site. (Priority: P0)
+- **Issue 3**: The Session Markets in the cricket exchange are incorrectly structured and missing key markets. (Priority: P0)
+- **Issue 4**: Bet placement in the new exchange UI is frontend-only and does not persist to the database. (Priority: P1)
+- **Issue 5**: Most of the original Admin Panel modules are non-functional placeholders. (Priority: P2)
 
 **Issues Detail:**
-*   **Issue 1: Restore the hero section on the homepage**
-    *   **Attempted fixes**: The agent moved the betting exchange to the homepage but removed the hero section in the process. The user explicitly asked for it to be restored.
-    *   **Next debug checklist**:
+- **Issue 1: Football matches not showing on the main homepage**
+    - **Attempted fixes**: The agent fixed a query that was filtering out all matches, but the homepage component itself might not be correctly requesting or rendering football data.
+    - **Next debug checklist**:
+        1.  Review  to ensure the  hook fetches all sports or makes separate calls for cricket and football.
+        2.  Verify the component correctly renders the football matches it receives. The logic might be hardcoded for cricket only.
+        3.  Check the backend endpoint  in  to confirm it returns both sport types without any issues.
+    - **Why fix this issue and what will be achieved with the fix?**: The homepage is a key landing page and should display all available sports as per the original design.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: Y
+    - **Should Test frontend/backend/both after fix?**: Frontend
+- **Issue 2: The header on the main homepage is inconsistent**
+    - **Attempted fixes**: None. This is a new regression after the latest UI was built.
+    - **Next debug checklist**:
         1.  Edit .
-        2.  Re-introduce the JSX code for the hero section at the top of the component's render method, before the betting exchange table.
-    *   **Why fix this issue and what will be achieved with the fix?**: To meet the user's specific UI layout request for the main landing page.
-    *   **Status**: NOT STARTED
-    *   **Is recurring issue?**: N
-    *   **Should Test frontend/backend/both after fix?**: Frontend
-*   **Issue 2: Widespread text visibility problems**
-    *   **Attempted fixes**: The agent has made several ad-hoc fixes to text color on specific components (e.g., ), but the user continues to report the issue in new areas. This suggests a systemic CSS problem.
-    *   **Next debug checklist**:
-        1.  Review global CSS in  and  to find default text colors.
-        2.  Inspect components like , , and various table/card components to see if they have dark backgrounds without explicitly setting a light text color ( or ).
-        3.  Audit all admin and user dashboard pages for readability.
-    *   **Why fix this issue and what will be achieved with the fix?**: The application is unusable if users and admins cannot read the text. This is a critical usability fix.
-    *   **Status**: IN PROGRESS
-    *   **Is recurring issue?**: Y
-    *   **Should Test frontend/backend/both after fix?**: Frontend
-*   **Issue 3: Implement Ball by ball betting markets**
-    *   **Attempted fixes**: None. The agent has acknowledged the request but has not started implementation.
-    *   **Next debug checklist**:
-        1.  **Backend**: Update  to fetch fancy or ball by ball market data from The Odds API for a given match.
-        2.  **Backend**: Create a new API endpoint (e.g., ).
-        3.  **Frontend**: In  or a detailed match view, create a new UI component to display these markets as shown in the user's screenshot.
-    *   **Why fix this issue and what will be achieved with the fix?**: This is a core feature requirement for the betting exchange model the user wants.
-    *   **Status**: NOT STARTED
-    *   **Is recurring issue?**: N
-    *   **Should Test frontend/backend/both after fix?**: Both
-*   **Issue 4: Admin deposit page UI enhancement**
-    *   **Attempted fixes**: The agent fixed the deposit *functionality* but did not implement the user search dropdown UI.
-    *   **Next debug checklist**:
+        2.  Update the navigation links to be Home, Cricket (with red dot), and Soccer (with green dot), linking to , , and  respectively.
+        3.  Ensure the styling matches the header component within .
+    - **Why fix this issue and what will be achieved with the fix?**: To provide a consistent user experience and correct navigation across the entire application.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
+- **Issue 3: Incorrect Session Markets structure**
+    - **Attempted fixes**: None. The user just provided the detailed requirements for this.
+    - **Next debug checklist**:
         1.  Edit .
-        2.  Fetch the list of all users when the component mounts.
-        3.  Modify the username input field to filter the user list as the admin types.
-        4.  Display a dropdown list of matching users below the input field.
-    *   **Why fix this issue and what will be achieved with the fix?**: To improve the admin's user experience and prevent errors from typos in usernames.
-    *   **Status**: NOT STARTED
-    *   **Is recurring issue?**: N
-    *   **Should Test frontend/backend/both after fix?**: Frontend
-*   **Issue 5: Most Admin Panel modules are non-functional placeholders**
-    *   **Attempted fixes**: None. The agent created the UI files but has not implemented the backend logic or API integrations for most modules.
-    *   **Next debug checklist**: Address each module one by one (e.g., Manage Games, Declare Outcomes), implementing the necessary backend endpoints and connecting them to the frontend UI.
-    *   **Why fix this issue and what will be achieved with the fix?**: The admin panel is a core part of the product requirement and is currently incomplete.
-    *   **Status**: NOT STARTED
-    *   **Is recurring issue?**: N
-    *   **Should Test frontend/backend/both after fix?**: Both
+        2.  Locate the section that renders Session Markets.
+        3.  Implement conditional rendering based on the  state ( or ).
+        4.  Create a dynamic loop that generates session market cards for the correct over intervals:  for T20 and  for ODI.
+        5.  Ensure the First 5 Overs market is always present and visible for both formats.
+    - **Why fix this issue and what will be achieved with the fix?**: This is a critical feature for a professional betting exchange and a direct user requirement.
+    - **Status**: NOT STARTED
+    - **Is recurring issue?**: N
+    - **Should Test frontend/backend/both after fix?**: Frontend
 
 **In progress Task List**: N/A
 
 **Upcoming and Future Tasks**
-*   **Upcoming Tasks**:
-    *   (P0) Restore the hero section on the homepage.
-    *   (P0) Perform a full-site audit to fix all text visibility issues.
-    *   (P1) Implement Ball by ball betting markets (backend and frontend).
-    *   (P2) Implement the user search dropdown on the admin deposit page.
-*   **Future Tasks**:
-    *   Flesh out all remaining Admin Panel modules (Manage Games, Bettors, Bets Placed, Declare Outcomes, Withdrawals, Support Tickets) with full backend functionality.
-    *   Implement the user withdrawal request system.
-    *   Implement the support ticket system.
-    *   Implement the conceptual WhatsApp-based recharge method.
-    *   Verify and thoroughly test the cron job for fetching live odds from the API.
+- **Upcoming Tasks**:
+    - (P1) Connect the Place Bet button in the exchange UI to a backend endpoint to persist bets and update the user's wallet.
+    - (P2) Implement the additional ICEBOOK features (e.g., Fall of Wicket, Partnership Runs) as collapsible cards in the exchange UI.
+- **Future Tasks**:
+    - Replace the mock data simulation with a real-time data integration from an API like CricketData or The Odds API.
+    - Flesh out all remaining Admin Panel modules (Manage Games, Declare Outcomes, etc.) with full backend functionality.
+    - Implement the user withdrawal request system.
+    - Implement the support ticket system.
 
 **Completed work in this session**
-*   **Recently completed**:
-    *   Pivoted the application to a betting exchange UI with Back and Lay odds. (DONE)
-    *   Moved the betting exchange from a private user page to the public homepage. (DONE)
-    *   Fixed the admin deposit functionality to correctly credit user wallets. (DONE)
-    *   Implemented a separate User Dashboard with wallet info and a Bet Now button. (DONE)
-    *   Implemented IST date/time formatting across the application. (DONE)
-    *   Corrected the app's navigation flow to align with user requests (e.g., Dashboard link behavior). (DONE)
-    *   Implemented a functional user registration (Sign Up) flow. (DONE)
-    *   Corrected the initial flow to show a public homepage first, with login presented in a modal. (DONE)
-    *   Scaffolded the complete PlayXBets project structure from scratch (after abandoning the first version). (DONE)
+- **Recently completed**:
+  - Built the PlayXbets Exchange cricket demo UI from scratch with advanced features. (DONE)
+  - Implemented a ball-by-ball timer simulation and dynamic T20/ODI format toggle. (DONE)
+  - Created a consistent Football Live page. (DONE)
+  - Integrated backend JWT authentication to display user balance on the exchange pages. (DONE)
+  - Fixed the header navigation on the new exchange pages to use Cricket and Soccer. (DONE)
+  - Implemented the full Cricket Ball-By-Ball Micro Betting feature with WebSockets and a dedicated demo page. (DONE)
+  - Fixed widespread text visibility issues across admin and user pages. (DONE)
+  - Fixed the bet slip modal positioning on the original homepage. (DONE)
+  - Configured the odds fetching cron job to run at Indian midnight. (DONE)
+  - Fixed match filtering to only show live/upcoming events. (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-*   The primary recurring issue is **text visibility**, which points to a need for a systemic CSS refactor rather than ad-hoc fixes. The user has pointed this out multiple times, and while individual instances were fixed, the root cause hasn't been addressed.
+- The core functionality of the original Admin Panel (Manage Games, Bettors, Bets Placed, Declare Outcomes, Withdrawals, Support Tickets) remains largely unimplemented and consists of placeholder pages.
 
 **Known issue recurrence from previous fork**
 N/A
@@ -132,76 +115,86 @@ N/A
 
 
 **Key Technical Concepts**
-*   **Backend**: FastAPI, Pydantic, PyMongo, JWT for auth, APScheduler for cron jobs.
-*   **Frontend**: React, React Router, Tailwind CSS,  for API calls.
-*   **Database**: MongoDB.
-*   **Architecture**: A monolithic backend with a component-based React frontend.
+- **Backend**: FastAPI, PyMongo, JWT, APScheduler, WebSockets
+- **Frontend**: React, React Router, Tailwind CSS, 
+- **Database**: MongoDB
+- **Architecture**: A monolithic backend with a modular React frontend. The new exchange pages are complex, self-contained components with internal state management for the demo simulation.
 
 **key DB schema**
-The implementation in  uses Pydantic models that imply the following collections:
-*   : { uid=0(root) gid=0(root) groups=0(root): UUID, : str, : str, : str, : float }
-*   : { : UUID, : str, : str, : float, : float, : str }
-*   : { : UUID, : float, : str, : datetime }
+- : { , , ,  }
+- : { , , , , ,  }
+- : { , , ,  }
+- : { , , , , ,  }
+- : { , , , , ,  }
 
 **changes in tech stack**
-N/A
+- usage: websockets [--version | <uri>] and  were added to the backend dependencies.
 
 **All files of reference**
-*   : The single source of truth for all backend logic. **Needs refactoring.**
-*   : The most frequently modified file, containing the core user-facing betting exchange.
-*   : Controls routing and global state like the logged-in user.
-*   : The only admin module with confirmed working functionality.
-*   : The user's private dashboard page.
+- : The new, primary cricket exchange UI component that needs the Session Market fix.
+- : The original homepage that needs header and football match fixes.
+- : The header component used by the homepage that needs a style/link update.
+- : The main backend file, contains the  endpoint and the scheduler logic.
+- : The main React router where all pages are wired together.
 
 **Areas that need refactoring**:
-*   **Backend Monolith**: The  file is over 500 lines long and contains routes, models, and business logic. It should be broken down into a standard FastAPI project structure with separate files for routers, models, and services.
-*   **CSS Theming**: The recurring text visibility issues indicate a lack of a coherent styling strategy. A review of global styles vs. component-specific Tailwind classes is needed to ensure readability in a dark theme.
-*   **Frontend State Management**: Top-level state (like the user object) is managed in  and passed down as props. For a growing application, introducing a state management library like Zustand or React Context would be beneficial.
+- **Backend Monolith**:  is still a large, monolithic file. The logic for fetching matches and handling bets should be broken into services and routers.
+- **Frontend Component Duplication**: The headers in  and  are now separate. They should be unified into a single, reusable component.
+- **Frontend State Management**: The complex state for the exchange simulation is managed within the  component. A dedicated state management library (like Zustand) would simplify this.
 
 **key api endpoints**
-*   
-*   
-*   
-*   
-*   
-*   
+- 
+- 
+-  (Needs to be checked for football data on homepage)
+- 
+- 
+- 
+-  (WebSocket for micro betting)
 
 **Critical Info for New Agent**
-*   **The user's vision changes frequently.** Expect major pivots. Always confirm new requirements based on the latest user messages and screenshots. The project has already been restarted once.
-*   **The current direction is a betting exchange like **, not a simple sportsbook. This implies features like Back and Lay betting.
-*   **UI/UX is paramount.** The user is highly attentive to visual details, layout, and readability. Address any UI feedback with high priority, especially the recurring text visibility issue.
-*   **The main betting interface MUST be on the public homepage.** Login is only a gateway to placing a bet, not viewing markets.
+- The project's focus has shifted entirely to the new PlayXbets Exchange UI. The user is highly focused on visual and functional details that mimic professional betting sites.
+- **ALL DATA in the new exchange UI is MOCKED/SIMULATED.** It is not connected to any live API. Bet placement is also a frontend-only simulation for now.
+- The immediate priority is to fix the three regressions reported by the user: inconsistent homepage header, missing football matches on the homepage, and incorrect session markets in the cricket exchange.
 
 **documents and test reports created in this job**
-*   
+- 
+- 
+- 
+- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Reverted previous dashboard changes. Requested a BET NOW button in the user dash, fixed admin deposit UI (with user search), and highlighted widespread text visibility issues.
-2.  **User**: Completely rejected the sportsbook model. Demanded a **betting exchange** like  with Back/Lay odds.
-3.  **User**: Clarified the betting exchange must be on the **public homepage**, not in a private user area. Requested **ball by ball** betting markets.
-4.  **User**: Last request: **Keep the Home page hero Section as it is**.
+10. **User**: Add a Football Live page.
+9. **User**: Integrate backend login properly with the new exchange UI.
+8. **User**: Proceed with implementation.
+7. **User**: Creates a comprehensive PlayXbets Exchange UI with a ball timer, format toggle, all market types, and a separate football page.
+6. **User**: Fixes the header menu to show Cricket and Soccer.
+5. **User**: Confirms the current match data is DEMO and asks for the header to be fixed.
+4. **User**: Asks about the match data source (Live vs. Demo) and requests a header menu update.
+3. **User**: Finishes the PlayXbets Exchange implementation.
+2. **User**: Updates the Session Markets section with a more professional structure for T20 and ODI, ensuring First 5 Overs is included.
+1. **User**: Reports that football matches are not showing on the homepage and the header is inconsistent.
 
 **Project Health Check:**
-*   **Broken**: Ball by ball betting, most admin panel modules, and the admin deposit user search UI are not implemented. Text visibility is a recurring critical bug.
-*   **Mocked**: Match data is likely being served from a mock list or a single API call without real-time updates. The cron job's effectiveness is unverified. The WhatsApp recharge feature is purely conceptual.
+- **Broken**:
+    - The main homepage () does not display football matches.
+    - The header on the main homepage is visually inconsistent with the new exchange pages.
+    - The Session Markets in the Cricket Exchange UI are missing the First 5 Overs market and are not structured correctly.
+- **Mocked**: The entire PlayXbets Exchange and Football Live pages are running on simulated data. Real-time API integration and persistent bet placement are not implemented.
 
 **3rd Party Integrations**
-*   **The Odds API**: For fetching sports data. Requires a user-provided API key.
-*   **Lucide React**: Used for icons in the React frontend.
+- **The Odds API**: Used in a scheduled job to fetch match data. An API key is likely required for live operation.
+- **CricketData API**: Mentioned in the requirements for a future real-time micro-betting integration. An API key is required.
+- **Lucide React**: Used for icons in the frontend.
 
 **Testing status**
-*   **Testing agent used after significant changes**: NO
-*   **Troubleshoot agent used after agent stuck in loop**: NO
-*   **Test files created**: []
-*   **Known regressions**: The homepage hero section was removed during a refactor and needs to be restored.
+- **Testing agent used after significant changes**: YES, for the micro-betting feature.
+- **Troubleshoot agent used after agent stuck in loop**: NO
+- **Test files created**: []
+- **Known regressions**: The functionality and styling of the original homepage () have degraded since the new exchange UI was built.
 
 **Credentials to test flow:**
-*   **Admin**: , 
-*   **User**: , 
+- **Admin**: , 
+- **User**: , 
 
 **What agent forgot to execute**
-*   The agent did not implement the last user request to restore the hero section on the homepage.
-*   The agent has repeatedly failed to perform a systemic fix for the text visibility issues, opting for localized fixes that don't solve the root problem.
-*   The agent has not started the implementation of Ball by ball betting markets, a key feature requested by the user.
-*   The agent did not implement the user-search dropdown UI for the admin deposit page.
-*   The agent has not built out the functionality for the majority of the admin panel pages.</analysis>
+The agent has not yet started implementing the fixes for the three high-priority issues raised in the user's last message: fixing the homepage header, adding football matches back to the homepage, and correcting the Session Markets structure on the cricket exchange page.</analysis>

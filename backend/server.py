@@ -126,6 +126,7 @@ class Match(BaseModel):
     commence_time: datetime
     home_odds: Optional[float] = None
     away_odds: Optional[float] = None
+    odds_draw: Optional[float] = None  # Draw odds for soccer matches
     status: str = "scheduled"
     winner: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -278,15 +279,44 @@ class OddsService:
                         # Extract odds
                         home_odds = None
                         away_odds = None
+                        draw_odds = None
                         
                         if event.get("bookmakers"):
                             bookmaker = event["bookmakers"][0]
                             if bookmaker.get("markets"):
                                 market = bookmaker["markets"][0]
                                 outcomes = market.get("outcomes", [])
-                                if len(outcomes) >= 2:
-                                    home_odds = outcomes[0].get("price")
-                                    away_odds = outcomes[1].get("price")
+                                
+                                # Iterate through outcomes and match by name
+                                # Soccer outcomes: team names + "Draw"
+                                # Cricket outcomes: just team names
+                                home_team_lower = event.get("home_team", "").lower()
+                                away_team_lower = event.get("away_team", "").lower()
+                                
+                                for outcome in outcomes:
+                                    name = outcome.get("name", "")
+                                    name_lower = name.lower()
+                                    price = outcome.get("price")
+                                    
+                                    if name_lower == home_team_lower:
+                                        home_odds = price
+                                    elif name_lower == away_team_lower:
+                                        away_odds = price
+                                    elif name_lower == "draw" or name_lower == "tie":
+                                        draw_odds = price
+                                
+                                # Fallback for home/away if name matching didn't work
+                                if home_odds is None:
+                                    for outcome in outcomes:
+                                        if outcome.get("name", "").lower() not in ["draw", "tie"]:
+                                            home_odds = outcome.get("price")
+                                            break
+                                            
+                                if away_odds is None:
+                                    for outcome in outcomes:
+                                        if outcome.get("name", "").lower() not in ["draw", "tie"] and outcome.get("price") != home_odds:
+                                            away_odds = outcome.get("price")
+                                            break
                         
                         match_data = {
                             "match_id": event["id"],
@@ -297,6 +327,7 @@ class OddsService:
                             "commence_time": datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00")),
                             "home_odds": home_odds,
                             "away_odds": away_odds,
+                            "odds_draw": draw_odds,  # Draw odds for soccer matches
                             "status": "scheduled",
                             "updated_at": datetime.now(timezone.utc)
                         }

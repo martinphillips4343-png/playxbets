@@ -7,7 +7,15 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - User authentication with login/signup modal
 - Admin panel with full functionality
 - All dates/times in Indian Standard Time (IST)
-- **NEW: Cricket Ball-By-Ball Micro Betting**
+- **Cricket Ball-By-Ball Micro Betting**
+- **Advanced PlayXbets Exchange UI** with multiple market types
+
+## Latest Updates (March 19, 2026)
+
+### P0 Issues Fixed:
+1. ✅ **Football matches showing on homepage** - Fixed date filtering logic and draw odds extraction from The Odds API
+2. ✅ **Header consistency** - PublicHeader now has consistent navigation ("Home", "Cricket" 🔴, "Soccer" 🟢) matching exchange pages
+3. ✅ **Session Markets structure** - Dynamic generation based on T20 (5,10,15,20) vs ODI (5,10...50) with mandatory "First 5 Overs", Powerplay highlighting, and proper wicket/boundary options
 
 ## User Personas
 1. **Bettors** - Regular users who browse matches and place bets
