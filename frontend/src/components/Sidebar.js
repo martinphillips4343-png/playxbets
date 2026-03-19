@@ -4,8 +4,7 @@ import { Activity, Trophy } from "lucide-react";
 export default function Sidebar() {
   const navItems = [
     { path: "/", label: "Live", icon: Activity },
-    { path: "/cricket", label: "Cricket", icon: Trophy },
-    { path: "/soccer", label: "Soccer", icon: Trophy },
+   
   ];
 
   return (
