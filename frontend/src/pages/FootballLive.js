@@ -183,22 +183,29 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
             <nav className="hidden md:flex items-center gap-6">
               <Link
                 to="/"
-                className="text-gray-400 hover:text-white font-medium transition-colors"
+                className={`font-medium transition-colors ${
+                  location.pathname === "/" ? "text-yellow-400" : "text-gray-400 hover:text-white"
+                }`}
               >
                 Home
               </Link>
               <Link
                 to="/exchange"
-                className="text-gray-400 hover:text-white font-medium transition-colors"
+                className={`font-medium transition-colors flex items-center gap-2 ${
+                  location.pathname === "/exchange" ? "text-cyan-400" : "text-gray-400 hover:text-white"
+                }`}
               >
-                Cricket Live
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                Cricket
               </Link>
               <Link
                 to="/football-live"
-                className="text-cyan-400 font-medium flex items-center gap-2"
+                className={`font-medium transition-colors flex items-center gap-2 ${
+                  location.pathname === "/football-live" ? "text-cyan-400" : "text-gray-400 hover:text-white"
+                }`}
               >
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                Football Live
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Soccer
               </Link>
             </nav>
 
