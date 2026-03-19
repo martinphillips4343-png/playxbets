@@ -163,10 +163,10 @@ export default function BluBridgeCricket() {
             {/* Logo */}
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-xl font-bold">B</span>
+                <span className="text-xl font-bold">P</span>
               </div>
               <span className="text-xl font-bold">
-                Blu<span className="text-cyan-400">Bridge</span>
+                Play<span className="text-cyan-400">Xbets</span>
               </span>
             </div>
 
