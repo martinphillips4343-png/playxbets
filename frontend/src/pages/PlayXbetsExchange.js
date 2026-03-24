@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/App";
+import { ChevronDown, ChevronUp, Clock, Tv, BarChart3, Menu, X } from "lucide-react";
 
 // ==================== CONSTANTS ====================
-const BALL_DURATION = 11; // seconds
+const BALL_DURATION = 11;
 
 const BALL_OUTCOMES = [
   { id: "dot", name: "Dot Ball", short: "0", runs: 0, odds: 2.0, color: "bg-gray-500" },
@@ -17,7 +18,7 @@ const BALL_OUTCOMES = [
   { id: "wide", name: "Wide/NB", short: "WD", runs: 1, odds: 6.0, color: "bg-yellow-500" },
 ];
 
-const BALL_PROBABILITIES = [35, 30, 10, 2, 12, 5, 4, 2]; // Must sum to 100
+const BALL_PROBABILITIES = [35, 30, 10, 2, 12, 5, 4, 2];
 
 // ==================== HELPER FUNCTIONS ====================
 const generateRandomBall = () => {
@@ -25,18 +26,12 @@ const generateRandomBall = () => {
   let cumulative = 0;
   for (let i = 0; i < BALL_PROBABILITIES.length; i++) {
     cumulative += BALL_PROBABILITIES[i];
-    if (rand < cumulative) {
-      return BALL_OUTCOMES[i];
-    }
+    if (rand < cumulative) return BALL_OUTCOMES[i];
   }
   return BALL_OUTCOMES[0];
 };
 
-const formatOvers = (balls) => {
-  const overs = Math.floor(balls / 6);
-  const ballsInOver = balls % 6;
-  return `${overs}.${ballsInOver}`;
-};
+const formatOvers = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 
 // ==================== INITIAL STATE ====================
 const createInitialMatch = () => ({
@@ -53,9 +48,137 @@ const createInitialMatch = () => ({
 });
 
 const createInitialOdds = () => ({
-  team1: { back: [1.81, 1.82, 1.83], lay: [1.85, 1.86, 1.87] },
-  team2: { back: [2.12, 2.14, 2.16], lay: [2.20, 2.22, 2.24] },
+  team1: { back: [1.81, 1.82, 1.83], lay: [1.85, 1.86, 1.87], backStakes: [1250, 890, 450], layStakes: [980, 670, 320] },
+  team2: { back: [2.12, 2.14, 2.16], lay: [2.20, 2.22, 2.24], backStakes: [875, 560, 340], layStakes: [720, 480, 290] },
 });
+
+// ==================== ODDS CELL COMPONENT ====================
+const OddsCell = ({ odds, stake, type, onClick, suspended = false }) => {
+  const isBack = type === "back";
+  const bgColor = isBack ? "bg-[#72BBEF]" : "bg-[#FAA9BA]";
+  const hoverColor = isBack ? "hover:bg-[#5BA8DC]" : "hover:bg-[#E8899A]";
+  
+  if (suspended) {
+    return (
+      <div className="flex flex-col items-center justify-center p-1 min-w-[50px] bg-gray-600/50 text-gray-400 text-xs">
+        <span>-</span>
+      </div>
+    );
+  }
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center p-1 min-w-[50px] ${bgColor} ${hoverColor} transition-colors cursor-pointer active:scale-95`}
+      data-testid={`odds-${type}-${odds}`}
+    >
+      <span className="text-sm md:text-base font-bold text-gray-900">{odds.toFixed(2)}</span>
+      <span className="text-[10px] md:text-xs text-gray-700">{stake?.toLocaleString() || 0}</span>
+    </button>
+  );
+};
+
+// ==================== MARKET ROW COMPONENT ====================
+const MarketRow = ({ name, backOdds, layOdds, backStakes, layStakes, onSelectOdds, suspended = false, highlight = false }) => {
+  return (
+    <div className={`flex items-stretch border-b border-gray-700/50 ${highlight ? 'bg-[#1a2a3a]' : 'bg-[#1E2736]'}`}>
+      {/* Team/Selection Name */}
+      <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center">
+        <span className="text-xs md:text-sm text-white font-medium truncate">{name}</span>
+      </div>
+      
+      {/* Back Odds - 3 columns */}
+      <div className="flex">
+        {backOdds.map((odds, idx) => (
+          <OddsCell
+            key={`back-${idx}`}
+            odds={odds}
+            stake={backStakes?.[idx]}
+            type="back"
+            onClick={() => !suspended && onSelectOdds(name, "Back", odds)}
+            suspended={suspended}
+          />
+        ))}
+      </div>
+      
+      {/* Lay Odds - 3 columns */}
+      <div className="flex">
+        {layOdds.map((odds, idx) => (
+          <OddsCell
+            key={`lay-${idx}`}
+            odds={odds}
+            stake={layStakes?.[idx]}
+            type="lay"
+            onClick={() => !suspended && onSelectOdds(name, "Lay", odds)}
+            suspended={suspended}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ==================== MARKET HEADER COMPONENT ====================
+const MarketHeader = ({ title, isExpanded, onToggle, showTV = false }) => {
+  return (
+    <div 
+      className="flex items-center justify-between bg-[#2C3E50] p-2 cursor-pointer"
+      onClick={onToggle}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xs md:text-sm font-bold text-white uppercase">{title}</span>
+        {showTV && <Tv className="w-4 h-4 text-green-400" />}
+      </div>
+      <div className="flex items-center gap-1">
+        {/* Back/Lay Headers */}
+        <div className="hidden sm:flex items-center mr-2">
+          <div className="flex">
+            <span className="w-[50px] text-center text-[10px] text-[#72BBEF] font-bold">Back</span>
+            <span className="w-[50px] text-center text-[10px] text-[#72BBEF] font-bold hidden md:block"></span>
+            <span className="w-[50px] text-center text-[10px] text-[#72BBEF] font-bold hidden md:block"></span>
+          </div>
+          <div className="flex">
+            <span className="w-[50px] text-center text-[10px] text-[#FAA9BA] font-bold">Lay</span>
+            <span className="w-[50px] text-center text-[10px] text-[#FAA9BA] font-bold hidden md:block"></span>
+            <span className="w-[50px] text-center text-[10px] text-[#FAA9BA] font-bold hidden md:block"></span>
+          </div>
+        </div>
+        {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </div>
+    </div>
+  );
+};
+
+// ==================== COLUMN HEADERS ====================
+const ColumnHeaders = () => (
+  <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
+    <div className="flex-1 min-w-[120px] p-2">
+      <span className="text-[10px] md:text-xs text-gray-400">Selection</span>
+    </div>
+    <div className="flex">
+      <div className="w-[50px] p-1 text-center bg-[#72BBEF]/20">
+        <span className="text-[10px] font-bold text-[#72BBEF]">Back</span>
+      </div>
+      <div className="w-[50px] p-1 text-center bg-[#72BBEF]/10 hidden md:block">
+        <span className="text-[10px] text-[#72BBEF]/70"></span>
+      </div>
+      <div className="w-[50px] p-1 text-center bg-[#72BBEF]/5 hidden md:block">
+        <span className="text-[10px] text-[#72BBEF]/50"></span>
+      </div>
+    </div>
+    <div className="flex">
+      <div className="w-[50px] p-1 text-center bg-[#FAA9BA]/20">
+        <span className="text-[10px] font-bold text-[#FAA9BA]">Lay</span>
+      </div>
+      <div className="w-[50px] p-1 text-center bg-[#FAA9BA]/10 hidden md:block">
+        <span className="text-[10px] text-[#FAA9BA]/70"></span>
+      </div>
+      <div className="w-[50px] p-1 text-center bg-[#FAA9BA]/5 hidden md:block">
+        <span className="text-[10px] text-[#FAA9BA]/50"></span>
+      </div>
+    </div>
+  </div>
+);
 
 // ==================== MAIN COMPONENT ====================
 export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
@@ -63,11 +186,17 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
   const [match, setMatch] = useState(createInitialMatch);
   const [odds, setOdds] = useState(createInitialOdds);
   const [betSlip, setBetSlip] = useState([]);
-  const [activeFilter, setActiveFilter] = useState("all");
   const [balance, setBalance] = useState(0);
   const [ballTimer, setBallTimer] = useState(BALL_DURATION);
   const [isBettingOpen, setIsBettingOpen] = useState(true);
-  const [mobileTab, setMobileTab] = useState("odds");
+  const [showBetSlip, setShowBetSlip] = useState(false);
+  const [expandedMarkets, setExpandedMarkets] = useState({
+    matchOdds: true,
+    bookmaker: true,
+    ballByBall: true,
+    overMarkets: true,
+    sessionMarkets: true,
+  });
   const timerRef = useRef(null);
 
   // ==================== FETCH USER WALLET ====================
@@ -75,7 +204,7 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
     if (user) {
       fetchWallet();
     } else {
-      setBalance(1500); // Demo balance for non-logged in users
+      setBalance(1500);
     }
   }, [user]);
 
@@ -84,8 +213,7 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
       const response = await api.get("/wallet");
       setBalance(response.data.balance || 0);
     } catch (error) {
-      console.error("Failed to fetch wallet:", error);
-      setBalance(1500); // Fallback demo balance
+      setBalance(1500);
     }
   };
 
@@ -94,7 +222,6 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
     timerRef.current = setInterval(() => {
       setBallTimer((prev) => {
         if (prev <= 1) {
-          // Time's up - generate new ball
           setIsBettingOpen(false);
           setTimeout(() => {
             generateNewBall();
@@ -106,7 +233,6 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timerRef.current);
   }, []);
 
@@ -121,33 +247,24 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
       let newPartnership = { ...prev.partnership };
       let newLastWicket = prev.lastWicket;
 
-      // Handle wicket
       if (outcome.id === "wicket") {
         newWickets = Math.min(newWickets + 1, 10);
-        newLastWicket = {
-          runs: newRuns,
-          over: formatOvers(newBalls),
-          batsman: `Player ${newWickets}`,
-        };
+        newLastWicket = { runs: newRuns, over: formatOvers(newBalls), batsman: `Player ${newWickets}` };
         newPartnership = { runs: 0, balls: 0 };
       } else {
         newPartnership.runs += outcome.runs;
         newPartnership.balls += 1;
       }
 
-      // Update current over display
       const ballInOver = newBalls % 6;
       let newCurrentOver = [...prev.currentOver];
       
       if (ballInOver === 0) {
-        // New over started
         newCurrentOver = [null, null, null, null, null, null];
       } else {
-        newCurrentOver[ballInOver - 1] = outcome.id === "wicket" ? "W" : 
-                                          outcome.id === "wide" ? "WD" : outcome.runs;
+        newCurrentOver[ballInOver - 1] = outcome.id === "wicket" ? "W" : outcome.id === "wide" ? "WD" : outcome.runs;
       }
 
-      // Calculate CRR
       const newCRR = newBalls > 0 ? ((newRuns / newBalls) * 6).toFixed(2) : 0;
 
       return {
@@ -160,19 +277,22 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
       };
     });
 
-    // Update odds slightly
+    // Update odds
     setOdds((prev) => ({
       team1: {
         back: prev.team1.back.map((o) => +(o + (Math.random() - 0.5) * 0.03).toFixed(2)),
         lay: prev.team1.lay.map((o) => +(o + (Math.random() - 0.5) * 0.03).toFixed(2)),
+        backStakes: prev.team1.backStakes.map((s) => Math.max(100, s + Math.floor((Math.random() - 0.5) * 200))),
+        layStakes: prev.team1.layStakes.map((s) => Math.max(100, s + Math.floor((Math.random() - 0.5) * 200))),
       },
       team2: {
         back: prev.team2.back.map((o) => +(o + (Math.random() - 0.5) * 0.03).toFixed(2)),
         lay: prev.team2.lay.map((o) => +(o + (Math.random() - 0.5) * 0.03).toFixed(2)),
+        backStakes: prev.team2.backStakes.map((s) => Math.max(100, s + Math.floor((Math.random() - 0.5) * 200))),
+        layStakes: prev.team2.layStakes.map((s) => Math.max(100, s + Math.floor((Math.random() - 0.5) * 200))),
       },
     }));
 
-    // Settle ball-by-ball bets
     settleBallBets(outcome);
   }, []);
 
@@ -197,21 +317,11 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
 
   // ==================== FORMAT TOGGLE ====================
   const toggleFormat = (format) => {
-    setMatch((prev) => ({
-      ...prev,
-      format,
-      maxOvers: format === "t20" ? 20 : 50,
-    }));
+    setMatch((prev) => ({ ...prev, format, maxOvers: format === "t20" ? 20 : 50 }));
   };
 
   // ==================== ADD TO BET SLIP ====================
   const addToBetSlip = (selection, type, selectedOdds, marketType = "match") => {
-    if (!user && marketType === "ball") {
-      onShowAuth && onShowAuth("login");
-      toast.error("Please login to place bets");
-      return;
-    }
-    
     if (!isBettingOpen && marketType === "ball") {
       toast.error("Betting closed for this ball!");
       return;
@@ -223,16 +333,9 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
         toast.info("Already in bet slip");
         return prev;
       }
-      toast.success(`Added: ${selection}`);
-      return [...prev, { 
-        id: Date.now(), 
-        selection, 
-        type, 
-        odds: selectedOdds, 
-        stake: "", 
-        marketType,
-        status: "pending"
-      }];
+      toast.success(`Added: ${selection} @ ${selectedOdds}`);
+      setShowBetSlip(true);
+      return [...prev, { id: Date.now(), selection, type, odds: selectedOdds, stake: "", marketType, status: "pending" }];
     });
   };
 
@@ -267,803 +370,594 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
       return;
     }
     
-    // For demo, just deduct from local balance
     setBalance((prev) => prev - totalStake);
     toast.success(`Bet placed! Total: ₹${totalStake}`);
     setBetSlip([]);
-    
-    // Refresh wallet balance
-    if (user) {
-      fetchWallet();
-    }
+    setShowBetSlip(false);
+    if (user) fetchWallet();
   };
 
-  // ==================== FILTER TABS ====================
-  const FILTER_TABS = [
-    { id: "all", name: "All Markets" },
-    { id: "match", name: "Match Odds" },
-    { id: "ball", name: "Ball by Ball" },
-    { id: "over", name: "Over Markets" },
-    { id: "session", name: "Session Markets" },
-  ];
-
-  // ==================== OVER MARKETS DATA ====================
-  const getOverMarkets = () => {
-    const isT20 = match.format === "t20";
-    const overs = isT20 ? [5, 10, 15, 20] : [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
-    const currentOvers = Math.floor(match.score.balls / 6);
-    
-    return overs.filter((ov) => ov > currentOvers).map((ov) => {
-      const baseRuns = ov * 7.5; // Average run rate calculation
-      return {
-        over: ov,
-        lines: [
-          { line: Math.floor(baseRuns - 5) + 0.5, yesOdds: 1.85, noOdds: 1.95 },
-          { line: Math.floor(baseRuns + 5) + 0.5, yesOdds: 2.10, noOdds: 1.75 },
-        ],
-      };
-    });
+  // ==================== TOGGLE MARKET EXPANSION ====================
+  const toggleMarket = (market) => {
+    setExpandedMarkets((prev) => ({ ...prev, [market]: !prev[market] }));
   };
 
   // ==================== SESSION MARKETS DATA ====================
   const getSessionMarkets = () => {
     const isT20 = match.format === "t20";
     const currentOvers = Math.floor(match.score.balls / 6);
-    
     const sessions = [];
+    const sessionOvers = isT20 ? [6, 10, 15, 20] : [10, 20, 30, 40, 50];
     
-    // Define over intervals based on format
-    // T20: 5, 10, 15, 20 overs
-    // ODI: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 overs
-    const sessionOvers = isT20 
-      ? [5, 10, 15, 20] 
-      : [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
-    
-    // Always show "First 5 Overs" first (mandatory market)
-    // Then show remaining applicable session markets
     sessionOvers.forEach((ov) => {
-      // Only show future overs (not already passed)
       if (ov > currentOvers) {
-        // Calculate dynamic line based on run rate expectations
-        const baseRunRate = isT20 ? 8.0 : 5.5; // T20 usually faster
+        const baseRunRate = isT20 ? 8.0 : 5.5;
         const expectedRuns = Math.floor(ov * baseRunRate);
-        
         sessions.push({
-          title: `First ${ov} Overs`,
-          overs: ov,
-          markets: [
-            {
-              name: "Total Runs",
-              line: expectedRuns + 0.5,
-              overOdds: 1.90,
-              underOdds: 1.90,
-            },
-            {
-              name: "Wickets",
-              options: ov <= 10 ? ["0-1", "2-3", "4+"] : ov <= 25 ? ["0-2", "3-4", "5+"] : ["0-3", "4-5", "6+"],
-              odds: ov <= 10 ? [2.50, 2.00, 3.50] : ov <= 25 ? [2.20, 2.10, 3.00] : [2.00, 2.20, 3.20],
-            },
-            {
-              name: "Boundaries",
-              options: ov <= 10 ? ["0-4", "5-8", "9+"] : ov <= 25 ? ["0-12", "13-20", "21+"] : ["0-20", "21-35", "36+"],
-              odds: ov <= 10 ? [2.80, 1.90, 3.00] : ov <= 25 ? [2.50, 1.95, 2.80] : [2.30, 2.00, 2.70],
-            },
-          ],
+          name: ov === 6 && isT20 ? `Powerplay Runs` : `${ov} Over Runs`,
+          line: expectedRuns + 0.5,
+          yesOdds: +(1.85 + Math.random() * 0.1).toFixed(2),
+          noOdds: +(1.90 + Math.random() * 0.1).toFixed(2),
+          yesStake: Math.floor(500 + Math.random() * 1000),
+          noStake: Math.floor(500 + Math.random() * 1000),
         });
       }
     });
-
-    // Add Powerplay market for T20 (if not yet passed)
-    if (isT20 && currentOvers < 6) {
-      sessions.unshift({
-        title: "Powerplay (1-6 Overs)",
-        overs: 6,
-        isPowerplay: true,
-        markets: [
-          {
-            name: "Total Runs",
-            line: 48.5,
-            overOdds: 1.85,
-            underOdds: 1.95,
-          },
-          {
-            name: "Wickets",
-            options: ["0-1", "2-3", "4+"],
-            odds: [2.20, 2.00, 3.80],
-          },
-        ],
-      });
-    }
-
-    // Add "Next 2 Overs" market (dynamic based on current over)
-    sessions.push({
-      title: `Next 2 Overs (${currentOvers + 1}-${currentOvers + 2})`,
-      overs: 2,
-      isCustom: true,
-      markets: [
-        { name: "Runs", line: 14.5, overOdds: 1.85, underOdds: 1.95 },
-        { name: "Boundary", yesOdds: 1.55, noOdds: 2.40 },
-        { name: "Wicket", yesOdds: 3.50, noOdds: 1.30 },
-      ],
-    });
-
     return sessions;
   };
 
   // ==================== RENDER ====================
   return (
-    <div className="min-h-screen bg-[#0B0F1A] text-white">
+    <div className="min-h-screen bg-[#0D1117] text-white">
       {/* ==================== HEADER ==================== */}
-      <header className="bg-[#121826] border-b border-cyan-500/20 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-red-500 rounded-lg flex items-center justify-center">
-                <span className="text-xl font-bold">X</span>
-              </div>
-              <span className="text-xl font-bold">
-                Play<span className="text-yellow-400">X</span>bets
-              </span>
-            </Link>
-
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
-              <Link
-                to="/"
-                className={`font-medium transition-colors ${
-                  location.pathname === "/" ? "text-yellow-400" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                to="/exchange"
-                className={`font-medium transition-colors flex items-center gap-2 ${
-                  location.pathname === "/exchange" ? "text-cyan-400" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                Cricket
-              </Link>
-              <Link
-                to="/football-live"
-                className={`font-medium transition-colors flex items-center gap-2 ${
-                  location.pathname === "/football-live" ? "text-cyan-400" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                Soccer
-              </Link>
-            </nav>
-
-            {/* Balance & User */}
-            <div className="flex items-center gap-4">
-              <div className="bg-[#1E2736] px-4 py-2 rounded-lg">
-                <span className="text-gray-400 text-sm">Balance</span>
-                <span className="text-cyan-400 font-bold ml-2">₹{balance.toFixed(0)}</span>
-              </div>
-              {user ? (
-                <div className="hidden md:flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold">{user.username?.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <span className="text-sm">{user.username}</span>
-                  <button
-                    onClick={onLogout}
-                    className="text-xs text-gray-400 hover:text-red-400 transition-colors"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => onShowAuth && onShowAuth("login")}
-                  className="hidden md:block bg-cyan-500 hover:bg-cyan-600 text-white font-bold px-4 py-2 rounded-lg transition-colors"
-                >
-                  Login
-                </button>
-              )}
+      <header className="bg-[#161B22] border-b border-gray-800 sticky top-0 z-50">
+        <div className="flex items-center justify-between px-2 md:px-4 py-2">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-1 md:gap-2">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-yellow-400 to-red-500 rounded-lg flex items-center justify-center">
+              <span className="text-lg md:text-xl font-bold">X</span>
             </div>
+            <span className="text-base md:text-xl font-bold hidden sm:block">
+              Play<span className="text-yellow-400">X</span>bets
+            </span>
+          </Link>
+
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center gap-4">
+            <Link to="/" className="text-sm text-gray-400 hover:text-white transition-colors">Home</Link>
+            <Link to="/exchange" className="text-sm text-cyan-400 font-medium flex items-center gap-1">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              Cricket
+            </Link>
+            <Link to="/football-live" className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              Soccer
+            </Link>
+          </nav>
+
+          {/* Balance & User */}
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="bg-[#21262D] px-2 md:px-3 py-1.5 rounded-lg flex items-center gap-1">
+              <span className="text-[10px] md:text-xs text-gray-400">Bal:</span>
+              <span className="text-xs md:text-sm font-bold text-green-400">₹{balance.toFixed(0)}</span>
+            </div>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-xs md:text-sm font-bold">{user.username?.charAt(0).toUpperCase()}</span>
+                </div>
+                <button onClick={onLogout} className="text-xs text-gray-400 hover:text-red-400 hidden md:block">Logout</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => onShowAuth && onShowAuth("login")}
+                className="bg-cyan-500 hover:bg-cyan-600 text-white text-xs md:text-sm font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* ==================== MATCH HEADER ==================== */}
-      <div className="bg-gradient-to-r from-[#121826] via-[#1a2435] to-[#121826] border-b border-cyan-500/10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            {/* Match Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                <span className="text-red-400 text-sm font-semibold">LIVE</span>
-                
-                {/* Format Toggle */}
-                <div className="flex bg-[#0B0F1A] rounded-lg p-1 ml-4">
-                  <button
-                    onClick={() => toggleFormat("t20")}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${
-                      match.format === "t20"
-                        ? "bg-cyan-500 text-white"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    T20
-                  </button>
-                  <button
-                    onClick={() => toggleFormat("odi")}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${
-                      match.format === "odi"
-                        ? "bg-cyan-500 text-white"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    ODI
-                  </button>
-                </div>
+      {/* ==================== MATCH INFO BAR ==================== */}
+      <div className="bg-gradient-to-r from-[#1a2332] to-[#1E2736] border-b border-gray-800">
+        <div className="px-2 md:px-4 py-2 md:py-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            {/* Match Title */}
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span className="text-[10px] md:text-xs text-red-400 font-semibold">LIVE</span>
+              <span className="text-xs md:text-sm font-bold text-white">{match.team1} vs {match.team2}</span>
+              
+              {/* Format Toggle */}
+              <div className="flex bg-[#0D1117] rounded p-0.5 ml-2">
+                <button
+                  onClick={() => toggleFormat("t20")}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                    match.format === "t20" ? "bg-cyan-500 text-white" : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  T20
+                </button>
+                <button
+                  onClick={() => toggleFormat("odi")}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                    match.format === "odi" ? "bg-cyan-500 text-white" : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  ODI
+                </button>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold">
-                {match.team1} <span className="text-gray-500">vs</span> {match.team2}
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">
-                {match.battingTeam} batting • {match.format.toUpperCase()} Match
-              </p>
             </div>
 
             {/* Score & Stats */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 md:gap-6">
               <div className="text-center">
-                <div className="text-3xl md:text-4xl font-bold text-cyan-400">
+                <div className="text-xl md:text-2xl font-bold text-cyan-400">
                   {match.score.runs}/{match.score.wickets}
                 </div>
-                <div className="text-sm text-gray-400">
-                  ({formatOvers(match.score.balls)} ov)
-                </div>
+                <div className="text-[10px] md:text-xs text-gray-400">({formatOvers(match.score.balls)} ov)</div>
               </div>
-              <div className="text-center">
-                <div className="text-sm text-gray-400">CRR</div>
-                <div className="text-xl font-bold">{match.crr}</div>
+              <div className="text-center hidden sm:block">
+                <div className="text-[10px] text-gray-400">CRR</div>
+                <div className="text-sm font-bold">{match.crr}</div>
               </div>
-              <div className="text-center">
-                <div className="text-sm text-gray-400">Partnership</div>
-                <div className="text-lg font-bold">{match.partnership.runs}({match.partnership.balls})</div>
+              <div className="text-center hidden sm:block">
+                <div className="text-[10px] text-gray-400">Partnership</div>
+                <div className="text-sm font-bold">{match.partnership.runs}({match.partnership.balls})</div>
               </div>
-            </div>
-
-            {/* This Over & Timer */}
-            <div className="flex items-center gap-6">
-              <div>
-                <div className="text-sm text-gray-400 mb-2">This Over</div>
-                <div className="flex gap-1">
-                  {match.currentOver.map((ball, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        ball === null
-                          ? "bg-gray-700/50 text-gray-600"
-                          : ball === 4 || ball === 6
-                          ? "bg-green-500 text-white"
-                          : ball === "W"
-                          ? "bg-red-500 text-white"
-                          : ball === "WD"
-                          ? "bg-yellow-500 text-black"
-                          : ball === 0
-                          ? "bg-gray-600 text-white"
-                          : "bg-blue-500 text-white"
-                      }`}
-                    >
-                      {ball === null ? "•" : ball}
-                    </div>
-                  ))}
-                </div>
+              
+              {/* This Over */}
+              <div className="flex items-center gap-1">
+                {match.currentOver.map((ball, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold ${
+                      ball === null ? "bg-gray-700/50 text-gray-600" :
+                      ball === 4 || ball === 6 ? "bg-green-500 text-white" :
+                      ball === "W" ? "bg-red-500 text-white" :
+                      ball === "WD" ? "bg-yellow-500 text-black" :
+                      ball === 0 ? "bg-gray-600 text-white" : "bg-blue-500 text-white"
+                    }`}
+                  >
+                    {ball === null ? "." : ball}
+                  </div>
+                ))}
               </div>
               
               {/* Ball Timer */}
               <div className="text-center">
-                <div className="text-sm text-gray-400 mb-1">Next Ball In</div>
-                <div
-                  className={`text-3xl font-bold ${
-                    ballTimer <= 3 ? "text-red-500 animate-pulse" : "text-cyan-400"
-                  }`}
-                >
+                <div className={`text-lg md:text-xl font-bold ${ballTimer <= 3 ? "text-red-500 animate-pulse" : "text-cyan-400"}`}>
                   {ballTimer}s
                 </div>
-                <div
-                  className={`text-xs mt-1 px-2 py-1 rounded ${
-                    isBettingOpen
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-red-500/20 text-red-400"
-                  }`}
-                >
-                  {isBettingOpen ? "BETTING OPEN" : "BETTING CLOSED"}
+                <div className={`text-[8px] md:text-[10px] px-1.5 py-0.5 rounded ${
+                  isBettingOpen ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                }`}>
+                  {isBettingOpen ? "OPEN" : "CLOSED"}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ==================== FILTER TABS ==================== */}
-      <div className="bg-[#121826] border-b border-cyan-500/10 overflow-x-auto">
-        <div className="container mx-auto px-4">
-          <div className="flex gap-1 py-2">
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveFilter(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                  activeFilter === tab.id
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                {tab.name}
-              </button>
-            ))}
           </div>
         </div>
       </div>
 
       {/* ==================== MAIN CONTENT ==================== */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* ==================== LEFT - MARKETS (70%) ==================== */}
-          <div className="lg:w-[70%] space-y-6">
-            {/* ========== MATCH ODDS ========== */}
-            {(activeFilter === "all" || activeFilter === "match") && (
-              <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-cyan-400 rounded"></span>
-                  Match Odds
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {[
-                    { name: match.team1, odds: odds.team1 },
-                    { name: match.team2, odds: odds.team2 },
-                  ].map((team) => (
-                    <div
-                      key={team.name}
-                      className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800 hover:border-cyan-500/30 transition-colors"
-                    >
-                      <h3 className="font-semibold mb-3">{team.name}</h3>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 w-10">Back</span>
-                          <div className="flex gap-1 flex-1">
-                            {team.odds.back.map((o, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => addToBetSlip(team.name, "Back", o)}
-                                className="flex-1 bg-[#1E90FF]/20 hover:bg-[#1E90FF]/40 border border-[#1E90FF]/50 text-[#1E90FF] font-bold py-2 rounded-lg transition-all hover:scale-105"
-                              >
-                                {o.toFixed(2)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 w-10">Lay</span>
-                          <div className="flex gap-1 flex-1">
-                            {team.odds.lay.map((o, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => addToBetSlip(team.name, "Lay", o)}
-                                className="flex-1 bg-[#FF4D4D]/20 hover:bg-[#FF4D4D]/40 border border-[#FF4D4D]/50 text-[#FF4D4D] font-bold py-2 rounded-lg transition-all hover:scale-105"
-                              >
-                                {o.toFixed(2)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      <div className="flex flex-col lg:flex-row">
+        {/* ==================== LEFT - MARKETS ==================== */}
+        <div className="flex-1 p-2 md:p-4 space-y-2 md:space-y-3 pb-20 lg:pb-4">
+          
+          {/* ========== MATCH ODDS ========== */}
+          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="match-odds-market">
+            <MarketHeader 
+              title="Match Odds" 
+              isExpanded={expandedMarkets.matchOdds}
+              onToggle={() => toggleMarket('matchOdds')}
+              showTV={true}
+            />
+            {expandedMarkets.matchOdds && (
+              <div className="overflow-x-auto">
+                <ColumnHeaders />
+                <MarketRow
+                  name={match.team1}
+                  backOdds={odds.team1.back}
+                  layOdds={odds.team1.lay}
+                  backStakes={odds.team1.backStakes}
+                  layStakes={odds.team1.layStakes}
+                  onSelectOdds={addToBetSlip}
+                />
+                <MarketRow
+                  name={match.team2}
+                  backOdds={odds.team2.back}
+                  layOdds={odds.team2.lay}
+                  backStakes={odds.team2.backStakes}
+                  layStakes={odds.team2.layStakes}
+                  onSelectOdds={addToBetSlip}
+                  highlight
+                />
               </div>
             )}
+          </div>
 
-            {/* ========== BALL-BY-BALL ========== */}
-            {(activeFilter === "all" || activeFilter === "ball") && (
-              <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold flex items-center gap-2">
-                    <span className="w-1 h-6 bg-green-400 rounded"></span>
-                    Next Ball Betting
-                  </h2>
-                  <div
-                    className={`text-sm px-3 py-1 rounded-full ${
-                      isBettingOpen
-                        ? "bg-green-500/20 text-green-400"
-                        : "bg-red-500/20 text-red-400"
-                    }`}
-                  >
-                    {isBettingOpen ? `Open (${ballTimer}s)` : "Closed"}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* ========== BOOKMAKER ========== */}
+          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="bookmaker-market">
+            <MarketHeader 
+              title="Bookmaker" 
+              isExpanded={expandedMarkets.bookmaker}
+              onToggle={() => toggleMarket('bookmaker')}
+            />
+            {expandedMarkets.bookmaker && (
+              <div className="overflow-x-auto">
+                <ColumnHeaders />
+                <MarketRow
+                  name={match.team1}
+                  backOdds={[+(odds.team1.back[0] - 0.02).toFixed(2), +(odds.team1.back[1] - 0.02).toFixed(2), +(odds.team1.back[2] - 0.02).toFixed(2)]}
+                  layOdds={[+(odds.team1.lay[0] + 0.02).toFixed(2), +(odds.team1.lay[1] + 0.02).toFixed(2), +(odds.team1.lay[2] + 0.02).toFixed(2)]}
+                  backStakes={[2500, 1800, 900]}
+                  layStakes={[2200, 1500, 800]}
+                  onSelectOdds={(name, type, odds) => addToBetSlip(`${name} (BM)`, type, odds)}
+                />
+                <MarketRow
+                  name={match.team2}
+                  backOdds={[+(odds.team2.back[0] - 0.02).toFixed(2), +(odds.team2.back[1] - 0.02).toFixed(2), +(odds.team2.back[2] - 0.02).toFixed(2)]}
+                  layOdds={[+(odds.team2.lay[0] + 0.02).toFixed(2), +(odds.team2.lay[1] + 0.02).toFixed(2), +(odds.team2.lay[2] + 0.02).toFixed(2)]}
+                  backStakes={[1800, 1200, 600]}
+                  layStakes={[1600, 1000, 500]}
+                  onSelectOdds={(name, type, odds) => addToBetSlip(`${name} (BM)`, type, odds)}
+                  highlight
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ========== BALL BY BALL ========== */}
+          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="ball-by-ball-market">
+            <MarketHeader 
+              title={`Next Ball (${isBettingOpen ? `${ballTimer}s` : 'CLOSED'})`}
+              isExpanded={expandedMarkets.ballByBall}
+              onToggle={() => toggleMarket('ballByBall')}
+            />
+            {expandedMarkets.ballByBall && (
+              <div className="p-2 md:p-3">
+                <div className="grid grid-cols-4 md:grid-cols-8 gap-1 md:gap-2">
                   {BALL_OUTCOMES.map((outcome) => (
                     <button
                       key={outcome.id}
                       onClick={() => addToBetSlip(outcome.name, "Back", outcome.odds, "ball")}
                       disabled={!isBettingOpen}
-                      className={`${outcome.color}/20 hover:${outcome.color}/40 border border-gray-700 rounded-xl p-4 transition-all group ${
-                        !isBettingOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 hover:border-green-500/50"
+                      className={`p-2 md:p-3 rounded-lg border transition-all ${
+                        !isBettingOpen 
+                          ? "opacity-50 cursor-not-allowed bg-gray-800 border-gray-700" 
+                          : "bg-[#21262D] border-gray-700 hover:border-cyan-500/50 hover:bg-[#2a3441] active:scale-95"
                       }`}
+                      data-testid={`ball-outcome-${outcome.id}`}
                     >
-                      <div className="text-2xl font-bold mb-1">{outcome.short}</div>
-                      <div className="text-xs text-gray-400">{outcome.name}</div>
-                      <div className="text-lg font-bold text-green-400 mt-2">{outcome.odds.toFixed(2)}</div>
+                      <div className={`text-lg md:text-xl font-bold ${outcome.id === 'wicket' ? 'text-red-400' : outcome.id === '4' || outcome.id === '6' ? 'text-green-400' : 'text-white'}`}>
+                        {outcome.short}
+                      </div>
+                      <div className="text-[8px] md:text-[10px] text-gray-400 truncate">{outcome.name}</div>
+                      <div className="text-xs md:text-sm font-bold text-cyan-400 mt-1">{outcome.odds.toFixed(2)}</div>
                     </button>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* ========== OVER MARKETS ========== */}
-            {(activeFilter === "all" || activeFilter === "over") && (
-              <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-yellow-400 rounded"></span>
-                  Over Markets ({match.format.toUpperCase()})
-                </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getOverMarkets().slice(0, 6).map((market) => (
-                    <div
-                      key={market.over}
-                      className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800"
-                    >
-                      <h3 className="font-semibold text-yellow-400 mb-3">
-                        {market.over} Over Runs
-                      </h3>
-                      <div className="space-y-2">
-                        {market.lines.map((line, idx) => (
-                          <div key={idx} className="flex gap-2">
-                            <span className="text-xs text-gray-400 w-14 flex items-center">
-                              {line.line}
-                            </span>
-                            <button
-                              onClick={() => addToBetSlip(`${market.over}ov Over ${line.line}`, "Yes", line.yesOdds)}
-                              className="flex-1 bg-green-500/20 hover:bg-green-500/40 border border-green-500/30 text-green-400 text-sm font-bold py-2 rounded transition-all"
-                            >
-                              Yes {line.yesOdds}
-                            </button>
-                            <button
-                              onClick={() => addToBetSlip(`${market.over}ov Under ${line.line}`, "No", line.noOdds)}
-                              className="flex-1 bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 text-red-400 text-sm font-bold py-2 rounded transition-all"
-                            >
-                              No {line.noOdds}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ========== SESSION MARKETS ========== */}
-            {(activeFilter === "all" || activeFilter === "session") && (
-              <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold flex items-center gap-2">
-                    <span className="w-1 h-6 bg-purple-400 rounded"></span>
-                    Session Markets ({match.format.toUpperCase()})
-                  </h2>
-                  <div className="text-xs text-gray-400">
-                    {match.format === "t20" ? "T20: 5, 10, 15, 20 overs" : "ODI: 5, 10, 15...50 overs"}
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getSessionMarkets().map((session, idx) => (
-                    <div
-                      key={idx}
-                      className={`bg-[#0B0F1A] rounded-xl p-4 border transition-all hover:border-purple-500/30 ${
-                        session.isPowerplay 
-                          ? "border-yellow-500/30 bg-gradient-to-br from-[#0B0F1A] to-yellow-900/10" 
-                          : session.isCustom 
-                          ? "border-cyan-500/30" 
-                          : session.title === "First 5 Overs"
-                          ? "border-green-500/30 bg-gradient-to-br from-[#0B0F1A] to-green-900/10"
-                          : "border-gray-800"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className={`font-semibold ${
-                          session.isPowerplay 
-                            ? "text-yellow-400" 
-                            : session.isCustom 
-                            ? "text-cyan-400" 
-                            : session.title === "First 5 Overs"
-                            ? "text-green-400"
-                            : "text-purple-400"
-                        }`}>
-                          {session.title}
-                        </h3>
-                        {session.title === "First 5 Overs" && (
-                          <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">POPULAR</span>
-                        )}
-                        {session.isPowerplay && (
-                          <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">POWERPLAY</span>
-                        )}
-                      </div>
-                      <div className="space-y-3">
-                        {session.markets.map((market, mIdx) => (
-                          <div key={mIdx}>
-                            <div className="text-xs text-gray-400 mb-1.5 flex items-center justify-between">
-                              <span>{market.name}</span>
-                              {market.line && <span className="text-gray-500">Line: {market.line}</span>}
-                            </div>
-                            {market.overOdds && market.underOdds ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Over ${market.line || ''}`, "Over", market.overOdds)}
-                                  className="flex-1 bg-[#1E90FF]/20 hover:bg-[#1E90FF]/40 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded transition-all hover:scale-105"
-                                >
-                                  Over {market.overOdds}
-                                </button>
-                                <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Under ${market.line || ''}`, "Under", market.underOdds)}
-                                  className="flex-1 bg-[#FF4D4D]/20 hover:bg-[#FF4D4D]/40 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded transition-all hover:scale-105"
-                                >
-                                  Under {market.underOdds}
-                                </button>
-                              </div>
-                            ) : market.yesOdds && market.noOdds ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} Yes`, "Yes", market.yesOdds)}
-                                  className="flex-1 bg-green-500/20 hover:bg-green-500/40 border border-green-500/30 text-green-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
-                                >
-                                  Yes {market.yesOdds}
-                                </button>
-                                <button
-                                  onClick={() => addToBetSlip(`${session.title} ${market.name} No`, "No", market.noOdds)}
-                                  className="flex-1 bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 text-red-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
-                                >
-                                  No {market.noOdds}
-                                </button>
-                              </div>
-                            ) : market.options ? (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {market.options.map((opt, oIdx) => (
-                                  <button
-                                    key={opt}
-                                    onClick={() => addToBetSlip(`${session.title} ${market.name} ${opt}`, opt, market.odds[oIdx])}
-                                    className="flex-1 min-w-[60px] bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/30 text-purple-400 text-xs font-bold py-2 rounded transition-all hover:scale-105"
-                                  >
-                                    {opt} <span className="text-purple-300">({market.odds[oIdx]})</span>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ========== EXTRA MARKETS (COLLAPSIBLE) ========== */}
-            {(activeFilter === "all") && (
-              <div className="bg-[#121826] rounded-xl p-4 border border-cyan-500/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-orange-400 rounded"></span>
-                  Extra Markets
-                </h2>
-                <div className="grid md:grid-cols-3 gap-4">
-                  {/* Fall of Wicket */}
-                  <div className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800">
-                    <h3 className="font-semibold text-orange-400 mb-3">Fall of Wicket</h3>
-                    <div className="text-sm text-gray-400 mb-2">
-                      Last Wicket: {match.lastWicket.runs} ({match.lastWicket.over})
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => addToBetSlip("Next Wicket Over 65", "Over", 1.90)}
-                        className="flex-1 bg-[#1E90FF]/20 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded"
-                      >
-                        Over 65 (1.90)
-                      </button>
-                      <button
-                        onClick={() => addToBetSlip("Next Wicket Under 65", "Under", 1.90)}
-                        className="flex-1 bg-[#FF4D4D]/20 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded"
-                      >
-                        Under 65 (1.90)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Partnership */}
-                  <div className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800">
-                    <h3 className="font-semibold text-orange-400 mb-3">Partnership Runs</h3>
-                    <div className="text-sm text-gray-400 mb-2">
-                      Current: {match.partnership.runs} ({match.partnership.balls} balls)
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => addToBetSlip("Partnership Over 40", "Over", 1.85)}
-                        className="flex-1 bg-[#1E90FF]/20 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded"
-                      >
-                        Over 40 (1.85)
-                      </button>
-                      <button
-                        onClick={() => addToBetSlip("Partnership Under 40", "Under", 1.95)}
-                        className="flex-1 bg-[#FF4D4D]/20 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded"
-                      >
-                        Under 40 (1.95)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Over-by-Over */}
-                  <div className="bg-[#0B0F1A] rounded-xl p-4 border border-gray-800">
-                    <h3 className="font-semibold text-orange-400 mb-3">Over-by-Over</h3>
-                    <div className="text-sm text-gray-400 mb-2">
-                      Next Over Runs
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => addToBetSlip("Next Over Over 7", "Over", 1.80)}
-                        className="flex-1 bg-[#1E90FF]/20 border border-[#1E90FF]/30 text-[#1E90FF] text-xs font-bold py-2 rounded"
-                      >
-                        Over 7 (1.80)
-                      </button>
-                      <button
-                        onClick={() => addToBetSlip("Next Over Under 7", "Under", 2.00)}
-                        className="flex-1 bg-[#FF4D4D]/20 border border-[#FF4D4D]/30 text-[#FF4D4D] text-xs font-bold py-2 rounded"
-                      >
-                        Under 7 (2.00)
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ==================== RIGHT - BET SLIP (30%) ==================== */}
-          <div className="lg:w-[30%]">
-            <div className="bg-[#121826] rounded-xl border border-cyan-500/10 sticky top-24">
-              {/* Header */}
-              <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-                <h2 className="text-lg font-bold">Bet Slip</h2>
-                <span className="bg-cyan-500/20 text-cyan-400 text-sm px-2 py-1 rounded">
-                  {betSlip.length}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="p-4 max-h-[400px] overflow-y-auto">
-                {betSlip.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <div className="text-4xl mb-2">📋</div>
-                    <p>Click odds to add selections</p>
+          {/* ========== SESSION MARKETS ========== */}
+          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="session-markets">
+            <MarketHeader 
+              title={`Session Markets (${match.format.toUpperCase()})`}
+              isExpanded={expandedMarkets.sessionMarkets}
+              onToggle={() => toggleMarket('sessionMarkets')}
+            />
+            {expandedMarkets.sessionMarkets && (
+              <div className="overflow-x-auto">
+                <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
+                  <div className="flex-1 min-w-[140px] p-2">
+                    <span className="text-[10px] md:text-xs text-gray-400">Session</span>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {betSlip.map((bet) => (
-                      <div
-                        key={bet.id}
-                        className="bg-[#0B0F1A] rounded-lg p-3 border border-gray-800"
+                  <div className="flex">
+                    <div className="w-[60px] p-1 text-center bg-[#FAA9BA]/20">
+                      <span className="text-[10px] font-bold text-[#FAA9BA]">No</span>
+                    </div>
+                    <div className="w-[60px] p-1 text-center bg-[#72BBEF]/20">
+                      <span className="text-[10px] font-bold text-[#72BBEF]">Yes</span>
+                    </div>
+                  </div>
+                </div>
+                {getSessionMarkets().map((session, idx) => (
+                  <div key={idx} className={`flex items-stretch border-b border-gray-700/50 ${idx % 2 === 0 ? 'bg-[#1E2736]' : 'bg-[#1a2a3a]'}`}>
+                    <div className="flex-1 min-w-[140px] p-2 md:p-3 flex flex-col justify-center">
+                      <span className="text-xs md:text-sm text-white font-medium">{session.name}</span>
+                      <span className="text-[10px] text-gray-400">Line: {session.line}</span>
+                    </div>
+                    <div className="flex">
+                      <button
+                        onClick={() => addToBetSlip(`${session.name} Under ${session.line}`, "No", session.noOdds)}
+                        className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-colors"
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="font-medium text-sm">{bet.selection}</div>
-                            <div
-                              className={`text-xs ${
-                                bet.type === "Back" || bet.type === "Over" || bet.type === "Yes"
-                                  ? "text-[#1E90FF]"
-                                  : "text-[#FF4D4D]"
-                              }`}
-                            >
-                              {bet.type} @ {bet.odds.toFixed(2)}
-                              {bet.marketType === "ball" && (
-                                <span className="ml-2 text-green-400">(Ball Market)</span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeFromBetSlip(bet.id)}
-                            className="text-gray-500 hover:text-red-400 text-lg"
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <input
-                          type="number"
-                          placeholder="Stake ₹"
-                          value={bet.stake}
-                          onChange={(e) => updateStake(bet.id, e.target.value)}
-                          className="w-full bg-[#1a2435] border border-gray-700 rounded px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none"
-                        />
-                        {bet.stake && (
-                          <div className="mt-2 text-right">
-                            <span className="text-gray-400 text-xs">Profit: </span>
-                            <span className="text-green-400 font-bold">
-                              ₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                        <span className="text-sm font-bold text-gray-900">{session.noOdds.toFixed(2)}</span>
+                        <span className="text-[10px] text-gray-700">{session.noStake}</span>
+                      </button>
+                      <button
+                        onClick={() => addToBetSlip(`${session.name} Over ${session.line}`, "Yes", session.yesOdds)}
+                        className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-colors"
+                      >
+                        <span className="text-sm font-bold text-gray-900">{session.yesOdds.toFixed(2)}</span>
+                        <span className="text-[10px] text-gray-700">{session.yesStake}</span>
+                      </button>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
+            )}
+          </div>
 
-              {/* Footer */}
-              {betSlip.length > 0 && (
-                <div className="p-4 border-t border-gray-800 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Total Stake:</span>
-                    <span className="font-bold">
-                      ₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0).toFixed(2)}
-                    </span>
+          {/* ========== EXTRA MARKETS ========== */}
+          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800">
+            <MarketHeader 
+              title="Fall of Wicket / Partnership"
+              isExpanded={expandedMarkets.overMarkets}
+              onToggle={() => toggleMarket('overMarkets')}
+            />
+            {expandedMarkets.overMarkets && (
+              <div className="overflow-x-auto">
+                <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
+                  <div className="flex-1 min-w-[140px] p-2">
+                    <span className="text-[10px] md:text-xs text-gray-400">Market</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Potential Profit:</span>
-                    <span className="text-green-400 font-bold">
-                      ₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0) * (b.odds - 1), 0).toFixed(2)}
-                    </span>
+                  <div className="flex">
+                    <div className="w-[60px] p-1 text-center bg-[#FAA9BA]/20">
+                      <span className="text-[10px] font-bold text-[#FAA9BA]">No</span>
+                    </div>
+                    <div className="w-[60px] p-1 text-center bg-[#72BBEF]/20">
+                      <span className="text-[10px] font-bold text-[#72BBEF]">Yes</span>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
+                </div>
+                {/* Fall of Wicket */}
+                <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
+                  <div className="flex-1 min-w-[140px] p-2 md:p-3 flex flex-col justify-center">
+                    <span className="text-xs md:text-sm text-white font-medium">Next Wicket Runs</span>
+                    <span className="text-[10px] text-gray-400">Last: {match.lastWicket.runs} ({match.lastWicket.over})</span>
+                  </div>
+                  <div className="flex">
                     <button
-                      onClick={clearBetSlip}
-                      className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition-colors"
+                      onClick={() => addToBetSlip("Next Wicket Under 65", "No", 1.90)}
+                      className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-colors"
                     >
-                      Clear
+                      <span className="text-sm font-bold text-gray-900">1.90</span>
+                      <span className="text-[10px] text-gray-700">650</span>
                     </button>
                     <button
-                      onClick={placeBet}
-                      className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 rounded-lg transition-all hover:scale-105"
+                      onClick={() => addToBetSlip("Next Wicket Over 65", "Yes", 1.90)}
+                      className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-colors"
                     >
-                      Place Bet
+                      <span className="text-sm font-bold text-gray-900">1.90</span>
+                      <span className="text-[10px] text-gray-700">580</span>
                     </button>
                   </div>
                 </div>
+                {/* Partnership */}
+                <div className="flex items-stretch border-b border-gray-700/50 bg-[#1a2a3a]">
+                  <div className="flex-1 min-w-[140px] p-2 md:p-3 flex flex-col justify-center">
+                    <span className="text-xs md:text-sm text-white font-medium">Partnership Runs</span>
+                    <span className="text-[10px] text-gray-400">Current: {match.partnership.runs} ({match.partnership.balls}b)</span>
+                  </div>
+                  <div className="flex">
+                    <button
+                      onClick={() => addToBetSlip("Partnership Under 40", "No", 1.95)}
+                      className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-colors"
+                    >
+                      <span className="text-sm font-bold text-gray-900">1.95</span>
+                      <span className="text-[10px] text-gray-700">720</span>
+                    </button>
+                    <button
+                      onClick={() => addToBetSlip("Partnership Over 40", "Yes", 1.85)}
+                      className="flex flex-col items-center justify-center p-1 w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-colors"
+                    >
+                      <span className="text-sm font-bold text-gray-900">1.85</span>
+                      <span className="text-[10px] text-gray-700">680</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ==================== RIGHT - BET SLIP (Desktop) ==================== */}
+        <div className="hidden lg:block w-[320px] p-4">
+          <div className="bg-[#161B22] rounded-lg border border-gray-800 sticky top-20">
+            <div className="p-3 border-b border-gray-800 flex items-center justify-between bg-[#21262D] rounded-t-lg">
+              <h2 className="text-sm font-bold">Bet Slip</h2>
+              <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-0.5 rounded">{betSlip.length}</span>
+            </div>
+
+            <div className="p-3 max-h-[400px] overflow-y-auto">
+              {betSlip.length === 0 ? (
+                <div className="text-center text-gray-500 py-6">
+                  <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Click odds to add selections</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {betSlip.map((bet) => (
+                    <div key={bet.id} className="bg-[#21262D] rounded-lg p-2 border border-gray-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="text-xs font-medium text-white">{bet.selection}</div>
+                          <div className={`text-[10px] ${bet.type === "Back" || bet.type === "Yes" ? "text-[#72BBEF]" : "text-[#FAA9BA]"}`}>
+                            {bet.type} @ {bet.odds.toFixed(2)}
+                          </div>
+                        </div>
+                        <button onClick={() => removeFromBetSlip(bet.id)} className="text-gray-500 hover:text-red-400 text-lg leading-none">×</button>
+                      </div>
+                      <input
+                        type="number"
+                        placeholder="Stake ₹"
+                        value={bet.stake}
+                        onChange={(e) => updateStake(bet.id, e.target.value)}
+                        className="w-full bg-[#0D1117] border border-gray-700 rounded px-2 py-1.5 text-xs focus:border-cyan-500 focus:outline-none"
+                      />
+                      {bet.stake && (
+                        <div className="mt-1 text-right">
+                          <span className="text-gray-400 text-[10px]">Profit: </span>
+                          <span className="text-green-400 text-xs font-bold">₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
+
+            {betSlip.length > 0 && (
+              <div className="p-3 border-t border-gray-800 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Total Stake:</span>
+                  <span className="font-bold">₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Potential Profit:</span>
+                  <span className="text-green-400 font-bold">₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0) * (b.odds - 1), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={clearBetSlip} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+                    Clear
+                  </button>
+                  <button 
+                    onClick={placeBet} 
+                    className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold py-2 rounded-lg transition-all"
+                    data-testid="place-bet-btn"
+                  >
+                    Place Bet
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* ==================== MOBILE BOTTOM NAV ==================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#121826] border-t border-cyan-500/20 p-2 z-50">
-        <div className="flex justify-around">
-          {[
-            { id: "odds", name: "Odds", icon: "📊", filter: "match" },
-            { id: "ball", name: "Ball", icon: "🏏", filter: "ball" },
-            { id: "over", name: "Overs", icon: "📈", filter: "over" },
-            { id: "session", name: "Sessions", icon: "📋", filter: "session" },
-            { id: "bets", name: `Bets (${betSlip.length})`, icon: "🎫", filter: null },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setMobileTab(tab.id);
-                if (tab.filter) {
-                  setActiveFilter(tab.filter);
-                  window.scrollTo({ top: 400, behavior: "smooth" });
-                } else {
-                  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-                }
-              }}
-              className={`flex flex-col items-center px-3 py-2 rounded-lg ${
-                mobileTab === tab.id ? "bg-cyan-500/20 text-cyan-400" : "text-gray-400"
-              }`}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              <span className="text-xs">{tab.name}</span>
-            </button>
-          ))}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#161B22] border-t border-gray-800 z-50">
+        <div className="flex justify-around py-2">
+          <Link to="/" className="flex flex-col items-center px-3 py-1 text-gray-400">
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px]">Home</span>
+          </Link>
+          <Link to="/exchange" className="flex flex-col items-center px-3 py-1 text-cyan-400">
+            <Tv className="w-5 h-5" />
+            <span className="text-[10px]">Cricket</span>
+          </Link>
+          <button
+            onClick={() => setShowBetSlip(true)}
+            className="flex flex-col items-center px-3 py-1 text-yellow-400 relative"
+            data-testid="mobile-betslip-btn"
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-[10px]">Bet Slip</span>
+            {betSlip.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                {betSlip.length}
+              </span>
+            )}
+          </button>
+          <Link to="/football-live" className="flex flex-col items-center px-3 py-1 text-gray-400">
+            <Clock className="w-5 h-5" />
+            <span className="text-[10px]">Soccer</span>
+          </Link>
         </div>
       </div>
 
-      {/* Bottom padding for mobile */}
-      <div className="lg:hidden h-20"></div>
+      {/* ==================== MOBILE BET SLIP MODAL ==================== */}
+      {showBetSlip && (
+        <div className="lg:hidden fixed inset-0 bg-black/80 z-50 flex items-end">
+          <div className="w-full bg-[#161B22] rounded-t-2xl max-h-[80vh] overflow-hidden animate-slide-up">
+            <div className="p-3 border-b border-gray-800 flex items-center justify-between bg-[#21262D]">
+              <h2 className="text-sm font-bold">Bet Slip ({betSlip.length})</h2>
+              <button onClick={() => setShowBetSlip(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 max-h-[50vh] overflow-y-auto">
+              {betSlip.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Click odds to add selections</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {betSlip.map((bet) => (
+                    <div key={bet.id} className="bg-[#21262D] rounded-lg p-3 border border-gray-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="text-sm font-medium text-white">{bet.selection}</div>
+                          <div className={`text-xs ${bet.type === "Back" || bet.type === "Yes" ? "text-[#72BBEF]" : "text-[#FAA9BA]"}`}>
+                            {bet.type} @ {bet.odds.toFixed(2)}
+                          </div>
+                        </div>
+                        <button onClick={() => removeFromBetSlip(bet.id)} className="text-gray-500 hover:text-red-400 text-xl">×</button>
+                      </div>
+                      <input
+                        type="number"
+                        placeholder="Stake ₹"
+                        value={bet.stake}
+                        onChange={(e) => updateStake(bet.id, e.target.value)}
+                        className="w-full bg-[#0D1117] border border-gray-700 rounded px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none"
+                      />
+                      {bet.stake && (
+                        <div className="mt-2 text-right">
+                          <span className="text-gray-400 text-xs">Profit: </span>
+                          <span className="text-green-400 font-bold">₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {betSlip.length > 0 && (
+              <div className="p-3 border-t border-gray-800 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Total Stake:</span>
+                  <span className="font-bold">₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Potential Profit:</span>
+                  <span className="text-green-400 font-bold">₹{betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0) * (b.odds - 1), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={clearBetSlip} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg">
+                    Clear
+                  </button>
+                  <button 
+                    onClick={placeBet} 
+                    className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 rounded-lg"
+                    data-testid="mobile-place-bet-btn"
+                  >
+                    Place Bet
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
