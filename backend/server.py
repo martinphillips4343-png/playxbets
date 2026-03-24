@@ -141,6 +141,8 @@ class Bet(BaseModel):
     odds: float
     stake: float
     potential_win: float
+    bet_type: str = "back"  # "back" or "lay"
+    market_type: str = "match"  # "match", "ball", "session", "over", etc.
     status: BetStatus = BetStatus.PENDING
     placed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     settled_at: Optional[datetime] = None
@@ -150,6 +152,8 @@ class BetCreate(BaseModel):
     selected_team: str
     odds: float
     stake: float
+    bet_type: str = "back"  # "back" or "lay"
+    market_type: str = "match"  # "match", "ball", "session", "over", etc.
 
 class WithdrawalRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -709,7 +713,9 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
         selected_team=bet_input.selected_team,
         odds=bet_input.odds,
         stake=bet_input.stake,
-        potential_win=bet_input.stake * bet_input.odds
+        potential_win=bet_input.stake * bet_input.odds,
+        bet_type=bet_input.bet_type,
+        market_type=bet_input.market_type
     )
     
     await db.bets.insert_one(bet.model_dump())

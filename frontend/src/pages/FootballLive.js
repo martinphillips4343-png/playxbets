@@ -257,7 +257,7 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
     setBetSlip([]);
   };
 
-  const placeBet = () => {
+  const placeBet = async () => {
     if (!user) {
       onShowAuth && onShowAuth("login");
       toast.error("Please login to place bets");
@@ -273,11 +273,45 @@ export default function FootballLive({ user, onShowAuth, onLogout }) {
       toast.error("Insufficient balance");
       return;
     }
-    setBalance((prev) => prev - total);
-    toast.success(`Bet placed! ₹${total}`);
-    setBetSlip([]);
-    setShowBetSlip(false);
-    if (user) fetchWallet();
+    
+    // Place each bet through the backend API
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const bet of betSlip) {
+      const stake = parseFloat(bet.stake) || 0;
+      if (stake <= 0) continue;
+      
+      try {
+        await api.post("/bets", {
+          match_id: selectedMatch?.id || "football-demo-match",
+          selected_team: bet.selection,
+          odds: bet.odds,
+          stake: stake,
+          bet_type: bet.type.toLowerCase(), // "back", "lay", "over", "under"
+          market_type: "football"
+        });
+        successCount++;
+      } catch (error) {
+        console.error("Failed to place bet:", error);
+        failCount++;
+        if (error.response?.data?.detail) {
+          toast.error(error.response.data.detail);
+        }
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} bet(s) placed successfully!`);
+      setBetSlip([]);
+      setShowBetSlip(false);
+      // Refresh wallet balance from backend
+      fetchWallet();
+    }
+    
+    if (failCount > 0 && successCount === 0) {
+      toast.error("Failed to place bets. Please try again.");
+    }
   };
 
   const toggleMarket = (market) => {
