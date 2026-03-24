@@ -144,9 +144,9 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 - [x] Text visibility fixes
 - [x] Cricket Ball-By-Ball Micro Betting
 - [x] icebook9-style UI Redesign (Cricket + Football)
+- [x] Connect "Place Bet" to backend endpoint (persist bets, update wallet) - March 24, 2026
 
 ### P1 (High Priority)
-- [ ] Connect "Place Bet" to backend endpoint (persist bets, update wallet)
 - [ ] Real CricketData API integration (currently using DEMO mode)
 - [ ] Real-time odds updates via WebSocket for regular betting
 - [ ] Live match score integration from external API
@@ -168,9 +168,9 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 ## Known Limitations
 - Match data relies on The Odds API (may be rate limited)
 - CricketData API using DEMO mode (real API requires valid key)
-- **Bet placement is simulated** - only updates frontend state (P1 priority to fix)
 - WhatsApp recharge is conceptual (redirect only)
 - No real payment integration yet
+- Odds are simulated (randomly fluctuate) - real-time WebSocket odds integration pending
 
 ## Files Structure
 ```
