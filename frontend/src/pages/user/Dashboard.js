@@ -1,19 +1,35 @@
 import { useState, useEffect } from "react";
 import { api } from "@/App";
 import { Button } from "@/components/ui/button";
-import { Wallet, TrendingUp, ArrowUpCircle, ArrowDownCircle, Trophy } from "lucide-react";
+import { Wallet, TrendingUp, ArrowUpCircle, ArrowDownCircle, Trophy, MessageCircle } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
+
+const ADMIN_WHATSAPP = "918778156678";
+const RECHARGE_AMOUNTS = [100, 500, 1000, 2000, 5000];
 
 export default function UserDashboard() {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [bets, setBets] = useState([]);
+  const [username, setUsername] = useState("");
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [customAmount, setCustomAmount] = useState("");
 
   useEffect(() => {
     fetchWallet();
     fetchTransactions();
     fetchBets();
+    fetchUser();
   }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await api.get("/auth/me");
+      setUsername(response.data.username);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchWallet = async () => {
     try {
@@ -40,6 +56,14 @@ export default function UserDashboard() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleRechargeRequest = (amount) => {
+    const message = `Hello, I am ${username}. Recharge ₹${amount}`;
+    const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    setShowRechargeModal(false);
+    setCustomAmount("");
   };
 
   const formatIndianDateTime = (dateString) => {
@@ -76,7 +100,8 @@ export default function UserDashboard() {
               <Button 
                 variant="secondary" 
                 className="bg-white/20 hover:bg-white/30 text-white border-0 font-semibold"
-                onClick={() => window.open('https://wa.me/?text=Hello%20Recharge%20300', '_blank')}
+                onClick={() => setShowRechargeModal(true)}
+                data-testid="deposit-btn"
               >
                 <ArrowDownCircle className="w-4 h-4 mr-2" />
                 Deposit
@@ -181,6 +206,84 @@ export default function UserDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Recharge Modal */}
+      {showRechargeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <MessageCircle className="w-6 h-6" />
+                  <h2 className="text-lg font-bold">Recharge via WhatsApp</h2>
+                </div>
+                <button 
+                  onClick={() => setShowRechargeModal(false)}
+                  className="text-white/80 hover:text-white text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="text-sm text-white/80 mt-1">Select amount to request recharge</p>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6">
+              {/* Preset Amounts */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {RECHARGE_AMOUNTS.map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => handleRechargeRequest(amount)}
+                    className="bg-gray-100 hover:bg-green-100 hover:border-green-500 border-2 border-transparent rounded-lg py-3 px-4 font-bold text-gray-800 transition-all"
+                    data-testid={`recharge-amount-${amount}`}
+                  >
+                    ₹{amount.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Custom Amount */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Or enter custom amount:</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                    <input
+                      type="number"
+                      value={customAmount}
+                      onChange={(e) => setCustomAmount(e.target.value)}
+                      placeholder="Enter amount"
+                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      min="100"
+                      data-testid="custom-recharge-input"
+                    />
+                  </div>
+                  <button
+                    onClick={() => customAmount && handleRechargeRequest(customAmount)}
+                    disabled={!customAmount || parseInt(customAmount) < 100}
+                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+                    data-testid="custom-recharge-btn"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Request
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Minimum recharge amount: ₹100</p>
+              </div>
+              
+              {/* Info */}
+              <div className="mt-4 bg-blue-50 rounded-lg p-3">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> Your recharge request will be sent to admin via WhatsApp. 
+                  The admin will process your request and credit your account.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

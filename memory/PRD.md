@@ -57,7 +57,7 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 ### Phase 1-6: Core Infrastructure, Homepage, User Features, Admin Panel, Text Fixes, Cricket Micro Betting
 - All completed as per previous sessions
 
-### Phase 7: icebook9-Style UI Redesign (Completed - March 24, 2026) ✨ NEW
+### Phase 7: icebook9-Style UI Redesign (Completed - March 24, 2026)
 - [x] **Cricket Exchange (`/exchange`)** - Complete redesign
   - Dense table layout with 3 Back + 3 Lay columns
   - Back (#72BBEF blue) and Lay (#FAA9BA pink) color scheme
@@ -78,6 +78,20 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
   - Mobile bet slip modal with slide-up animation
   - Responsive table scrolling on small screens
   - Touch-optimized odds buttons with active:scale-95
+
+### Phase 8: Backend Bet Integration & WhatsApp Recharge (Completed - March 24, 2026)
+- [x] **Bet Placement Connected to Backend**
+  - Extended BetCreate/Bet models with bet_type (back/lay) and market_type
+  - Frontend placeBet() now calls POST /api/bets
+  - Wallet balance deducted, transactions created, bets persisted to MongoDB
+  
+- [x] **WhatsApp Recharge Feature**
+  - Floating WhatsApp button only visible when logged in
+  - Pre-filled message: "Hello, I am [USERNAME]. Recharge ₹[AMOUNT]"
+  - Admin WhatsApp: 8778156678
+  - User Dashboard recharge modal with preset amounts (₹100, ₹500, ₹1,000, ₹2,000, ₹5,000)
+  - Custom amount input with minimum ₹100 validation
+  - Sidebar "Deposit via WhatsApp" quick action
 
 ## Test Status
 - Backend: 100% (all tests passed)

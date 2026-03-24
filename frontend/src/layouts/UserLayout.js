@@ -48,10 +48,11 @@ export default function UserLayout({ user, onLogout }) {
           <div className="mt-6 px-6">
             <p className="text-xs text-blue-300 uppercase mb-2 font-semibold">Quick Actions</p>
             <a
-              href="https://wa.me/?text=Hello%20Recharge%20300"
+              href={`https://wa.me/918778156678?text=Hello%2C%20I%20am%20${encodeURIComponent(user.username)}.%20Recharge%20%E2%82%B9500`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-4 py-2 bg-green-500 hover:bg-green-600 rounded text-sm transition-colors"
+              data-testid="sidebar-whatsapp-deposit"
             >
               <ArrowDownCircle className="w-4 h-4" />
               <span>Deposit via WhatsApp</span>
