@@ -10,9 +10,19 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - **Cricket Ball-By-Ball Micro Betting**
 - **Advanced PlayXbets Exchange UI** with multiple market types
 
-## Latest Updates (March 19, 2026)
+## Latest Updates (March 24, 2026)
 
-### P0 Issues Fixed:
+### P0 UI Redesign Complete ✅
+Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/football-live`) pages to match icebook9.com style:
+- **Table-based layout** replacing card-based design
+- **Back odds**: Blue (#72BBEF) with 3 columns per selection
+- **Lay odds**: Pink (#FAA9BA) with 3 columns per selection
+- **Stacked odds/stake** display (odds on top, stake below)
+- **Fully responsive mobile design** with bottom navigation bar
+- **Collapsible market sections** with expand/collapse headers
+- **Mobile bet slip modal** with slide-up animation
+
+### Previous Updates (March 19, 2026)
 1. ✅ **Football matches showing on homepage** - Fixed date filtering logic and draw odds extraction from The Odds API
 2. ✅ **Header consistency** - PublicHeader now has consistent navigation ("Home", "Cricket" 🔴, "Soccer" 🟢) matching exchange pages
 3. ✅ **Session Markets structure** - Dynamic generation based on T20 (5,10,15,20) vs ODI (5,10...50) with mandatory "First 5 Overs", Powerplay highlighting, and proper wicket/boundary options
@@ -30,9 +40,10 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 5. Admin panel with all modules functional
 6. Consistent text visibility across all pages (dark backgrounds with light text)
 7. **Cricket Ball-By-Ball Micro Betting with 5-second windows**
+8. **icebook9-style dense table UI** (NEW - March 24, 2026)
 
 ## Tech Stack
-- **Frontend**: React, React Router, Tailwind CSS, Shadcn UI
+- **Frontend**: React, React Router, Tailwind CSS, Shadcn UI, Lucide React
 - **Backend**: FastAPI, Pydantic, Motor (async MongoDB)
 - **Database**: MongoDB
 - **Authentication**: JWT-based with admin/user roles
@@ -43,86 +54,38 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ## What's Been Implemented ✅
 
-### Phase 1: Core Infrastructure (Completed)
-- [x] FastAPI backend with all endpoints
-- [x] MongoDB integration
-- [x] JWT authentication
-- [x] User registration and login
-- [x] React frontend with routing
-- [x] Tailwind CSS styling
+### Phase 1-6: Core Infrastructure, Homepage, User Features, Admin Panel, Text Fixes, Cricket Micro Betting
+- All completed as per previous sessions
 
-### Phase 2: Public Homepage (Completed)
-- [x] Hero section with "Bet on Your Favorite Sports" headline
-- [x] Betting exchange table with Back/Lay odds
-- [x] Cricket and Football sport tabs
-- [x] Live match indicators
-- [x] IST date/time formatting
-
-### Phase 3: User Features (Completed)
-- [x] User dashboard with wallet balance
-- [x] Bet history page
-- [x] Withdrawal request system
-- [x] Support ticket system
-- [x] "BET NOW" button navigation
-
-### Phase 4: Admin Panel (Completed)
-- [x] Dashboard with stats cards
-- [x] Manage Bettors page
-- [x] Manage Games page
-- [x] Bets Placed page (with full table)
-- [x] Declare Outcomes page
-- [x] Deposits page with user search
-- [x] Withdrawals page with approve/reject
-- [x] Support Tickets page with reply
-
-### Phase 5: Text Visibility Fix (Completed - Dec 2025)
-- [x] Added DashboardHeader to all admin/user pages
-- [x] Fixed text colors to text-gray-900 for body text
-- [x] Fixed header colors to text-gray-700
-- [x] Consistent styling across all tables
-- [x] Added empty state messages for all tables
-
-### Phase 6: Cricket Ball-By-Ball Micro Betting (Completed - Mar 2026) ✨ NEW
-- [x] **Backend Module**: `/app/backend/cricket_micro_betting.py`
-  - CricketData API integration (with DEMO mode)
-  - WebSocket real-time streaming
-  - Automatic market creation and suspension
-  - 5-second betting windows
-  - Anti ball-delay betting protection
-  - Multi-match parallel processing
+### Phase 7: icebook9-Style UI Redesign (Completed - March 24, 2026) ✨ NEW
+- [x] **Cricket Exchange (`/exchange`)** - Complete redesign
+  - Dense table layout with 3 Back + 3 Lay columns
+  - Back (#72BBEF blue) and Lay (#FAA9BA pink) color scheme
+  - Stacked odds (large) over stake (small) in each cell
+  - Collapsible sections: Match Odds, Bookmaker, Ball-by-Ball, Session Markets, Extra Markets
+  - Format toggle (T20/ODI) with dynamic session markets
+  - Live score display with current over balls
+  - Ball timer countdown with betting status indicator
   
-- [x] **8 Betting Outcomes**:
-  - Dot Ball (2.00 odds)
-  - 1 Run (2.50 odds)
-  - 2 Runs (4.00 odds)
-  - 3 Runs (8.00 odds)
-  - FOUR (4.50 odds)
-  - SIX (8.00 odds)
-  - Wicket (12.00 odds)
-  - Wide/No Ball (6.00 odds)
-
-- [x] **Market Lifecycle**:
-  - Created → Open (5s window) → Suspended → Settled
+- [x] **Football Live (`/football-live`)** - Complete redesign
+  - Match selector cards at top for multiple live matches
+  - Dense table layout matching cricket page
+  - Markets: Match Odds (3-way), Over/Under Goals, Next Goal, Correct Score
+  - Same Back/Lay color scheme and layout
   
-- [x] **Security Features**:
-  - Server timestamp validation
-  - Betting window enforcement
-  - Automatic market suspension
-  - Reject bets after window closes
-
-- [x] **Frontend Page**: `/cricket-live`
-  - Real-time updates via WebSocket
-  - Countdown timer for betting window
-  - Colorful outcome buttons
-  - Bet slip with stake/potential win
-  - Recent ball results display
-  - My Recent Bets sidebar
+- [x] **Mobile Responsiveness**
+  - Bottom navigation bar (Home, Cricket, Bet Slip, Soccer)
+  - Mobile bet slip modal with slide-up animation
+  - Responsive table scrolling on small screens
+  - Touch-optimized odds buttons with active:scale-95
 
 ## Test Status
-- Backend: 100% (42/42 tests passed)
+- Backend: 100% (all tests passed)
 - Frontend: 100% (all UI flows working)
-- Cricket Micro Betting: 100% (19 new tests passed)
-- Last tested: March 2026
+- Cricket Exchange UI: 100% (verified via testing agent)
+- Football Live UI: 100% (verified via testing agent)
+- Mobile Responsiveness: 100% (verified on 390x844 viewport)
+- Last tested: March 24, 2026
 
 ## Credentials
 - Admin: `admin / 123456`
@@ -159,16 +122,16 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - PUT /api/admin/matches/{id}/outcome
 - POST /api/admin/cron/run
 
-### Cricket Micro Betting (NEW)
-- GET /api/cricket-micro/odds - Get default odds for all outcomes
-- POST /api/cricket-micro/demo/start - Start demo match simulation
-- POST /api/cricket-micro/demo/stop - Stop demo simulation
-- GET /api/cricket-micro/demo/status - Get demo status and active market
-- GET /api/cricket-micro/markets/active - Get all open/suspended markets
-- GET /api/cricket-micro/markets/{market_id} - Get specific market
-- GET /api/cricket-micro/markets/match/{match_id} - Get all markets for a match
-- POST /api/cricket-micro/bets - Place a micro bet
-- GET /api/cricket-micro/bets/history/{user_id} - Get user's micro bet history
+### Cricket Micro Betting
+- GET /api/cricket-micro/odds
+- POST /api/cricket-micro/demo/start
+- POST /api/cricket-micro/demo/stop
+- GET /api/cricket-micro/demo/status
+- GET /api/cricket-micro/markets/active
+- GET /api/cricket-micro/markets/{market_id}
+- GET /api/cricket-micro/markets/match/{match_id}
+- POST /api/cricket-micro/bets
+- GET /api/cricket-micro/bets/history/{user_id}
 
 ### WebSocket
 - WS /ws/cricket-micro - Real-time micro betting updates
@@ -180,27 +143,32 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - [x] Hero section on homepage
 - [x] Text visibility fixes
 - [x] Cricket Ball-By-Ball Micro Betting
+- [x] icebook9-style UI Redesign (Cricket + Football)
 
 ### P1 (High Priority)
+- [ ] Connect "Place Bet" to backend endpoint (persist bets, update wallet)
 - [ ] Real CricketData API integration (currently using DEMO mode)
 - [ ] Real-time odds updates via WebSocket for regular betting
-- [ ] Live match score integration
+- [ ] Live match score integration from external API
 
 ### P2 (Medium Priority)
+- [ ] Add ICEBOOK-style features (Fall of Wicket, Partnership Runs as collapsible cards)
 - [ ] Enhanced admin deposit page (user search dropdown with autocomplete)
 - [ ] User profile management
 - [ ] Email notifications for bets/outcomes
-- [ ] Betting limits and responsible gambling features
 
 ### P3 (Future)
 - [ ] Mobile app (React Native)
 - [ ] Multiple payment gateways
 - [ ] Advanced analytics dashboard
 - [ ] Multi-language support
+- [ ] User withdrawal request system
+- [ ] Support ticket system
 
 ## Known Limitations
 - Match data relies on The Odds API (may be rate limited)
 - CricketData API using DEMO mode (real API requires valid key)
+- **Bet placement is simulated** - only updates frontend state (P1 priority to fix)
 - WhatsApp recharge is conceptual (redirect only)
 - No real payment integration yet
 
@@ -209,23 +177,39 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 /app/
 ├── backend/
 │   ├── server.py                    # Main FastAPI app
-│   ├── cricket_micro_betting.py     # NEW: Micro betting module
+│   ├── cricket_micro_betting.py     # Micro betting module
 │   ├── requirements.txt
 │   └── tests/
-│       ├── test_api.py
-│       └── test_cricket_micro_betting.py  # NEW
-└── frontend/
-    ├── src/
-    │   ├── App.js                   # Main router
-    │   ├── pages/
-    │   │   ├── CricketMicroBetting.js  # NEW
-    │   │   ├── admin/               # Admin pages
-    │   │   └── user/                # User pages
-    │   ├── components/
-    │   │   └── PublicHeader.js      # Updated with Cricket Live link
-    │   └── utils/
-    └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── App.js
+│   │   ├── pages/
+│   │   │   ├── PlayXbetsExchange.js  # NEW: icebook9-style Cricket Exchange
+│   │   │   ├── FootballLive.js       # NEW: icebook9-style Football Exchange
+│   │   │   ├── CricketMicroBetting.js
+│   │   │   ├── PublicHomepage.js
+│   │   │   ├── admin/
+│   │   │   └── user/
+│   │   ├── components/
+│   │   │   └── PublicHeader.js
+│   │   └── utils/
+│   └── package.json
+├── memory/
+│   └── PRD.md
+└── test_reports/
+    └── iteration_3.json              # Latest test results
 ```
+
+## Design Guidelines (icebook9-style)
+- **Back Color**: #72BBEF (light blue)
+- **Lay Color**: #FAA9BA (light pink)
+- **Background**: #0D1117 (dark navy)
+- **Card Background**: #161B22
+- **Header Background**: #2C3E50
+- **Text**: White on dark, Dark on light (odds cells)
+- **Mobile Breakpoint**: lg: (1024px) for bet slip sidebar
+- **Table Layout**: 3 Back + 3 Lay columns per market
+- **Odds Cell**: Stacked (odds on top, stake below)
 
 ## Environment Variables
 ```
@@ -235,6 +219,6 @@ DB_NAME="playxbets_db"
 CORS_ORIGINS="*"
 ODDS_API_KEY="..."
 SECRET_KEY="..."
-CRICKETDATA_API_KEY="a185dd9f-67a3-47cf-8ab7-a1294b716031"  # NEW
-DEMO_CRICKET_MATCH_ID="ea479cff-ddbe-48e0-9e4a-528f61a8a175"  # NEW
+CRICKETDATA_API_KEY="a185dd9f-67a3-47cf-8ab7-a1294b716031"
+DEMO_CRICKET_MATCH_ID="ea479cff-ddbe-48e0-9e4a-528f61a8a175"
 ```
