@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 import requests
 import os
 import logging
@@ -15,6 +16,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from enum import Enum
 import uuid
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,6 +27,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "187430fb4c5f437e8c3692bd64d6900a")
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
+CRICKET_API_KEY = os.getenv("CRICKETDATA_API_KEY", "a185dd9f-67a3-47cf-8ab7-a1294b716031")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -396,6 +399,8 @@ async def scheduled_odds_fetch():
 def start_scheduler():
     """Start the scheduler - runs daily at Indian midnight (00:00:01 AM IST = 18:30:01 UTC previous day)"""
     # IST is UTC+5:30, so Indian midnight (00:00:01 IST) = 18:30:01 UTC (previous day)
+    
+    # Football/Soccer odds - once daily at Indian midnight
     scheduler.add_job(
         scheduled_odds_fetch,
         'cron',
@@ -405,8 +410,19 @@ def start_scheduler():
         id='fetch_odds_job',
         replace_existing=True
     )
+    
+    # Cricket data - smart polling every 30 minutes (within quota limits)
+    scheduler.add_job(
+        run_cricket_poll,
+        IntervalTrigger(minutes=30),
+        id='fetch_cricket_job',
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started - will run daily at 00:00:01 AM IST (18:30:01 UTC)")
+    logger.info("Scheduler started:")
+    logger.info("  - Football/Soccer: Daily at 00:00:01 AM IST (18:30:01 UTC)")
+    logger.info("  - Cricket: Every 30 minutes (smart polling with quota management)")
 
 
 # ==================== AUTH ROUTES ====================
@@ -737,6 +753,140 @@ async def seed_cricket_matches(current_user: User = Depends(get_current_admin)):
         created += 1
     
     return {"success": True, "matches_created": created}
+
+# ==================== CRICKET DATA SERVICE INTEGRATION ====================
+from cricket_data_service import CricketDataService, create_cricket_service, cache as cricket_cache
+
+# Global cricket service instance
+cricket_service: Optional[CricketDataService] = None
+
+def get_cricket_service() -> CricketDataService:
+    global cricket_service
+    if cricket_service is None:
+        cricket_service = CricketDataService(db)
+    return cricket_service
+
+@api_router.get("/live-matches")
+async def get_live_matches():
+    """Get live cricket matches from CricketData API (cached)"""
+    service = get_cricket_service()
+    try:
+        matches = await service.get_live_matches()
+        transformed = await service.transform_for_frontend(matches)
+        return {
+            "success": True,
+            "count": len(transformed),
+            "matches": transformed,
+            "cached": cricket_cache.get(service._make_cache_key("currentMatches")) is not None
+        }
+    except Exception as e:
+        logger.error(f"Error fetching live matches: {e}")
+        return {"success": False, "error": str(e), "matches": []}
+
+@api_router.get("/all-matches")
+async def get_all_cricket_matches_api():
+    """Get all cricket matches (live + upcoming) from CricketData API (cached)"""
+    service = get_cricket_service()
+    try:
+        data = await service.get_all_matches()
+        live_transformed = await service.transform_for_frontend(data.get("live", []))
+        upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
+        
+        return {
+            "success": True,
+            "live_count": len(live_transformed),
+            "upcoming_count": len(upcoming_transformed),
+            "live": live_transformed,
+            "upcoming": upcoming_transformed
+        }
+    except Exception as e:
+        logger.error(f"Error fetching all matches: {e}")
+        return {"success": False, "error": str(e), "live": [], "upcoming": []}
+
+@api_router.get("/cricket/status")
+async def get_cricket_service_status():
+    """Get cricket service status including quota and cache info"""
+    service = get_cricket_service()
+    try:
+        status = await service.get_service_status()
+        return status
+    except Exception as e:
+        return {"error": str(e)}
+
+@api_router.post("/admin/cricket/fetch")
+async def admin_fetch_cricket_matches(current_user: User = Depends(get_current_admin)):
+    """Admin: Manually trigger cricket data fetch from API"""
+    service = get_cricket_service()
+    try:
+        # Fetch and store matches
+        data = await service.get_all_matches()
+        live_transformed = await service.transform_for_frontend(data.get("live", []))
+        upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
+        
+        all_matches = live_transformed + upcoming_transformed
+        
+        # Store in database
+        for match in all_matches:
+            match["updated_at"] = datetime.now(timezone.utc)
+            await db.matches.update_one(
+                {"match_id": match["match_id"]},
+                {"$set": match},
+                upsert=True
+            )
+        
+        status = await service.get_service_status()
+        
+        return {
+            "success": True,
+            "live_fetched": len(live_transformed),
+            "upcoming_fetched": len(upcoming_transformed),
+            "total_stored": len(all_matches),
+            "quota": status.get("quota", {})
+        }
+    except Exception as e:
+        logger.error(f"Admin fetch error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/cricket/quota")
+async def get_cricket_quota(current_user: User = Depends(get_current_admin)):
+    """Admin: Get current API quota status"""
+    service = get_cricket_service()
+    status = await service.get_service_status()
+    return status
+
+# Smart Cricket Scheduler
+cricket_scheduler_running = False
+
+async def smart_cricket_poll():
+    """Smart polling function that adjusts frequency based on live matches"""
+    global cricket_scheduler_running
+    service = get_cricket_service()
+    
+    try:
+        logger.info("=== Cricket Smart Poll ===")
+        data = await service.get_all_matches()
+        
+        live_transformed = await service.transform_for_frontend(data.get("live", []))
+        upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
+        
+        # Store matches
+        for match in live_transformed + upcoming_transformed:
+            match["updated_at"] = datetime.now(timezone.utc)
+            await db.matches.update_one(
+                {"match_id": match["match_id"]},
+                {"$set": match},
+                upsert=True
+            )
+        
+        status = await service.get_service_status()
+        logger.info(f"Cricket poll complete. Live: {len(live_transformed)}, Upcoming: {len(upcoming_transformed)}, Quota: {status['quota']['requests_made']}/{status['quota']['quota_limit']}")
+        
+    except Exception as e:
+        logger.error(f"Cricket poll error: {e}")
+
+def run_cricket_poll():
+    """Wrapper to run async poll in sync context"""
+    asyncio.run(smart_cricket_poll())
 
 # ==================== USER ROUTES ====================
 @api_router.get("/matches", response_model=List[Match])

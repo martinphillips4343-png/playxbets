@@ -143,127 +143,130 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
         </div>
 
         {/* Matches List */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <table className="w-full">
-            <thead className="bg-[#243a5e] text-white">
-              <tr>
-                <th className="px-6 py-3 text-left font-bold text-base">Game</th>
-                <th className="px-6 py-3 text-center font-bold text-base w-32">1</th>
-                <th className="px-6 py-3 text-center font-bold text-base w-32">X</th>
-                <th className="px-6 py-3 text-center font-bold text-base w-32">2</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMatches.length === 0 ? (
+        <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#243a5e] text-white">
                 <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-gray-500 font-medium">
-                    No {activeTab === "cricket" ? "cricket" : "football"} matches available
-                  </td>
+                  <th className="px-4 py-3 text-left font-bold text-sm">Match</th>
+                  <th className="px-2 py-3 text-center font-bold text-sm w-24">1</th>
+                  {activeTab === "soccer" && <th className="px-2 py-3 text-center font-bold text-sm w-24">X</th>}
+                  <th className="px-2 py-3 text-center font-bold text-sm w-24">2</th>
                 </tr>
-              ) : (
-                filteredMatches.map((match) => (
-                  <tr
-                    key={match.match_id}
-                    className="border-b hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setSelectedMatch(match)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {match.status === "live" && (
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs font-bold text-green-600">LIVE</span>
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-bold text-gray-900 text-base">
-                            {match.home_team} v {match.away_team}
-                          </div>
-                          <div className="text-xs text-gray-700 font-medium">
-                            {formatIndianDateTime(match.commence_time)}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    {/* Home Odds */}
-                    <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleBetClick(match, match.home_team, match.home_odds, "back")}
-                          className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
-                        >
-                          <div className="text-sm font-bold text-gray-900">
-                            {match.home_odds?.toFixed(2) || "-"}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleBetClick(match, match.home_team, match.home_odds + 0.01, "lay")}
-                          className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
-                        >
-                          <div className="text-sm font-bold text-gray-900">
-                            {(match.home_odds + 0.01)?.toFixed(2) || "-"}
-                          </div>
-                        </button>
-                      </div>
-                    </td>
-
-                    {/* Draw Odds */}
-                    <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
-                      {match.sport === "soccer" ? (
-                        match.odds_draw ? (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleBetClick(match, "Draw", match.odds_draw, "back")}
-                              className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
-                            >
-                              <div className="text-sm font-bold text-gray-900">
-                                {match.odds_draw.toFixed(2)}
-                              </div>
-                            </button>
-                            <button
-                              onClick={() => handleBetClick(match, "Draw", match.odds_draw + 0.01, "lay")}
-                              className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
-                            >
-                              <div className="text-sm font-bold text-gray-900">
-                                {(match.odds_draw + 0.01).toFixed(2)}
-                              </div>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-center text-gray-400 font-medium">-</div>
-                        )
-                      ) : (
-                        <div className="text-center text-gray-400 font-medium">-</div>
-                      )}
-                    </td>
-
-                    {/* Away Odds */}
-                    <td className="px-2 py-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleBetClick(match, match.away_team, match.away_odds, "back")}
-                          className="flex-1 bg-[#72bbef] hover:bg-[#5ba9e0] text-center py-2 px-3 rounded"
-                        >
-                          <div className="text-sm font-bold text-gray-900">
-                            {match.away_odds?.toFixed(2) || "-"}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleBetClick(match, match.away_team, match.away_odds + 0.01, "lay")}
-                          className="flex-1 bg-[#faa9ba] hover:bg-[#f991a8] text-center py-2 px-3 rounded"
-                        >
-                          <div className="text-sm font-bold text-gray-900">
-                            {(match.away_odds + 0.01)?.toFixed(2) || "-"}
-                          </div>
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {filteredMatches.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeTab === "soccer" ? 4 : 3} className="px-6 py-8 text-center text-gray-500 font-medium">
+                      No {activeTab === "cricket" ? "cricket" : "football"} matches available
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredMatches.map((match, idx) => (
+                    <tr
+                      key={match.match_id}
+                      className={`border-b hover:bg-blue-50 cursor-pointer ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                      onClick={() => setSelectedMatch(match)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-2">
+                          {/* Live Indicator */}
+                          {match.status === "live" && (
+                            <div className="flex-shrink-0 mt-1">
+                              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                            </div>
+                          )}
+                          
+                          <div className="flex-1 min-w-0">
+                            {/* League Name */}
+                            <div className="text-xs text-gray-500 font-medium truncate mb-0.5">
+                              {match.league || (activeTab === "cricket" ? "Cricket" : "Football")}
+                            </div>
+                            
+                            {/* Team Names */}
+                            <div className="font-bold text-gray-900 text-sm truncate">
+                              {match.home_team} v {match.away_team}
+                            </div>
+                            
+                            {/* Date/Time + Icons */}
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-gray-500">
+                                {match.status === "live" ? (
+                                  <span className="text-green-600 font-bold">LIVE</span>
+                                ) : (
+                                  formatIndianDateTime(match.commence_time)
+                                )}
+                              </span>
+                              
+                              {/* Feature Icons */}
+                              <div className="flex items-center gap-1">
+                                {match.has_tv && (
+                                  <span className="bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" title="Live TV">
+                                    TV
+                                  </span>
+                                )}
+                                {match.has_fancy && (
+                                  <span className="bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" title="Fancy Markets">
+                                    F
+                                  </span>
+                                )}
+                                {match.has_bookmaker && (
+                                  <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" title="Bookmaker">
+                                    BM
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {/* Home Odds */}
+                      <td className="px-2 py-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBetClick(match, match.home_team, match.home_odds || 1.85, "home");
+                          }}
+                          className="w-full bg-[#72BBEF] hover:bg-[#5BA8DC] text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                        >
+                          {match.home_odds?.toFixed(2) || "1.85"}
+                        </button>
+                      </td>
+                      
+                      {/* Draw Odds (Football only) */}
+                      {activeTab === "soccer" && (
+                        <td className="px-2 py-3 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBetClick(match, "Draw", match.odds_draw || 3.20, "draw");
+                            }}
+                            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                          >
+                            {match.odds_draw?.toFixed(2) || "3.20"}
+                          </button>
+                        </td>
+                      )}
+                      
+                      {/* Away Odds */}
+                      <td className="px-2 py-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBetClick(match, match.away_team, match.away_odds || 1.95, "away");
+                          }}
+                          className="w-full bg-[#FAA9BA] hover:bg-[#E8899A] text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                        >
+                          {match.away_odds?.toFixed(2) || "1.95"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
