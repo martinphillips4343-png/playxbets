@@ -638,8 +638,8 @@ async def declare_outcome(match_id: str, winner: str, current_user: User = Depen
 @api_router.get("/matches", response_model=List[Match])
 async def get_matches(sport: Optional[str] = None):
     """
-    Get all live and upcoming matches.
-    Filters out completed/ended matches automatically.
+    Get only LIVE and UPCOMING matches.
+    Strictly filters out old/past matches.
     """
     query = {
         # Exclude completed matches
@@ -651,34 +651,45 @@ async def get_matches(sport: Optional[str] = None):
     
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(1000)
     
-    # Filter in Python to handle date comparison correctly
+    # Get current time in UTC
     now = datetime.now(timezone.utc)
-    cutoff_time = now - timedelta(hours=4)
     
     filtered_matches = []
     for m in matches:
-        # Keep live matches always
-        if m.get("status") == "live":
+        status = m.get("status", "").lower() if isinstance(m.get("status"), str) else ""
+        
+        # Always include LIVE matches
+        if status == "live":
             filtered_matches.append(m)
             continue
         
-        # For non-live matches, check if they haven't started yet or started recently
-        commence_time_str = m.get("commence_time", "")
-        if commence_time_str:
+        # For scheduled/upcoming matches, only include if commence_time is in the FUTURE
+        commence_time = m.get("commence_time")
+        if commence_time:
             try:
-                if "T" in commence_time_str:
-                    commence_time = datetime.fromisoformat(commence_time_str.replace("Z", "+00:00"))
+                # Handle both datetime objects and strings
+                if isinstance(commence_time, datetime):
+                    ct = commence_time
+                elif isinstance(commence_time, str):
+                    if "T" in commence_time:
+                        ct = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+                    else:
+                        ct = datetime.fromisoformat(commence_time)
                 else:
-                    commence_time = datetime.fromisoformat(commence_time_str)
+                    continue
                 
-                # If match hasn't started yet, or started within last 4 hours
-                if commence_time > cutoff_time:
+                # Make timezone aware if needed
+                if ct.tzinfo is None:
+                    ct = ct.replace(tzinfo=timezone.utc)
+                
+                # Only include if match is in the FUTURE (upcoming)
+                if ct > now:
                     filtered_matches.append(m)
-            except:
-                # If we can't parse the date, include the match
-                filtered_matches.append(m)
-        else:
-            filtered_matches.append(m)
+                    
+            except Exception as e:
+                # Skip matches with unparseable dates
+                logger.warning(f"Could not parse commence_time for match: {e}")
+                continue
     
     return [Match(**m) for m in filtered_matches]
 

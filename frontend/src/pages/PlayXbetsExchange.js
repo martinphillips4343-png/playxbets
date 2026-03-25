@@ -9,14 +9,14 @@ const BALL_DURATION = 11;
 const SUSPEND_DURATION = 3000; // 3 seconds suspension after ball/wicket/boundary
 
 const BALL_OUTCOMES = [
-  { id: "dot", name: "Dot Ball", short: "0", runs: 0, odds: 2.0 },
-  { id: "1", name: "1 Run", short: "1", runs: 1, odds: 2.5 },
-  { id: "2", name: "2 Runs", short: "2", runs: 2, odds: 4.0 },
-  { id: "3", name: "3 Runs", short: "3", runs: 3, odds: 8.0 },
-  { id: "4", name: "Four", short: "4", runs: 4, odds: 4.5 },
-  { id: "6", name: "Six", short: "6", runs: 6, odds: 8.0 },
-  { id: "wicket", name: "Wicket", short: "W", runs: 0, odds: 12.0 },
-  { id: "wide", name: "Wide/NB", short: "WD", runs: 1, odds: 6.0 },
+  { id: "dot", runs: 0 },
+  { id: "1", runs: 1 },
+  { id: "2", runs: 2 },
+  { id: "3", runs: 3 },
+  { id: "4", runs: 4 },
+  { id: "6", runs: 6 },
+  { id: "wicket", runs: 0 },
+  { id: "wide", runs: 1 },
 ];
 
 const BALL_PROBABILITIES = [35, 30, 10, 2, 12, 5, 4, 2];
@@ -200,7 +200,6 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
   const [expandedMarkets, setExpandedMarkets] = useState({
     matchOdds: true,
     bookmaker: true,
-    nextBall: true,
     sessionMarkets: true,
     overRuns: true,
     fallOfWickets: true,
@@ -320,31 +319,9 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
         },
       };
     });
-
-    // Auto-settle ball-by-ball bets
-    settleBallBets(outcome);
     
     return outcome;
   }, []);
-
-  // ==================== SETTLE BALL BETS ====================
-  const settleBallBets = (outcome) => {
-    setBetSlip((prev) => {
-      const updated = prev.map((bet) => {
-        if (bet.marketType === "ball" && bet.status === "pending") {
-          const won = bet.selection === outcome.name;
-          if (won) {
-            const winAmount = parseFloat(bet.stake || 0) * bet.odds;
-            setBalance((b) => b + winAmount);
-            toast.success(`Won ₹${winAmount.toFixed(2)} on ${bet.selection}!`);
-          }
-          return { ...bet, status: won ? "won" : "lost" };
-        }
-        return bet;
-      });
-      return updated.filter((b) => b.status === "pending");
-    });
-  };
 
   // ==================== ADD TO BET SLIP ====================
   const addToBetSlip = (selection, type, selectedOdds, marketType = "match") => {
@@ -599,36 +576,7 @@ export default function PlayXbetsExchange({ user, onShowAuth, onLogout }) {
             )}
           </div>
 
-          {/* ========== 3. NEXT BALL MARKET ========== */}
-          <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="next-ball-market">
-            <MarketHeader title={`Next Ball (${isSuspended ? 'SUSPENDED' : isBettingOpen ? `${ballTimer}s` : 'CLOSED'})`} isExpanded={expandedMarkets.nextBall} onToggle={() => toggleMarket('nextBall')} showCashout={false} />
-            {expandedMarkets.nextBall && (
-              <div className="p-2 md:p-3">
-                <div className="grid grid-cols-4 md:grid-cols-8 gap-1 md:gap-2">
-                  {BALL_OUTCOMES.map((outcome) => (
-                    <button
-                      key={outcome.id}
-                      onClick={() => addToBetSlip(outcome.name, "Back", outcome.odds, "ball")}
-                      disabled={isSuspended || !isBettingOpen}
-                      className={`p-2 md:p-3 rounded-lg border transition-all ${
-                        isSuspended || !isBettingOpen
-                          ? "opacity-50 cursor-not-allowed bg-gray-800 border-gray-700"
-                          : "bg-[#21262D] border-gray-700 hover:border-cyan-500/50 hover:bg-[#2a3441] active:scale-95"
-                      }`}
-                      data-testid={`ball-outcome-${outcome.id}`}
-                    >
-                      <div className={`text-lg md:text-xl font-bold ${outcome.id === 'wicket' ? 'text-red-400' : outcome.id === '4' || outcome.id === '6' ? 'text-green-400' : 'text-white'}`}>{outcome.short}</div>
-                      <div className="text-[8px] md:text-[10px] text-gray-400 truncate">{outcome.name}</div>
-                      <div className="text-xs md:text-sm font-bold text-cyan-400 mt-1">{outcome.odds.toFixed(2)}</div>
-                    </button>
-                  ))}
-                </div>
-                {isSuspended && <div className="mt-2 text-center text-red-400 text-sm font-bold animate-pulse">BALL IN PLAY - SUSPENDED</div>}
-              </div>
-            )}
-          </div>
-
-          {/* ========== 4. SESSION MARKETS (6/10/15/20 OVER RUNS) ========== */}
+          {/* ========== 3. SESSION MARKETS (6/10/15/20 OVER RUNS) ========== */}
           <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800" data-testid="session-markets">
             <MarketHeader title="Session Markets" isExpanded={expandedMarkets.sessionMarkets} onToggle={() => toggleMarket('sessionMarkets')} maxBet="50K" />
             {expandedMarkets.sessionMarkets && (
