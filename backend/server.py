@@ -947,6 +947,72 @@ async def get_matches(sport: Optional[str] = None):
     
     return [Match(**m) for m in filtered_matches]
 
+# ==================== MATCH DETAIL ENDPOINT ====================
+@api_router.get("/match/{match_id}")
+async def get_match_detail(match_id: str):
+    """
+    Get detailed information for a specific match.
+    Returns match info, odds, and additional data.
+    Reuses cached data where available.
+    """
+    # First try to find in database
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+    
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Build detailed response
+    response = {
+        "match_id": match.get("match_id"),
+        "sport": match.get("sport", "cricket"),
+        "league": match.get("league", ""),
+        "home_team": match.get("home_team"),
+        "away_team": match.get("away_team"),
+        "commence_time": match.get("commence_time"),
+        "status": match.get("status", "scheduled"),
+        "venue": match.get("venue", ""),
+        "format": match.get("format", "t20"),
+        
+        # Odds data
+        "odds": {
+            "home": match.get("home_odds"),
+            "away": match.get("away_odds"),
+            "draw": match.get("odds_draw"),
+        },
+        
+        # Feature flags
+        "features": {
+            "has_tv": match.get("has_tv", False),
+            "has_fancy": match.get("has_fancy", False),
+            "has_bookmaker": match.get("has_bookmaker", False),
+        },
+        
+        # Score data (if live)
+        "score": match.get("score", []),
+        
+        # Additional match info
+        "match_type": match.get("match_type", ""),
+        "winner": match.get("winner"),
+        "created_at": match.get("created_at"),
+        "updated_at": match.get("updated_at"),
+    }
+    
+    # For cricket matches, try to get additional info from CricketData service cache
+    if match.get("sport") == "cricket":
+        service = get_cricket_service()
+        # Check if we have cached match data with more details
+        cached_all = cricket_cache.get(service._make_cache_key("matches"))
+        if cached_all and cached_all.get("data"):
+            for m in cached_all["data"]:
+                if m.get("id") == match_id:
+                    # Add extra details from API cache
+                    response["venue"] = m.get("venue", response["venue"])
+                    response["score"] = m.get("score", response["score"])
+                    response["match_type"] = m.get("matchType", response["match_type"])
+                    break
+    
+    return response
+
 @api_router.post("/bets", response_model=Bet)
 async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_current_user)):
     wallet = await db.wallets.find_one({"user_id": current_user.user_id}, {"_id": 0})
