@@ -127,10 +127,27 @@ class Match(BaseModel):
     home_odds: Optional[float] = None
     away_odds: Optional[float] = None
     odds_draw: Optional[float] = None  # Draw odds for soccer matches
-    status: str = "scheduled"
+    status: str = "scheduled"  # scheduled, live, completed
     winner: Optional[str] = None
+    # Cricket-specific fields
+    has_tv: bool = False  # Live TV available
+    has_fancy: bool = False  # Fancy markets available
+    has_bookmaker: bool = False  # Bookmaker available
+    format: Optional[str] = None  # t20, odi, test, t10
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CricketMatchCreate(BaseModel):
+    """Admin can manually create cricket matches"""
+    home_team: str
+    away_team: str
+    league: str
+    commence_time: datetime
+    format: str = "t20"  # t20, odi, test, t10
+    has_tv: bool = True
+    has_fancy: bool = True
+    has_bookmaker: bool = True
+    status: str = "scheduled"
 
 class Bet(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -633,6 +650,93 @@ async def declare_outcome(match_id: str, winner: str, current_user: User = Depen
             )
     
     return {"success": True}
+
+# ==================== ADMIN CRICKET MATCHES ====================
+@api_router.post("/admin/cricket/matches")
+async def create_cricket_match(match_data: CricketMatchCreate, current_user: User = Depends(get_current_admin)):
+    """Admin can manually create cricket matches"""
+    match = Match(
+        match_id=str(uuid.uuid4()),
+        sport="cricket",
+        league=match_data.league,
+        home_team=match_data.home_team,
+        away_team=match_data.away_team,
+        commence_time=match_data.commence_time,
+        home_odds=1.85,
+        away_odds=1.95,
+        status=match_data.status,
+        has_tv=match_data.has_tv,
+        has_fancy=match_data.has_fancy,
+        has_bookmaker=match_data.has_bookmaker,
+        format=match_data.format,
+    )
+    await db.matches.insert_one(match.model_dump())
+    return {"success": True, "match_id": match.match_id}
+
+@api_router.get("/admin/cricket/matches")
+async def get_all_cricket_matches(current_user: User = Depends(get_current_admin)):
+    """Admin can view all cricket matches including past ones"""
+    matches = await db.matches.find({"sport": "cricket"}, {"_id": 0}).sort("commence_time", -1).to_list(100)
+    return matches
+
+@api_router.put("/admin/cricket/matches/{match_id}/status")
+async def update_cricket_match_status(match_id: str, status: str, current_user: User = Depends(get_current_admin)):
+    """Admin can update match status: scheduled, live, completed"""
+    await db.matches.update_one(
+        {"match_id": match_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc)}}
+    )
+    return {"success": True}
+
+@api_router.delete("/admin/cricket/matches/{match_id}")
+async def delete_cricket_match(match_id: str, current_user: User = Depends(get_current_admin)):
+    """Admin can delete a cricket match"""
+    await db.matches.delete_one({"match_id": match_id})
+    return {"success": True}
+
+@api_router.post("/admin/cricket/seed")
+async def seed_cricket_matches(current_user: User = Depends(get_current_admin)):
+    """Seed sample global cricket matches for testing"""
+    now = datetime.now(timezone.utc)
+    
+    sample_matches = [
+        # LIVE Matches
+        {"league": "Super Over2", "home_team": "Team Alpha", "away_team": "Team Beta", "status": "live", "hours": 0, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Pakistan T10", "home_team": "Pakistan T10", "away_team": "New Zealand T10", "status": "live", "hours": 0, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t10"},
+        {"league": "Indian Premier League", "home_team": "RC Bengaluru", "away_team": "Sunrisers Hyderabad", "status": "live", "hours": 0, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        # Upcoming Matches
+        {"league": "Pakistan Super League", "home_team": "Lahore Qalandars", "away_team": "Karachi Kings", "status": "scheduled", "hours": 2, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Sri Lanka T10", "home_team": "Sri Lanka T10", "away_team": "West Indies T10", "status": "scheduled", "hours": 4, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t10"},
+        {"league": "CSA T20 Challenge", "home_team": "Warriors", "away_team": "Titans", "status": "scheduled", "hours": 6, "has_tv": True, "has_fancy": False, "has_bookmaker": True, "format": "t20"},
+        {"league": "Caribbean Premier League", "home_team": "TKR XI", "away_team": "GAW XI", "status": "scheduled", "hours": 8, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Pakistan Super League", "home_team": "Quetta Gladiators", "away_team": "Islamabad United", "status": "scheduled", "hours": 24, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Indian Premier League", "home_team": "Mumbai Indians", "away_team": "Chennai Super Kings", "status": "scheduled", "hours": 48, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Indian Premier League", "home_team": "Delhi Capitals", "away_team": "Kolkata Knight Riders", "status": "scheduled", "hours": 72, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "t20"},
+        {"league": "Test Series", "home_team": "India", "away_team": "Australia", "status": "scheduled", "hours": 96, "has_tv": True, "has_fancy": True, "has_bookmaker": True, "format": "test"},
+        {"league": "ODI Series", "home_team": "England", "away_team": "South Africa", "status": "scheduled", "hours": 120, "has_tv": True, "has_fancy": False, "has_bookmaker": True, "format": "odi"},
+    ]
+    
+    created = 0
+    for m in sample_matches:
+        match = Match(
+            match_id=str(uuid.uuid4()),
+            sport="cricket",
+            league=m["league"],
+            home_team=m["home_team"],
+            away_team=m["away_team"],
+            commence_time=now + timedelta(hours=m["hours"]),
+            home_odds=round(1.5 + (hash(m["home_team"]) % 100) / 100, 2),
+            away_odds=round(1.5 + (hash(m["away_team"]) % 100) / 100, 2),
+            status=m["status"],
+            has_tv=m["has_tv"],
+            has_fancy=m["has_fancy"],
+            has_bookmaker=m["has_bookmaker"],
+            format=m["format"],
+        )
+        await db.matches.insert_one(match.model_dump())
+        created += 1
+    
+    return {"success": True, "matches_created": created}
 
 # ==================== USER ROUTES ====================
 @api_router.get("/matches", response_model=List[Match])
