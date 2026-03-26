@@ -480,18 +480,18 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Live match polling - check every 2 minutes and fetch if live matches exist
+    # Live match polling - check every 1 minute and fetch if live matches exist
     scheduler.add_job(
         run_live_check,
-        IntervalTrigger(minutes=2),
+        IntervalTrigger(minutes=1),
         id='live_match_polling',
         replace_existing=True
     )
     
-    # Cricket data - smart polling every 30 minutes (within quota limits)
+    # Cricket data - frequent polling every 5 minutes for live data
     scheduler.add_job(
         run_cricket_poll,
-        IntervalTrigger(minutes=30),
+        IntervalTrigger(minutes=5),
         id='fetch_cricket_job',
         replace_existing=True
     )
@@ -500,8 +500,8 @@ def start_scheduler():
     logger.info("Scheduler started:")
     logger.info("  - Initial fetch: 5 seconds after startup")
     logger.info("  - Football/Soccer Daily: 00:00:01 AM IST (18:30:01 UTC)")
-    logger.info("  - Live Match Polling: Every 2 minutes (if live matches exist)")
-    logger.info("  - Cricket: Every 30 minutes (smart polling with quota management)")
+    logger.info("  - Live Match Polling: Every 1 minute (real-time updates)")
+    logger.info("  - Cricket: Every 5 minutes (with quota management)")
 
 
 # ==================== AUTH ROUTES ====================
@@ -948,17 +948,56 @@ async def smart_cricket_poll():
         live_transformed = await service.transform_for_frontend(data.get("live", []))
         upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
         
-        # Store matches
-        for match in live_transformed + upcoming_transformed:
-            match["updated_at"] = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        
+        # Track match IDs from API for cleanup
+        api_match_ids = set()
+        
+        # Store/update live matches
+        for match in live_transformed:
+            match["updated_at"] = now
+            api_match_ids.add(match["match_id"])
             await db.matches.update_one(
                 {"match_id": match["match_id"]},
                 {"$set": match},
                 upsert=True
             )
         
+        # Store/update upcoming matches
+        for match in upcoming_transformed:
+            match["updated_at"] = now
+            api_match_ids.add(match["match_id"])
+            await db.matches.update_one(
+                {"match_id": match["match_id"]},
+                {"$set": match},
+                upsert=True
+            )
+        
+        # AUTO CLEANUP: Mark matches that were "live" but no longer in API response as "completed"
+        # This handles the edge case where a match ends but status wasn't updated
+        if api_match_ids:
+            stale_cutoff = now - timedelta(minutes=30)
+            result = await db.matches.update_many(
+                {
+                    "sport": "cricket",
+                    "status": "live",
+                    "match_id": {"$nin": list(api_match_ids)},
+                    "updated_at": {"$lt": stale_cutoff.isoformat()}
+                },
+                {"$set": {"status": "completed", "matchEnded": True}}
+            )
+            if result.modified_count > 0:
+                logger.info(f"Auto-marked {result.modified_count} stale matches as completed")
+        
+        # Log status
+        api_status = "AVAILABLE" if data.get("api_available", True) else "RATE LIMITED"
         status = await service.get_service_status()
-        logger.info(f"Cricket poll complete. Live: {len(live_transformed)}, Upcoming: {len(upcoming_transformed)}, Quota: {status['quota']['requests_made']}/{status['quota']['quota_limit']}")
+        logger.info(
+            f"Cricket poll complete. "
+            f"Live: {len(live_transformed)}, Upcoming: {len(upcoming_transformed)}, "
+            f"API: {api_status}, "
+            f"Quota: {status['quota']['requests_made']}/{status['quota']['quota_limit']}"
+        )
         
     except Exception as e:
         logger.error(f"Cricket poll error: {e}")
@@ -972,8 +1011,23 @@ def run_cricket_poll():
 async def get_matches(sport: Optional[str] = None):
     """
     Get only LIVE and UPCOMING matches.
-    Strictly filters out old/past matches.
+    Strictly filters out old/past/completed matches.
+    Auto-cleans stale data on every request.
     """
+    now = datetime.now(timezone.utc)
+    
+    # First, auto-cleanup: Mark old "live" matches as completed if they've been live too long
+    # (Edge case: match stuck in "live" status)
+    stale_live_cutoff = now - timedelta(hours=12)  # No match should be live for 12+ hours
+    await db.matches.update_many(
+        {
+            "status": "live",
+            "updated_at": {"$lt": stale_live_cutoff.isoformat()}
+        },
+        {"$set": {"status": "completed"}}
+    )
+    
+    # Build query
     query = {
         # Exclude completed matches
         "status": {"$nin": ["completed", "ended", "finished"]}
@@ -984,14 +1038,21 @@ async def get_matches(sport: Optional[str] = None):
     
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(1000)
     
-    # Get current time in UTC
-    now = datetime.now(timezone.utc)
-    
     filtered_matches = []
     for m in matches:
         status = m.get("status", "").lower() if isinstance(m.get("status"), str) else ""
         
-        # Always include LIVE matches
+        # Check matchEnded flag (from CricketData API)
+        match_ended = m.get("matchEnded", False)
+        if match_ended:
+            # Mark as completed in DB for future queries
+            await db.matches.update_one(
+                {"match_id": m.get("match_id")},
+                {"$set": {"status": "completed"}}
+            )
+            continue
+        
+        # Always include LIVE matches that aren't ended
         if status == "live":
             filtered_matches.append(m)
             continue
@@ -1025,6 +1086,81 @@ async def get_matches(sport: Optional[str] = None):
                 continue
     
     return [Match(**m) for m in filtered_matches]
+
+
+@api_router.get("/matches/live")
+async def get_live_matches_only(sport: Optional[str] = None):
+    """
+    Get ONLY currently live matches.
+    Returns matches where status='live' AND matchEnded=false.
+    """
+    now = datetime.now(timezone.utc)
+    
+    query = {
+        "status": "live",
+        "$or": [
+            {"matchEnded": {"$ne": True}},
+            {"matchEnded": {"$exists": False}}
+        ]
+    }
+    
+    if sport:
+        query["sport"] = sport
+    
+    matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(100)
+    
+    # Filter out any that shouldn't be live
+    live_matches = []
+    for m in matches:
+        if m.get("matchEnded"):
+            continue
+        live_matches.append(m)
+    
+    return {
+        "success": True,
+        "count": len(live_matches),
+        "matches": live_matches,
+        "timestamp": now.isoformat()
+    }
+
+
+@api_router.get("/matches/status")
+async def get_matches_status():
+    """
+    Get quick status of all matches for frontend polling.
+    Lightweight endpoint for frequent polling.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Aggregate counts
+    live_count = await db.matches.count_documents({
+        "status": "live",
+        "$or": [{"matchEnded": {"$ne": True}}, {"matchEnded": {"$exists": False}}]
+    })
+    
+    upcoming_count = await db.matches.count_documents({
+        "status": {"$in": ["scheduled", "upcoming"]},
+        "matchStarted": {"$ne": True}
+    })
+    
+    # Get cricket service status if available
+    try:
+        service = get_cricket_service()
+        service_status = await service.get_service_status()
+        api_status = {
+            "available": service_status.get("api_available", True),
+            "rate_limited": service_status.get("rate_limited", False),
+            "quota_remaining": service_status.get("quota", {}).get("requests_remaining", 100)
+        }
+    except Exception:
+        api_status = {"available": True, "rate_limited": False, "quota_remaining": 100}
+    
+    return {
+        "live_count": live_count,
+        "upcoming_count": upcoming_count,
+        "timestamp": now.isoformat(),
+        "api_status": api_status
+    }
 
 # ==================== MATCH DETAIL ENDPOINT ====================
 @api_router.get("/match/{match_id}")

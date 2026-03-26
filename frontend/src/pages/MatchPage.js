@@ -245,28 +245,39 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const fetchMatch = useCallback(async () => {
     try {
       const response = await api.get(`/match/${matchId}`);
-      setMatch(response.data);
+      const matchData = response.data;
+      
+      // Check if match has ended
+      if (matchData.matchEnded === true || 
+          ["completed", "ended", "finished"].includes(matchData.status?.toLowerCase())) {
+        // Match has ended - show completed status
+        setMatch({ ...matchData, status: "completed" });
+        toast.info("This match has ended");
+        return;
+      }
+      
+      setMatch(matchData);
       setError(null);
 
       // Initialize live odds from match data
-      if (!liveOdds && response.data) {
+      if (!liveOdds && matchData) {
         setLiveOdds({
           home: {
-            back: [response.data.odds?.home || 1.85, (response.data.odds?.home || 1.85) - 0.01, (response.data.odds?.home || 1.85) - 0.02],
-            lay: [(response.data.odds?.home || 1.85) + 0.02, (response.data.odds?.home || 1.85) + 0.03, (response.data.odds?.home || 1.85) + 0.04],
+            back: [matchData.odds?.home || 1.85, (matchData.odds?.home || 1.85) - 0.01, (matchData.odds?.home || 1.85) - 0.02],
+            lay: [(matchData.odds?.home || 1.85) + 0.02, (matchData.odds?.home || 1.85) + 0.03, (matchData.odds?.home || 1.85) + 0.04],
             backStakes: [50000, 30000, 20000],
             layStakes: [45000, 25000, 15000],
           },
           away: {
-            back: [response.data.odds?.away || 1.95, (response.data.odds?.away || 1.95) - 0.01, (response.data.odds?.away || 1.95) - 0.02],
-            lay: [(response.data.odds?.away || 1.95) + 0.02, (response.data.odds?.away || 1.95) + 0.03, (response.data.odds?.away || 1.95) + 0.04],
+            back: [matchData.odds?.away || 1.95, (matchData.odds?.away || 1.95) - 0.01, (matchData.odds?.away || 1.95) - 0.02],
+            lay: [(matchData.odds?.away || 1.95) + 0.02, (matchData.odds?.away || 1.95) + 0.03, (matchData.odds?.away || 1.95) + 0.04],
             backStakes: [40000, 25000, 15000],
             layStakes: [35000, 20000, 10000],
           },
-          draw: response.data.odds?.draw
+          draw: matchData.odds?.draw
             ? {
-                back: [response.data.odds.draw, response.data.odds.draw - 0.02, response.data.odds.draw - 0.04],
-                lay: [response.data.odds.draw + 0.02, response.data.odds.draw + 0.04, response.data.odds.draw + 0.06],
+                back: [matchData.odds.draw, matchData.odds.draw - 0.02, matchData.odds.draw - 0.04],
+                lay: [matchData.odds.draw + 0.02, matchData.odds.draw + 0.04, matchData.odds.draw + 0.06],
                 backStakes: [30000, 20000, 10000],
                 layStakes: [25000, 15000, 8000],
               }

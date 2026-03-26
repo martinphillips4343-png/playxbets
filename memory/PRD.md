@@ -12,6 +12,34 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ## Latest Updates (March 26, 2026)
 
+### Phase 13: Real-Time Match System (Completed - March 26, 2026)
+Fixed live match system to be real-time and accurate:
+
+1. **Correct Match Status Handling**:
+   - Uses `status`, `matchStarted`, `matchEnded` from CricketData API
+   - Live: `matchStarted=true AND matchEnded=false`
+   - Completed: `matchEnded=true OR status in [completed, finished, ended]`
+
+2. **Auto-Refresh Polling**:
+   - Frontend: 15 seconds when live matches exist, 30 seconds otherwise
+   - Backend: Every 1 minute for live odds, every 5 minutes for cricket data
+   - Shows "Updated" timestamp and green "Live" indicator
+
+3. **Auto-Cleanup Logic**:
+   - Removes finished matches from live list automatically
+   - Marks stale "live" matches (>30 min) as completed
+   - Filters out matches with matchEnded=true flag
+
+4. **API Rate Limit Handling**:
+   - Detects 429 responses and enters cooldown (60 seconds)
+   - Shows "Live data temporarily unavailable" message
+   - Falls back to cached data during rate limiting
+   - Smart quota management (100 requests/day limit)
+
+5. **New API Endpoints**:
+   - `GET /api/matches/status` - Lightweight status check
+   - `GET /api/matches/live` - Live matches only
+
 ### Phase 12: Bug Fixes & Improvements (Completed - March 26, 2026)
 1. **Match Odds Layout Fix**: Now shows only 1 Back + 1 Lay column (best odds) in Match Odds section
    - Bookmaker section still shows 3+3 columns (unchanged)

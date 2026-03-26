@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/App";
 import PublicHeader from "@/components/PublicHeader";
 import { formatIndianDateTime } from "@/utils/dateFormat";
 import { toast } from "sonner";
+
+// Polling intervals
+const LIVE_POLL_INTERVAL = 15000;  // 15 seconds for live data
+const IDLE_POLL_INTERVAL = 30000;  // 30 seconds when no live matches
 
 export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   const navigate = useNavigate();
@@ -11,21 +15,49 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   const [activeTab, setActiveTab] = useState("cricket");
   const [betSlip, setBetSlip] = useState(null);
   const [stake, setStake] = useState("");
+  const [hasLiveMatches, setHasLiveMatches] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
 
-  useEffect(() => {
-    fetchMatches();
-    const interval = setInterval(fetchMatches, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchMatches = async () => {
+  // Fetch matches with error handling
+  const fetchMatches = useCallback(async () => {
     try {
       const response = await api.get("/matches");
-      setMatches(response.data);
+      const data = response.data || [];
+      
+      // Filter out any matches that might still be marked as live but are actually ended
+      const validMatches = data.filter(m => {
+        // Exclude if matchEnded flag is true
+        if (m.matchEnded === true) return false;
+        // Exclude completed statuses
+        if (["completed", "ended", "finished"].includes(m.status?.toLowerCase())) return false;
+        return true;
+      });
+      
+      setMatches(validMatches);
+      setApiUnavailable(false);
+      setLastUpdate(new Date());
+      
+      // Check if there are live matches
+      const liveCount = validMatches.filter(m => m.status === "live").length;
+      setHasLiveMatches(liveCount > 0);
+      
     } catch (error) {
-      console.error(error);
+      console.error("Failed to fetch matches:", error);
+      // Don't clear existing matches on error - use cached data
+      setApiUnavailable(true);
     }
-  };
+  }, []);
+
+  // Dynamic polling based on live match presence
+  useEffect(() => {
+    fetchMatches();
+    
+    // Use faster polling when there are live matches
+    const interval = setInterval(fetchMatches, hasLiveMatches ? LIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL);
+    
+    return () => clearInterval(interval);
+  }, [fetchMatches, hasLiveMatches]);
 
   // Handle match click - navigate to match page
   const handleMatchClick = (match) => {
@@ -39,16 +71,24 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
       // Filter by sport tab
       if (m.sport !== activeTab) return false;
       
-      // Filter out explicitly completed matches
-      if (m.status === "completed" || m.status === "ended" || m.status === "finished") return false;
+      // Filter out explicitly completed/ended matches
+      const status = (m.status || "").toLowerCase();
+      if (status === "completed" || status === "ended" || status === "finished") return false;
       
-      // For live matches, always show
-      if (m.status === "live") return true;
+      // Filter out matches with matchEnded flag
+      if (m.matchEnded === true) return false;
+      
+      // For live matches, always show (if matchEnded is not true)
+      if (status === "live") return true;
       
       // For scheduled/upcoming, include future matches only
-      const matchTime = new Date(m.commence_time);
-      const now = new Date();
-      return matchTime > now;
+      try {
+        const matchTime = new Date(m.commence_time);
+        const now = new Date();
+        return matchTime > now;
+      } catch {
+        return false;
+      }
     })
     // Sort by commence_time ascending (live matches first, then by date)
     .sort((a, b) => {
@@ -147,6 +187,27 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
           >
             ⚽ Football
           </button>
+          
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-2 ml-auto text-xs text-gray-500">
+            {apiUnavailable && (
+              <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded flex items-center gap-1">
+                <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                Live data temporarily unavailable
+              </span>
+            )}
+            {lastUpdate && (
+              <span className="hidden md:inline">
+                Updated: {lastUpdate.toLocaleTimeString()}
+              </span>
+            )}
+            {hasLiveMatches && (
+              <span className="flex items-center gap-1 text-green-600">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="hidden md:inline">Live</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Matches List */}
