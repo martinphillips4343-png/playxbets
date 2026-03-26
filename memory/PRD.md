@@ -12,6 +12,33 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ## Latest Updates (March 26, 2026)
 
+### Phase 14: Backend-Driven WebSocket System (Completed - March 26, 2026)
+Implemented real-time WebSocket updates to replace heavy REST polling:
+
+1. **WebSocket Infrastructure**:
+   - Backend `ConnectionManager` class handles multiple client connections
+   - Routes: `/api/ws` (all matches) and `/api/ws/match/{match_id}` (single match)
+   - Auto-reconnect with up to 5 retries on disconnect
+   - Heartbeat/ping mechanism to keep connections alive
+
+2. **Frontend WebSocket Hooks**:
+   - `useWebSocket` - Base hook for any WS connection
+   - `useLiveMatches` - Homepage live matches feed
+   - `useMatchUpdates` - Single match real-time updates
+   - Automatic fallback to REST polling when WS unavailable
+
+3. **Match Page Integration**:
+   - `MatchPage.js` now uses `useMatchUpdates` hook for real-time data
+   - Shows "Live" (green Wifi icon) when WS connected
+   - Shows "Polling" (yellow WifiOff icon) when using fallback
+   - Displays last update timestamp
+   - Removed heavy interval-based REST polling
+
+4. **Testing Results**:
+   - Backend: 13/13 tests passed (100%)
+   - Frontend: All WebSocket features working
+   - Real-time odds updates verified changing every 3 seconds
+
 ### Phase 13: Real-Time Match System (Completed - March 26, 2026)
 Fixed live match system to be real-time and accurate:
 
