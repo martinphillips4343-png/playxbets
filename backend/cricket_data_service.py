@@ -322,29 +322,30 @@ class CricketDataService:
     
     def _is_match_truly_live(self, match: Dict) -> bool:
         """
-        Determine if a match is truly live using multiple criteria.
-        Returns True only if match is actively in progress.
+        Determine if a match is truly live using STRICT criteria.
+        Returns True ONLY if match is actively in progress.
+        
+        STRICT RULE: matchStarted MUST be True AND matchEnded MUST be False
         """
-        # Check explicit status field
+        # Check matchStarted and matchEnded flags FIRST - these are authoritative
+        match_started = match.get("matchStarted")
+        match_ended = match.get("matchEnded")
+        
+        # STRICT: matchStarted must be explicitly True (not None, not missing)
+        if match_started is not True:
+            return False
+        
+        # STRICT: matchEnded must be False or not set
+        if match_ended is True:
+            return False
+        
+        # Double-check status field
         status = str(match.get("status", "")).lower()
-        if status in ["completed", "finished", "ended", "abandoned", "cancelled", "no result"]:
+        if status in ["completed", "finished", "ended", "abandoned", "cancelled", "no result", "match over"]:
             return False
         
-        # Check matchStarted and matchEnded flags
-        match_started = match.get("matchStarted", False)
-        match_ended = match.get("matchEnded", False)
-        
-        if match_ended:
-            return False
-        
-        if match_started and not match_ended:
-            return True
-        
-        # Additional check: if status explicitly says "live" or "in progress"
-        if status in ["live", "in progress", "inprogress", "ongoing"]:
-            return True
-        
-        return False
+        # Only return True if matchStarted=True AND matchEnded!=True
+        return True
     
     def _is_match_upcoming(self, match: Dict) -> bool:
         """Check if match is upcoming (not started yet)"""
