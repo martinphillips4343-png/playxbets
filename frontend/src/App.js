@@ -164,6 +164,7 @@ function App() {
             }
           >
             <Route index element={<AdminDashboard />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="bettors" element={<ManageBettors />} />
             <Route path="games" element={<ManageGames />} />
             <Route path="bets" element={<BetsPlaced />} />
@@ -185,6 +186,7 @@ function App() {
             }
           >
             <Route index element={<UserDashboard />} />
+            <Route path="dashboard" element={<UserDashboard />} />
             <Route path="betting" element={<BettingExchange />} />
             <Route path="match/:matchId" element={<MatchDetail />} />
             <Route path="history" element={<BetHistory />} />

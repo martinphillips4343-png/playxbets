@@ -1,0 +1,86 @@
+{
+  "summary": "Testing completed for multiple bug fixes: Match Odds 1 Back + 1 Lay column, Back/Lay header alignment, Admin/User Dashboard responsive design with hamburger menu, and explicit dashboard routes. All frontend features working correctly. Backend scheduler has async event loop issue in live match polling.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "Backend Scheduler - run_live_check",
+        "issue": "Async event loop error: 'Task got Future attached to a different loop' in check_live_matches_and_poll_async(). The scheduler is configured correctly for 2-minute polling but the async function fails due to event loop mismatch when using asyncio.run() in sync scheduler context.",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    ".screenshots/homepage_initial.png",
+    ".screenshots/match_page_odds_check.png",
+    ".screenshots/match_odds_detail.png",
+    ".screenshots/admin_dashboard_mobile.png",
+    ".screenshots/admin_sidebar_open_mobile.png",
+    ".screenshots/user_dashboard_mobile.png",
+    ".screenshots/user_sidebar_open_mobile.png",
+    ".screenshots/admin_dashboard_route.png",
+    ".screenshots/user_dashboard_route.png"
+  ],
+  "action_items": [
+    "Fix async event loop issue in backend scheduler's run_live_check function - consider using AsyncIOScheduler from apscheduler instead of BackgroundScheduler, or use a different approach for running async code in sync context"
+  ],
+  "critical_code_review_comments": [
+    "Backend scheduler uses asyncio.run() inside sync scheduler which causes event loop conflicts. Consider using apscheduler's AsyncIOScheduler or running the async code differently."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "95% - APIs working, scheduler has async issue",
+    "frontend": "100% - All features working"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - using existing seeded data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All frontend fixes verified working. Match Odds shows 1 Back + 1 Lay column. Bookmaker shows 3+3 columns. Admin and User dashboards are responsive with hamburger menu on mobile. /admin/dashboard and /user/dashboard routes work. Backend scheduler has async event loop issue that needs fixing.",
+  "features_tested": {
+    "match_odds_1_back_1_lay": {
+      "status": "PASS",
+      "details": "Match Odds section shows 1 Back + 1 Lay column per team (2 teams = 2+2 buttons total)"
+    },
+    "back_lay_headers_aligned": {
+      "status": "PASS",
+      "details": "Back and Lay headers are properly centered in Match Odds section"
+    },
+    "bookmaker_3_columns": {
+      "status": "PASS",
+      "details": "Bookmaker section still shows 3 Back + 3 Lay columns per team (2 teams = 6+6 buttons total)"
+    },
+    "admin_dashboard_responsive": {
+      "status": "PASS",
+      "details": "Admin Dashboard is responsive on mobile (390px width) with hamburger menu and collapsible sidebar"
+    },
+    "user_dashboard_responsive": {
+      "status": "PASS",
+      "details": "User Dashboard is responsive on mobile (390px width) with hamburger menu and collapsible sidebar"
+    },
+    "admin_dashboard_route": {
+      "status": "PASS",
+      "details": "/admin/dashboard route works correctly and loads Admin Dashboard"
+    },
+    "user_dashboard_route": {
+      "status": "PASS",
+      "details": "/user/dashboard route works correctly and loads User Dashboard"
+    },
+    "backend_scheduler_live_polling": {
+      "status": "PARTIAL",
+      "details": "Scheduler is configured for 2-minute polling when live matches exist, but async function fails with event loop error"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "details": "All APIs are real - match data from database, odds from The Odds API"
+  }
+}

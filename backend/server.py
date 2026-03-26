@@ -378,11 +378,21 @@ class OddsService:
 # ==================== CRON SCHEDULER ====================
 scheduler = BackgroundScheduler()
 
-async def scheduled_odds_fetch():
-    """Scheduled task to fetch odds - runs once daily at Indian midnight"""
+# Track last poll times for smart polling
+last_odds_poll = None
+live_match_check_enabled = True
+
+def run_scheduled_odds_fetch():
+    """Wrapper to run async scheduled_odds_fetch in sync scheduler"""
+    asyncio.run(scheduled_odds_fetch_async())
+
+async def scheduled_odds_fetch_async():
+    """Scheduled task to fetch odds - runs at Indian midnight and checks for live matches"""
+    global last_odds_poll
     try:
-        logger.info("Running scheduled odds fetch at Indian midnight (00:00:01 IST)...")
+        logger.info("Running scheduled odds fetch...")
         await OddsService.fetch_sports_data()
+        last_odds_poll = datetime.now(timezone.utc)
         
         # Also clean up old completed matches (older than 24 hours)
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -396,18 +406,58 @@ async def scheduled_odds_fetch():
     except Exception as e:
         logger.error(f"Scheduled odds fetch failed: {e}")
 
+async def check_live_matches_and_poll_async():
+    """Check if there are live matches and poll more frequently if so"""
+    global last_odds_poll
+    try:
+        # Count live matches
+        live_count = await db.matches.count_documents({"status": "live"})
+        
+        if live_count > 0:
+            # If there are live matches, poll every 2 minutes
+            current_time = datetime.now(timezone.utc)
+            if last_odds_poll is None or (current_time - last_odds_poll).seconds >= 120:
+                logger.info(f"Found {live_count} live matches - polling for updated odds...")
+                await OddsService.fetch_sports_data()
+                last_odds_poll = current_time
+                logger.info("Live match odds refresh completed")
+        else:
+            logger.debug("No live matches currently - skipping frequent poll")
+    except Exception as e:
+        logger.error(f"Live match check failed: {e}")
+
+def run_live_check():
+    """Wrapper to run async live match check in sync scheduler"""
+    asyncio.run(check_live_matches_and_poll_async())
+
 def start_scheduler():
-    """Start the scheduler - runs daily at Indian midnight (00:00:01 AM IST = 18:30:01 UTC previous day)"""
-    # IST is UTC+5:30, so Indian midnight (00:00:01 IST) = 18:30:01 UTC (previous day)
+    """Start the scheduler - polls dynamically based on live matches"""
     
-    # Football/Soccer odds - once daily at Indian midnight
+    # Initial odds fetch at startup
     scheduler.add_job(
-        scheduled_odds_fetch,
+        run_scheduled_odds_fetch,
+        'date',
+        run_date=datetime.now() + timedelta(seconds=5),
+        id='initial_odds_fetch',
+        replace_existing=True
+    )
+    
+    # Football/Soccer odds - daily at Indian midnight
+    scheduler.add_job(
+        run_scheduled_odds_fetch,
         'cron',
         hour=18,
         minute=30,
         second=1,
-        id='fetch_odds_job',
+        id='fetch_odds_daily',
+        replace_existing=True
+    )
+    
+    # Live match polling - check every 2 minutes and fetch if live matches exist
+    scheduler.add_job(
+        run_live_check,
+        IntervalTrigger(minutes=2),
+        id='live_match_polling',
         replace_existing=True
     )
     
@@ -421,7 +471,9 @@ def start_scheduler():
     
     scheduler.start()
     logger.info("Scheduler started:")
-    logger.info("  - Football/Soccer: Daily at 00:00:01 AM IST (18:30:01 UTC)")
+    logger.info("  - Initial fetch: 5 seconds after startup")
+    logger.info("  - Football/Soccer Daily: 00:00:01 AM IST (18:30:01 UTC)")
+    logger.info("  - Live Match Polling: Every 2 minutes (if live matches exist)")
     logger.info("  - Cricket: Every 30 minutes (smart polling with quota management)")
 
 

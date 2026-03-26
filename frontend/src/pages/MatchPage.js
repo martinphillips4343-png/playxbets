@@ -24,11 +24,11 @@ const LIVE_REFRESH_INTERVAL = 3000; // 3 seconds for live matches
 const UPCOMING_REFRESH_INTERVAL = 30000; // 30 seconds for upcoming
 
 // ==================== ODDS CELL COMPONENTS ====================
-const BackOddsCell = ({ odds, stake, onClick, suspended = false, highlighted = false }) => {
+const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
   if (suspended) {
     return (
-      <div className="flex flex-col items-center justify-center p-1.5 min-w-[60px] bg-[#72BBEF]/30 text-gray-400">
-        <span className="text-sm font-bold">-</span>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#72BBEF]/30 text-gray-400`}>
+        <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
         <span className="text-[9px]">-</span>
       </div>
     );
@@ -36,22 +36,20 @@ const BackOddsCell = ({ odds, stake, onClick, suspended = false, highlighted = f
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center p-1.5 min-w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-all cursor-pointer active:scale-95 ${
-        highlighted ? "ring-2 ring-yellow-400" : ""
-      }`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#72BBEF] hover:bg-[#5BA8DC] transition-all cursor-pointer active:scale-95`}
       data-testid="back-odds-btn"
     >
-      <span className="text-sm font-bold text-gray-900">{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
+      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-gray-900`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
       <span className="text-[9px] text-gray-700">{stake?.toLocaleString() || ""}</span>
     </button>
   );
 };
 
-const LayOddsCell = ({ odds, stake, onClick, suspended = false, highlighted = false }) => {
+const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
   if (suspended) {
     return (
-      <div className="flex flex-col items-center justify-center p-1.5 min-w-[60px] bg-[#FAA9BA]/30 text-gray-400">
-        <span className="text-sm font-bold">-</span>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#FAA9BA]/30 text-gray-400`}>
+        <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
         <span className="text-[9px]">-</span>
       </div>
     );
@@ -59,12 +57,10 @@ const LayOddsCell = ({ odds, stake, onClick, suspended = false, highlighted = fa
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center p-1.5 min-w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-all cursor-pointer active:scale-95 ${
-        highlighted ? "ring-2 ring-yellow-400" : ""
-      }`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#FAA9BA] hover:bg-[#E8899A] transition-all cursor-pointer active:scale-95`}
       data-testid="lay-odds-btn"
     >
-      <span className="text-sm font-bold text-gray-900">{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
+      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-gray-900`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
       <span className="text-[9px] text-gray-700">{stake?.toLocaleString() || ""}</span>
     </button>
   );
@@ -133,18 +129,32 @@ const MarketHeader = ({ title, isExpanded, onToggle, maxBet, minBet }) => {
 };
 
 // ==================== COLUMN HEADERS ====================
+// Match Odds: Single Back + Lay column (centered headers)
+const MatchOddsColumnHeaders = () => (
+  <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
+    <div className="flex-1 min-w-[120px] p-2"></div>
+    <div className="w-[80px] p-1 flex items-center justify-center bg-[#72BBEF]/10">
+      <span className="text-[10px] font-bold text-[#72BBEF]">Back</span>
+    </div>
+    <div className="w-[80px] p-1 flex items-center justify-center bg-[#FAA9BA]/10">
+      <span className="text-[10px] font-bold text-[#FAA9BA]">Lay</span>
+    </div>
+  </div>
+);
+
+// Bookmaker/Other Markets: 3 Back + 3 Lay columns
 const ColumnHeaders = () => (
   <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
     <div className="flex-1 min-w-[120px] p-2"></div>
     <div className="flex">
-      <div className="w-[60px] p-1 text-center">
+      <div className="w-[60px] p-1 text-center bg-[#72BBEF]/10">
         <span className="text-[10px] font-bold text-[#72BBEF]">Back</span>
       </div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
     </div>
     <div className="flex">
-      <div className="w-[60px] p-1 text-center">
+      <div className="w-[60px] p-1 text-center bg-[#FAA9BA]/10">
         <span className="text-[10px] font-bold text-[#FAA9BA]">Lay</span>
       </div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
@@ -182,7 +192,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const [betSlip, setBetSlip] = useState([]);
   const [showMobileBetSlip, setShowMobileBetSlip] = useState(false);
   const [lastOddsUpdate, setLastOddsUpdate] = useState(null);
-  const [oddsChanges, setOddsChanges] = useState({});
 
   // Expanded markets state
   const [expandedMarkets, setExpandedMarkets] = useState({
@@ -285,17 +294,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
             }
           : null,
       };
-
-      // Track odds changes for highlighting
-      const changes = {};
-      if (newOdds.home.back[0] !== prev.home.back[0]) {
-        changes.homeBack = newOdds.home.back[0] > prev.home.back[0] ? "up" : "down";
-      }
-      if (newOdds.away.back[0] !== prev.away.back[0]) {
-        changes.awayBack = newOdds.away.back[0] > prev.away.back[0] ? "up" : "down";
-      }
-      setOddsChanges(changes);
-      setTimeout(() => setOddsChanges({}), 1000);
 
       return newOdds;
     });
@@ -670,33 +668,24 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               />
               {expandedMarkets.matchOdds && (
                 <>
-                  <ColumnHeaders />
+                  <MatchOddsColumnHeaders />
                   {/* Home Team */}
                   <div className="flex items-stretch border-b border-gray-700/50">
                     <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
                       <span className="text-sm text-white font-medium">{match.home_team}</span>
                     </div>
-                    <div className="flex">
-                      {liveOdds?.home.back.map((odds, i) => (
-                        <BackOddsCell
-                          key={`home-back-${i}`}
-                          odds={odds}
-                          stake={liveOdds.home.backStakes[i]}
-                          onClick={() => addToBetSlip(match.home_team, "Back", odds)}
-                          highlighted={i === 0 && oddsChanges.homeBack}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex">
-                      {liveOdds?.home.lay.map((odds, i) => (
-                        <LayOddsCell
-                          key={`home-lay-${i}`}
-                          odds={odds}
-                          stake={liveOdds.home.layStakes[i]}
-                          onClick={() => addToBetSlip(match.home_team, "Lay", odds)}
-                        />
-                      ))}
-                    </div>
+                    <BackOddsCell
+                      odds={liveOdds?.home.back[0]}
+                      stake={liveOdds?.home.backStakes[0]}
+                      onClick={() => addToBetSlip(match.home_team, "Back", liveOdds?.home.back[0])}
+                      size="large"
+                    />
+                    <LayOddsCell
+                      odds={liveOdds?.home.lay[0]}
+                      stake={liveOdds?.home.layStakes[0]}
+                      onClick={() => addToBetSlip(match.home_team, "Lay", liveOdds?.home.lay[0])}
+                      size="large"
+                    />
                   </div>
 
                   {/* Draw (Football only) */}
@@ -705,26 +694,18 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
                         <span className="text-sm text-white font-medium">Draw</span>
                       </div>
-                      <div className="flex">
-                        {liveOdds.draw.back.map((odds, i) => (
-                          <BackOddsCell
-                            key={`draw-back-${i}`}
-                            odds={odds}
-                            stake={liveOdds.draw.backStakes[i]}
-                            onClick={() => addToBetSlip("Draw", "Back", odds)}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex">
-                        {liveOdds.draw.lay.map((odds, i) => (
-                          <LayOddsCell
-                            key={`draw-lay-${i}`}
-                            odds={odds}
-                            stake={liveOdds.draw.layStakes[i]}
-                            onClick={() => addToBetSlip("Draw", "Lay", odds)}
-                          />
-                        ))}
-                      </div>
+                      <BackOddsCell
+                        odds={liveOdds.draw.back[0]}
+                        stake={liveOdds.draw.backStakes[0]}
+                        onClick={() => addToBetSlip("Draw", "Back", liveOdds.draw.back[0])}
+                        size="large"
+                      />
+                      <LayOddsCell
+                        odds={liveOdds.draw.lay[0]}
+                        stake={liveOdds.draw.layStakes[0]}
+                        onClick={() => addToBetSlip("Draw", "Lay", liveOdds.draw.lay[0])}
+                        size="large"
+                      />
                     </div>
                   )}
 
@@ -733,27 +714,18 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
                       <span className="text-sm text-white font-medium">{match.away_team}</span>
                     </div>
-                    <div className="flex">
-                      {liveOdds?.away.back.map((odds, i) => (
-                        <BackOddsCell
-                          key={`away-back-${i}`}
-                          odds={odds}
-                          stake={liveOdds.away.backStakes[i]}
-                          onClick={() => addToBetSlip(match.away_team, "Back", odds)}
-                          highlighted={i === 0 && oddsChanges.awayBack}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex">
-                      {liveOdds?.away.lay.map((odds, i) => (
-                        <LayOddsCell
-                          key={`away-lay-${i}`}
-                          odds={odds}
-                          stake={liveOdds.away.layStakes[i]}
-                          onClick={() => addToBetSlip(match.away_team, "Lay", odds)}
-                        />
-                      ))}
-                    </div>
+                    <BackOddsCell
+                      odds={liveOdds?.away.back[0]}
+                      stake={liveOdds?.away.backStakes[0]}
+                      onClick={() => addToBetSlip(match.away_team, "Back", liveOdds?.away.back[0])}
+                      size="large"
+                    />
+                    <LayOddsCell
+                      odds={liveOdds?.away.lay[0]}
+                      stake={liveOdds?.away.layStakes[0]}
+                      onClick={() => addToBetSlip(match.away_team, "Lay", liveOdds?.away.lay[0])}
+                      size="large"
+                    />
                   </div>
                 </>
               )}

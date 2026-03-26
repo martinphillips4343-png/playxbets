@@ -87,94 +87,94 @@ export default function UserDashboard() {
     <div>
       <DashboardHeader title="Dashboard" />
       
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
           {/* Wallet Card */}
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <Wallet className="w-8 h-8" />
-              <span className="text-sm opacity-90 font-medium">Current Balance</span>
+          <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white">
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <Wallet className="w-6 h-6 md:w-8 md:h-8" />
+              <span className="text-xs md:text-sm opacity-90 font-medium">Current Balance</span>
             </div>
-            <p className="text-4xl font-bold mb-6">₹{wallet?.balance?.toFixed(2) || "0.00"}</p>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6">₹{wallet?.balance?.toFixed(2) || "0.00"}</p>
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
               <Button 
                 variant="secondary" 
-                className="bg-white/20 hover:bg-white/30 text-white border-0 font-semibold"
+                className="bg-white/20 hover:bg-white/30 text-white border-0 font-semibold text-xs md:text-sm py-2 md:py-2.5"
                 onClick={() => setShowRechargeModal(true)}
                 data-testid="deposit-btn"
               >
-                <ArrowDownCircle className="w-4 h-4 mr-2" />
+                <ArrowDownCircle className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                 Deposit
               </Button>
               <Button 
                 variant="secondary"
-                className="bg-white/20 hover:bg-white/30 text-white border-0 font-semibold"
+                className="bg-white/20 hover:bg-white/30 text-white border-0 font-semibold text-xs md:text-sm py-2 md:py-2.5"
                 onClick={() => window.location.href = '/user/withdrawals'}
               >
-                <ArrowUpCircle className="w-4 h-4 mr-2" />
+                <ArrowUpCircle className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                 Withdraw
               </Button>
             </div>
           </div>
 
           {/* Pending Bets */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700 font-semibold mb-1">Pending Bets</p>
-                <p className="text-3xl font-bold text-orange-600">{pendingBets}</p>
+                <p className="text-xs md:text-sm text-gray-700 font-semibold mb-1">Pending Bets</p>
+                <p className="text-2xl md:text-3xl font-bold text-orange-600">{pendingBets}</p>
               </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-orange-600" />
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
               </div>
             </div>
           </div>
 
           {/* Won Bets */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-700 font-semibold mb-1">Won Bets</p>
-                <p className="text-3xl font-bold text-green-600">{wonBets}</p>
+                <p className="text-xs md:text-sm text-gray-700 font-semibold mb-1">Won Bets</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-600">{wonBets}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Bet Now Section */}
-        <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-8 text-white mb-6 text-center">
-          <Trophy className="w-16 h-16 mx-auto mb-4 opacity-90" />
-          <h2 className="text-3xl font-bold mb-2">Ready to Win Big?</h2>
-          <p className="text-lg mb-6 opacity-90">Place your bets on live Cricket & Football matches</p>
+        <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-4 md:p-6 lg:p-8 text-white mb-4 md:mb-6 text-center">
+          <Trophy className="w-10 h-10 md:w-12 lg:w-16 md:h-12 lg:h-16 mx-auto mb-3 md:mb-4 opacity-90" />
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-2">Ready to Win Big?</h2>
+          <p className="text-sm md:text-base lg:text-lg mb-4 md:mb-6 opacity-90">Place your bets on live Cricket & Football matches</p>
           <Button
             onClick={() => window.location.href = '/'}
-            className="bg-white text-green-700 hover:bg-gray-100 font-bold text-lg px-8 py-6"
+            className="bg-white text-green-700 hover:bg-gray-100 font-bold text-sm md:text-base lg:text-lg px-4 md:px-6 lg:px-8 py-3 md:py-4 lg:py-6"
           >
-            🎯 BET NOW
+            BET NOW
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Bet Chart Placeholder */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Bet Statistics</h2>
-            <div className="h-64 flex items-center justify-center bg-gray-50 rounded">
+          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+            <h2 className="text-base md:text-lg lg:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Bet Statistics</h2>
+            <div className="h-48 md:h-56 lg:h-64 flex items-center justify-center bg-gray-50 rounded">
               <div className="text-center">
-                <div className="grid grid-cols-3 gap-8">
+                <div className="grid grid-cols-3 gap-4 md:gap-6 lg:gap-8">
                   <div>
-                    <p className="text-3xl font-bold text-green-600">{wonBets}</p>
-                    <p className="text-sm text-gray-700 font-medium mt-1">Won</p>
+                    <p className="text-xl md:text-2xl lg:text-3xl font-bold text-green-600">{wonBets}</p>
+                    <p className="text-xs md:text-sm text-gray-700 font-medium mt-1">Won</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-orange-600">{pendingBets}</p>
-                    <p className="text-sm text-gray-700 font-medium mt-1">Pending</p>
+                    <p className="text-xl md:text-2xl lg:text-3xl font-bold text-orange-600">{pendingBets}</p>
+                    <p className="text-xs md:text-sm text-gray-700 font-medium mt-1">Pending</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-red-600">{lostBets}</p>
-                    <p className="text-sm text-gray-700 font-medium mt-1">Lost</p>
+                    <p className="text-xl md:text-2xl lg:text-3xl font-bold text-red-600">{lostBets}</p>
+                    <p className="text-xs md:text-sm text-gray-700 font-medium mt-1">Lost</p>
                   </div>
                 </div>
               </div>
@@ -182,17 +182,17 @@ export default function UserDashboard() {
           </div>
 
           {/* Latest Transactions */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Latest Transactions</h2>
-            <div className="space-y-3">
+          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+            <h2 className="text-base md:text-lg lg:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Latest Transactions</h2>
+            <div className="space-y-2 md:space-y-3">
               {transactions.length > 0 ? (
                 transactions.map((txn) => (
-                  <div key={txn.transaction_id} className="flex items-center justify-between py-3 border-b">
+                  <div key={txn.transaction_id} className="flex items-center justify-between py-2 md:py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900 text-sm capitalize">{txn.type}</p>
-                      <p className="text-xs text-gray-600 font-medium">{formatIndianDateTime(txn.created_at)}</p>
+                      <p className="font-medium text-gray-900 text-xs md:text-sm capitalize">{txn.type}</p>
+                      <p className="text-[10px] md:text-xs text-gray-600 font-medium">{formatIndianDateTime(txn.created_at)}</p>
                     </div>
-                    <p className={`font-bold ${
+                    <p className={`font-bold text-sm md:text-base ${
                       txn.type === 'deposit' || txn.type === 'winning' ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {txn.type === 'deposit' || txn.type === 'winning' ? '+' : '-'}₹{txn.amount.toFixed(2)}
@@ -200,7 +200,7 @@ export default function UserDashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-center text-gray-600 font-medium py-8">No transactions yet</p>
+                <p className="text-center text-gray-600 font-medium py-6 md:py-8 text-sm">No transactions yet</p>
               )}
             </div>
           </div>

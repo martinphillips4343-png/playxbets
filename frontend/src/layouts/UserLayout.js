@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut, Users } from "lucide-react";
+import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut, Users, Menu, X } from "lucide-react";
 
 export default function UserLayout({ user, onLogout }) {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
     { path: "/user", label: "Dashboard", icon: Home, exact: true },
@@ -19,12 +21,40 @@ export default function UserLayout({ user, onLogout }) {
     return location.pathname.startsWith(path);
   };
 
+  const handleNavClick = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-blue-700 text-white px-4 py-3 flex items-center justify-between">
+        <h1 className="text-lg font-bold">PlayXBets</h1>
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)} 
+          className="p-2 hover:bg-blue-600 rounded"
+          data-testid="mobile-menu-toggle"
+        >
+          {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white flex flex-col">
-        <div className="p-6 border-b border-blue-700">
-          <h1 className="text-2xl font-bold">PlayXBets</h1>
+      <aside 
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white flex flex-col transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="p-4 md:p-6 border-b border-blue-700">
+          <h1 className="text-xl md:text-2xl font-bold">PlayXBets</h1>
           <p className="text-xs text-blue-200 mt-1">Sports Betting</p>
         </div>
 
@@ -33,7 +63,8 @@ export default function UserLayout({ user, onLogout }) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-6 py-3 transition-colors ${
+              onClick={handleNavClick}
+              className={`flex items-center gap-3 px-4 md:px-6 py-3 transition-colors ${
                 isActive(item.path, item.exact)
                   ? "bg-blue-700 border-l-4 border-yellow-400"
                   : "hover:bg-blue-700"
@@ -45,7 +76,7 @@ export default function UserLayout({ user, onLogout }) {
           ))}
 
           {/* Quick Actions */}
-          <div className="mt-6 px-6">
+          <div className="mt-6 px-4 md:px-6">
             <p className="text-xs text-blue-300 uppercase mb-2 font-semibold">Quick Actions</p>
             <a
               href={`https://wa.me/918778156678?text=Hello%2C%20I%20am%20${encodeURIComponent(user.username)}.%20Recharge%20%E2%82%B9500`}
@@ -60,10 +91,10 @@ export default function UserLayout({ user, onLogout }) {
           </div>
         </nav>
 
-        <div className="p-6 border-t border-blue-700">
+        <div className="p-4 md:p-6 border-t border-blue-700">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center">
-              <span className="font-bold">{user.username[0].toUpperCase()}</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-700 rounded-full flex items-center justify-center">
+              <span className="font-bold text-sm md:text-base">{user.username[0].toUpperCase()}</span>
             </div>
             <div>
               <p className="font-medium text-sm">{user.username}</p>
@@ -80,7 +111,7 @@ export default function UserLayout({ user, onLogout }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         <Outlet />
       </main>
     </div>
