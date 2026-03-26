@@ -7,10 +7,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-// WebSocket configuration
-const WS_RECONNECT_DELAY = 3000;  // 3 seconds
-const WS_MAX_RETRIES = 5;
-const FALLBACK_POLL_INTERVAL = 15000;  // 15 seconds
+// WebSocket configuration - OPTIMIZED FOR REAL-TIME LIVE UPDATES
+const WS_RECONNECT_DELAY = 2000;  // 2 seconds - faster reconnect
+const WS_MAX_RETRIES = 10;  // More retries for live matches
+const FALLBACK_POLL_INTERVAL = 5000;  // 5 seconds - faster fallback polling for live scores
 
 /**
  * Hook for connecting to the WebSocket server for real-time updates

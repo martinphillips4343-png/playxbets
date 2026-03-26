@@ -31,17 +31,17 @@ CRICKET_API_BASE = "https://api.cricapi.com/v1"
 DAILY_QUOTA_LIMIT = 100
 QUOTA_WARNING_THRESHOLD = 0.9  # 90% = 90 requests
 
-# Cache TTL in seconds
-CACHE_TTL_LIVE = 30  # 30 seconds for live data - more frequent updates
+# Cache TTL in seconds - OPTIMIZED FOR REAL-TIME LIVE UPDATES
+CACHE_TTL_LIVE = 10  # 10 seconds for live data - near real-time updates
 CACHE_TTL_SCHEDULED = 300  # 5 minutes for scheduled matches
-CACHE_TTL_FALLBACK = 120  # 2 minutes fallback when API unavailable
+CACHE_TTL_FALLBACK = 60  # 1 minute fallback when API unavailable
 
-# Polling intervals (in minutes)
-POLL_INTERVAL_LIVE = 1  # Every 1 min when live matches exist
+# Polling intervals (in seconds for live, minutes for idle)
+POLL_INTERVAL_LIVE_SECONDS = 15  # Every 15 seconds when live matches exist
 POLL_INTERVAL_IDLE = 30  # Every 30 min when no live matches
 
 # API rate limit handling
-RATE_LIMIT_RETRY_SECONDS = 60  # Wait 60 seconds after 429
+RATE_LIMIT_RETRY_SECONDS = 30  # Wait 30 seconds after 429 (reduced for faster recovery)
 RATE_LIMIT_COOLDOWN_UNTIL = None  # Track when we can retry after 429
 
 

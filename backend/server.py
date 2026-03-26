@@ -621,20 +621,41 @@ async def scheduled_odds_fetch_async():
         logger.error(f"Scheduled odds fetch failed: {e}")
 
 async def check_live_matches_and_poll_async():
-    """Check if there are live matches and poll more frequently if so"""
+    """Check if there are live matches and poll more frequently for real-time updates"""
     global last_odds_poll
     try:
         # Count live matches
         live_count = await db.matches.count_documents({"status": "live"})
         
         if live_count > 0:
-            # If there are live matches, poll every 2 minutes
+            # If there are live matches, poll every 30 SECONDS for real-time sync
             current_time = datetime.now(timezone.utc)
-            if last_odds_poll is None or (current_time - last_odds_poll).seconds >= 120:
-                logger.info(f"Found {live_count} live matches - polling for updated odds...")
-                await OddsService.fetch_sports_data()
+            if last_odds_poll is None or (current_time - last_odds_poll).seconds >= 30:
+                logger.info(f"Found {live_count} live matches - polling for real-time updates...")
+                
+                # Fetch fresh cricket data
+                service = get_cricket_service()
+                data = await service.get_all_matches()
+                live_transformed = await service.transform_for_frontend(data.get("live", []))
+                
+                # Update and broadcast each live match
+                for match in live_transformed:
+                    match["updated_at"] = current_time
+                    await db.matches.update_one(
+                        {"match_id": match["match_id"]},
+                        {"$set": match},
+                        upsert=True
+                    )
+                    # Broadcast to WebSocket subscribers immediately
+                    if ws_manager.get_connection_count() > 0:
+                        await ws_manager.broadcast_match_update(match["match_id"], match)
+                
+                # Broadcast all live matches to general subscribers
+                if ws_manager.get_connection_count() > 0 and live_transformed:
+                    await ws_manager.broadcast_live_matches(live_transformed)
+                
                 last_odds_poll = current_time
-                logger.info("Live match odds refresh completed")
+                logger.info(f"Live match real-time update completed - {len(live_transformed)} matches")
         else:
             logger.debug("No live matches currently - skipping frequent poll")
     except Exception as e:
@@ -679,18 +700,18 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Live match polling - check every 1 minute and fetch if live matches exist
+    # Live match polling - check every 20 SECONDS for real-time live score updates
     scheduler.add_job(
         run_live_check,
-        IntervalTrigger(minutes=1),
+        IntervalTrigger(seconds=20),
         id='live_match_polling',
         replace_existing=True
     )
     
-    # Cricket data - frequent polling every 5 minutes for live data
+    # Cricket data - frequent polling every 1 minute for live data (increased frequency)
     scheduler.add_job(
         run_cricket_poll,
-        IntervalTrigger(minutes=5),
+        IntervalTrigger(minutes=1),
         id='fetch_cricket_job',
         replace_existing=True
     )
@@ -699,8 +720,8 @@ def start_scheduler():
     logger.info("Scheduler started:")
     logger.info("  - Initial fetch: 5 seconds after startup")
     logger.info("  - Football/Soccer Daily: 00:00:01 AM IST (18:30:01 UTC)")
-    logger.info("  - Live Match Polling: Every 1 minute (real-time updates)")
-    logger.info("  - Cricket: Every 5 minutes (with quota management)")
+    logger.info("  - Live Match Polling: Every 20 SECONDS (real-time updates)")
+    logger.info("  - Cricket: Every 1 minute (for live score sync)")
 
 
 # ==================== AUTH ROUTES ====================

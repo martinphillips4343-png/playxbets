@@ -25,7 +25,7 @@ import {
 
 // ==================== CONSTANTS ====================
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback when WS is down
+const FALLBACK_POLL_INTERVAL = 5000; // 5 seconds fallback for real-time live score sync
 
 // ==================== ODDS CELL COMPONENTS ====================
 const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
