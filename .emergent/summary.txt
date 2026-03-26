@@ -1,125 +1,128 @@
 <analysis>**original_problem_statement:**
-The user is building a premium, dark-themed sports betting application named PlayXBets. The project requires a sophisticated betting exchange UI heavily inspired by  (dense, tabular, Back/Lay boxes, mobile responsive). It involves fetching live football/soccer odds via The Odds API and global live cricket matches via CricketData API while strictly respecting a 100 requests/day free tier quota. It must handle full bet placement logic, user wallets, specific cricket markets, and WhatsApp deposit workflows.
+The user is building a premium, dark-themed sports betting application named PlayXBets featuring a dense, tabular betting exchange UI (inspired by ). The platform integrates live football odds (The Odds API) and global live cricket matches (CricketData API). Due to a strict 100 requests/day quota on the CricketData API, the app requires smart backend caching, dynamic polling, and an internal WebSocket system to broadcast real-time updates to the frontend without hitting external rate limits. 
 
 **PRODUCT REQUIREMENTS:**
-1. **UI/UX:** Dense table-based betting exchange interface (icebook9 style) with stacked odds/stakes. Mobile-first responsive design. Match listings sorted by ascending date with clickable match detail panels.
-2. **Cricket Markets:** Match Odds, Bookmaker, Session Markets (6/10/15/20 overs), Over Runs, Fall of Wickets, Team Total, Partnership, and Special Markets. (Next Ball/Ball-by-Ball removed).
-3. **API Integration & Quota:** Integrate CricketData API for global matches securely. Use backend cron scheduling, Redis/in-memory caching, and poll dynamically to avoid hitting the 100 requests/day limit.
-4. **Betting Logic:** Real bet persistence, wallet deduction, backend validation.
-5. **Deposits:** Logged-in users can deposit via a WhatsApp redirect link with pre-filled dynamic messages.
+1. **Match Pages:** Dedicated  route with conditional UI (Live vs Upcoming) and a sticky bet slip.
+2. **Dynamic Markets:** Markets like  must dynamically render based on API data/flags, not static UI blocks.
+3. **Responsive UI:** Dashboards (Admin/User) must be fully responsive with mobile hamburger menus. 
+4. **Real-time Sync:** A backend-driven WebSocket server (FastAPI) that broadcasts cached match/odds updates to the frontend to simulate real-time live scores without exhausting the 3rd-party API quota.
+5. **Accurate Live Listing:** Strict filtering of live matches using  and  flags, with auto-cleanup of finished matches.
 
-**User's preferred language**: English (INSTRUCT next agent to respond in the user's preferred language only)
+**User's preferred language**: English (INSTRUCT next agent to respond in English only)
 
 **what currently exists?** 
-A full-stack React + FastAPI + MongoDB app. Both Cricket and Football exchange UIs have been completely redesigned to match the icebook9 dense-table format with stacked Back (blue) / Lay (pink) columns. Bet placement is fully connected to the backend, properly deducting from user wallets. A WhatsApp deposit feature is live. Global cricket matches are fetched via a robust  that caches results and manages the 100 request/day quota. The homepage correctly filters for strictly LIVE and UPCOMING matches, sorts them by ascending commence time, and includes a clickable match details modal.
+A full-stack React + FastAPI + MongoDB app. The dedicated  route has been successfully built with conditional layout and an exact 1-Back/1-Lay column setup for Match Odds. The UI for Admin/User dashboards is mobile-responsive. The  component is dynamic and market-driven. The backend  successfully handles live match status logic and auto-removes finished games. Currently, the system is transitioning from REST polling to a custom Backend-driven WebSocket system. The backend  and WS endpoints are ready, and the frontend  hook is built.
 
 **Last working item**:
-    - Last item agent was working: Implementing match sorting (ascending order by date/time) and a detailed Match View Modal on the homepage for when users click a specific match.
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y
-    - Which testing method agent to use? Frontend testing agent (completed successfully)
+    - Last item agent was working: Wiring up the newly created frontend  hook to the existing  to receive live, real-time match and odds updates via the backend WebSocket server.
+    - Status: IN PROGRESS
+    - Agent Testing Done: N
+    - Which testing method agent to use? Frontend testing agent (to verify WS data binding) + manual verification via  or console logs.
     - User Testing Done: N
 
-**All Pending/In progress Issue list**:
-  None currently blocking.
+**All Pending/In progress Issue list**:  
+  Issue 1 (P0): Complete WebSocket integration in . 
+     - Attempted fixes: Agent had just opened  to import the  hook but the context window ended.
+     - Next debug checklist: Check . Import , subscribe to the WS feed, and map incoming WS payload events to the local  and  states. Remove any old  REST polling logic inside the component.
+     - Why fix this issue and what will be achieved with the fix? Completes the user's explicit request for true real-time UI updates without exhausting the API quota.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Both.
 
-**In progress Task List**:
-  None. The previous tasks were completed perfectly.
+**In progress Task List**: 
+  Task 1: Complete Backend-Driven WebSocket System Implementation.
+     - Where to resume: Modify  to utilize . 
+     - What will be achieved with this? Seamless UI odds/score updates via WebSockets instead of heavy REST polling.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? Frontend.
+     - Blocked on something: None.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - (P1) Admin manual match entry UI (The  endpoint exists, but the UI needs to be built in the Admin panel).
-    - (P2) Implement Cashout functionality for live bets.
+    - (P1) Admin manual match entry UI (Building the frontend form to hit the existing  endpoint).
+    - (P2) Implement Cashout functionality for live bets (UI buttons exist, backend logic missing).
     - (P2) Admin panel module for declaring bet outcomes and settling bets automatically.
     - (P2) Admin dashboard widget for viewing API quota/usage stats from the cricket service.
 
     Future Tasks:
-    - Real-time WebSocket connection to the frontend for live score updates (CricketData live integration).
     - User withdrawal request system.
     - User support ticket system.
+    - Code Architecture Refactor: Break down  (>1500 lines) into modular routers (, , ).
 
 **Completed work in this session**
-- UI Redesign:  and  redesigned to icebook9 style (DONE)
-- Bet Placement API: Connected Place Bet to backend , updating  models and wallets (DONE)
-- WhatsApp Deposit: Added conditional WhatsApp button for logged-in users with dynamic modal and pre-filled texts (DONE)
-- Market Filtering: Aggressively removed past/old matches using strict UTC datetime evaluation (DONE)
-- Cricket Upgrade: Rewrote Cricket module to feature exactly 9 specific session/bookmaker markets (removed Next Ball) (DONE)
-- CricketData API Integration: Created backend service with smart cron polling, caching, and a strict 100/day quota manager (DONE)
-- Homepage Enhancements: Added ascending sorting and match detail modal with icons (TV, BM, F) (DONE)
+- Dedicated Match Page () replacing previous modal logic (DONE).
+- Match Odds UI fix: Corrected to exactly 1 Back and 1 Lay column, removed yellow highlight ring (DONE).
+- Dashboard Responsiveness: Fixed  and  sidebars and hamburger menus (DONE).
+- APScheduler Bug Fix: Fixed Motor DB async event loop issue by binding global  at startup (DONE).
+- Dynamic : Replaced static Bookmaker section with conditional Tie market UI (DONE).
+- Match Listing System Auto-cleanup: Implemented exact  &  logic to purge finished games instantly (DONE).
+- Backend WebSocket infrastructure: Created ,  route, and modified background scheduler to broadcast (DONE).
 
 **Earlier issues found/mentioned but not fixed**
 None.
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: Datetime parsing issues when comparing string vs. datetime objects in MongoDB filtering for commence_time.
-  - Recurrence count: 2
-  - Status: RESOLVED (Backend now explicitly parses strings to UTC datetimes during the cleanup/filtering loops).
+  - Issue recurrence in previous fork: Async/sync context mixing between APScheduler threads and the main FastAPI event loop (specifically regarding MongoDB motor client).
+  - Recurrence count: 1
+  - Status: RESOLVED. Fixed by grabbing  at application startup and passing it to the scheduler functions. Note: If adding future database interactions inside background cron jobs, ensure they run on .
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-React, Tailwind CSS, FastAPI, MongoDB, APScheduler (cron jobs for dual APIs), Quota Management, In-memory Caching, Pydantic data validation.
+React, Tailwind CSS, FastAPI, MongoDB, FastAPI WebSockets (, ), APScheduler, Rate Limiting & Caching.
 
 **key DB schema**
-  - : {username, hashed_password, role}
-  - : {user_id, balance, updated_at}
-  - : {match_id, sport, home_team, away_team, status, commence_time, odds_draw, has_tv, has_fancy}
-  - : {bet_id, user_id, match_id, stake, bet_type, market_type, status, placed_at}
+  - : {match_id, status, commence_time, matchStarted, matchEnded, format}
+  - : {bet_id, user_id, match_id, stake, odds, bet_type, status}
 
 **changes in tech stack**
-  - Added smart API caching and quota-tracking logic via dictionary state management within .
+  - Introduced native FastAPI WebSockets + a custom React WebSocket hook () to transition away from REST interval polling.
 
 **All files of reference** 
-  -  (NEW - Crucial for CricketData API integration and quota limits).
-  -  (Updated extensively for betting logic, sorting, and initializing scheduler).
-  -  (Majorly overhauled to include exact 9 cricket markets requested by user).
-  -  (Updated for sorting and Match Detail panel UI).
-  -  &  (WhatsApp floating button & modal deposits).
+  -  (Contains new WS  and broadcast logic).
+  -  (New connection hook created by agent).
+  -  (Currently being modified to implement WS hook).
+  -  (Already modified to use WS).
+  -  (Updated to handle strict / flags).
 
 **Areas that need refactoring**: 
-  -  is now over 1100 lines long. It urgently needs to be broken down into modular routers (, , ).
+  -  is critically large (>1500 lines). It houses routing, DB setup, auth, APScheduler configs, and now the WebSocket ConnectionManager. 
 
 **key api endpoints**
-  -  (Now returns strictly LIVE and UPCOMING matches sorted by commence_time ascending)
-  -  (Fetches single match details)
-  -  (Persists bet and deducts wallet)
-  -  (Manual entry)
+  -  (Real-time WebSocket endpoint for matches/odds broadcast).
+  -  (Lightweight API availability check).
+  -  (Filtered live games only).
 
 **Critical Info for New Agent** 
-  - **API Quota:** The CricketData API integration is on a strict **100 requests per day limit**. DO NOT fetch from this API directly from the frontend or bypass the caching layer in . The backend scheduler is configured to poll this smartly.
-  - **Refactoring:** Proceed with extreme caution if refactoring . It houses APScheduler setups for *both* The Odds API and the CricketData API. 
-  - **UI Expectations:** The user expects tight, dense, tabular UIs (like icebook9). Avoid over-padding elements in the exchange pages.
+  - **WebSocket Architecture Constraint:** Do NOT attempt to connect the frontend directly to the CricketData API via WebSockets (it doesn't support them). The setup *must* be: Backend chron polls external API -> Backend Cache -> Backend WS server broadcasts to Frontend.
+  - **API Quota:** CricketData API remains on a strict 100/day limit. All scheduler polling intervals are specifically timed to avoid hitting 429s. Do not drastically lower the polling intervals in .
 
 **documents and test reports created in this job** 
   - 
   - 
   - 
-  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
- 1. User requested WhatsApp deposit option enabled only for logged-in users. -> (COMPLETED)
- 2. User requested strict LIVE & UPCOMING match filters (no old matches). -> (COMPLETED)
- 3. User requested a massive structural upgrade to Cricket Module (Exact markets like 6/10/15/20 over runs, bookmaker, next ball, etc. without breaking football). -> (COMPLETED)
- 4. User requested fixing API to fetch Indian Midnight, removing Next ball from cricket. -> (COMPLETED)
- 5. User asked for Server Wakeup. -> (COMPLETED)
- 6. User uploaded a screenshot and demanded global live cricket matches (IPL, PSL, etc.). -> (COMPLETED)
- 7. User requested automation for CricketData API respecting a strict 100 requests/day quota, with Redis/In-memory caching. -> (COMPLETED)
- 8. User requested Match Sorting (Ascending date) and a Match Detail + Betting Panel modal on click. -> (COMPLETED - VERIFICATION PENDING)
+ 1. User requested dedicated match page route instead of modal. -> (COMPLETED)
+ 2. User highlighted bugs: Fix Match Odds layout (1 Back/1 Lay), remove yellow highlight, fix Dashboard mobile responsiveness. -> (COMPLETED)
+ 3. User asked to remove BOOKMAKER container and add static TIED_MATCH at bottom. -> (COMPLETED)
+ 4. User corrected previous prompt: Make TIED_MATCH a dynamic component based on market data, not static UI. -> (COMPLETED)
+ 5. User asked to fix match listing system: strict filtering using  flags, auto-cleanup, and API 429 limit handling. -> (COMPLETED)
+ 6. User requested: Integrate real CricketData API key (Verified setup) & Implement WebSocket for true real-time updates (via Backend broadcasting). -> (IN PROGRESS - PENDING)
 
 **Project Health Check:**
-  - Broken: None
-  - Mocked: Real-time live score updates on frontend.
+  - Broken: None.
+  - Mocked: WebSockets (using internal poll-and-broadcast mechanism because the 3rd party API doesn't support native WS streams).
 
 **3rd Party Integrations** 
-  - The Odds API (Match data fetching) — requires User API Key.
-  - CricketData API (Global Cricket Matches) — requires User API Key.
-  - WhatsApp (External Redirect URL) — No API key needed, strictly an href link.
+  - The Odds API (Match odds) — requires User API Key.
+  - CricketData API (Match data) — requires User API Key.
 
 **Testing status**
-  - Testing agent used after significant changes: YES (iterations 4, 5, 6)
-  - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: , , 
+  - Testing agent used after significant changes: YES (iterations 7 & 8).
+  - Troubleshoot agent used after agent stuck in loop: NO.
+  - Test files created: , .
   - Known regressions: None currently.
 
 **Credentials to test flow:**
@@ -127,4 +130,4 @@ React, Tailwind CSS, FastAPI, MongoDB, APScheduler (cron jobs for dual APIs), Qu
   - User: , 
 
 **What agent forgot to execute**
-The agent addressed all user requirements successfully. No overlooked tasks.</analysis>
+The agent was in the middle of executing the final step of the WebSocket integration inside  when the context ended. The hook exists, but it needs to be imported and mapped to component state.</analysis>

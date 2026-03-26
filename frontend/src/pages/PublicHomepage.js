@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/App";
 import PublicHeader from "@/components/PublicHeader";
 import { formatIndianDateTime } from "@/utils/dateFormat";
 import { toast } from "sonner";
+import { useLiveMatches } from "@/hooks/useWebSocket";
 
-// Polling intervals
+// Get backend URL for WebSocket
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+
+// Polling intervals (fallback when WebSocket unavailable)
 const LIVE_POLL_INTERVAL = 15000;  // 15 seconds for live data
 const IDLE_POLL_INTERVAL = 30000;  // 30 seconds when no live matches
 
@@ -18,8 +22,12 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   const [hasLiveMatches, setHasLiveMatches] = useState(false);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  
+  // WebSocket connection for real-time updates
+  const { matches: wsLiveMatches, isConnected: wsConnected, lastUpdate: wsLastUpdate, usePolling } = useLiveMatches(BACKEND_URL);
+  const pollIntervalRef = useRef(null);
 
-  // Fetch matches with error handling
+  // Fetch all matches (not just live)
   const fetchMatches = useCallback(async () => {
     try {
       const response = await api.get("/matches");
@@ -27,9 +35,7 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
       
       // Filter out any matches that might still be marked as live but are actually ended
       const validMatches = data.filter(m => {
-        // Exclude if matchEnded flag is true
         if (m.matchEnded === true) return false;
-        // Exclude completed statuses
         if (["completed", "ended", "finished"].includes(m.status?.toLowerCase())) return false;
         return true;
       });
@@ -38,26 +44,56 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
       setApiUnavailable(false);
       setLastUpdate(new Date());
       
-      // Check if there are live matches
       const liveCount = validMatches.filter(m => m.status === "live").length;
       setHasLiveMatches(liveCount > 0);
       
     } catch (error) {
       console.error("Failed to fetch matches:", error);
-      // Don't clear existing matches on error - use cached data
       setApiUnavailable(true);
     }
   }, []);
 
-  // Dynamic polling based on live match presence
+  // Initial fetch and polling (only when WebSocket not connected)
   useEffect(() => {
     fetchMatches();
     
-    // Use faster polling when there are live matches
-    const interval = setInterval(fetchMatches, hasLiveMatches ? LIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL);
-    
-    return () => clearInterval(interval);
-  }, [fetchMatches, hasLiveMatches]);
+    // Only poll if WebSocket is not connected
+    if (!wsConnected || usePolling) {
+      const interval = setInterval(fetchMatches, hasLiveMatches ? LIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL);
+      pollIntervalRef.current = interval;
+      return () => clearInterval(interval);
+    }
+  }, [fetchMatches, hasLiveMatches, wsConnected, usePolling]);
+
+  // Merge WebSocket live matches into local state
+  useEffect(() => {
+    if (wsLiveMatches && wsLiveMatches.length > 0) {
+      setMatches(prev => {
+        // Update live matches from WebSocket
+        const liveMatchIds = new Set(wsLiveMatches.map(m => m.match_id));
+        const updatedMatches = prev.map(m => {
+          const wsMatch = wsLiveMatches.find(wm => wm.match_id === m.match_id);
+          return wsMatch ? { ...m, ...wsMatch } : m;
+        });
+        
+        // Add any new live matches not in local state
+        const newLiveMatches = wsLiveMatches.filter(wm => 
+          !prev.find(m => m.match_id === wm.match_id)
+        );
+        
+        return [...updatedMatches, ...newLiveMatches];
+      });
+      
+      setHasLiveMatches(wsLiveMatches.length > 0);
+    }
+  }, [wsLiveMatches]);
+
+  // Update timestamp from WebSocket
+  useEffect(() => {
+    if (wsLastUpdate) {
+      setLastUpdate(wsLastUpdate);
+    }
+  }, [wsLastUpdate]);
 
   // Handle match click - navigate to match page
   const handleMatchClick = (match) => {
@@ -65,23 +101,13 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
   };
 
   // Filter matches: only show live and upcoming (not completed)
-  // Then sort by commence_time ascending (earliest first)
   const filteredMatches = matches
     .filter((m) => {
-      // Filter by sport tab
       if (m.sport !== activeTab) return false;
-      
-      // Filter out explicitly completed/ended matches
       const status = (m.status || "").toLowerCase();
       if (status === "completed" || status === "ended" || status === "finished") return false;
-      
-      // Filter out matches with matchEnded flag
       if (m.matchEnded === true) return false;
-      
-      // For live matches, always show (if matchEnded is not true)
       if (status === "live") return true;
-      
-      // For scheduled/upcoming, include future matches only
       try {
         const matchTime = new Date(m.commence_time);
         const now = new Date();
@@ -90,13 +116,9 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
         return false;
       }
     })
-    // Sort by commence_time ascending (live matches first, then by date)
     .sort((a, b) => {
-      // Live matches come first
       if (a.status === "live" && b.status !== "live") return -1;
       if (b.status === "live" && a.status !== "live") return 1;
-      
-      // Then sort by date ascending
       return new Date(a.commence_time) - new Date(b.commence_time);
     });
 
@@ -190,10 +212,22 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
           
           {/* Auto-refresh indicator */}
           <div className="flex items-center gap-2 ml-auto text-xs text-gray-500">
-            {apiUnavailable && (
+            {apiUnavailable && !wsConnected && (
               <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded flex items-center gap-1">
                 <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
                 Live data temporarily unavailable
+              </span>
+            )}
+            {wsConnected && (
+              <span className="bg-green-100 text-green-700 px-2 py-1 rounded flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Real-time
+              </span>
+            )}
+            {!wsConnected && usePolling && (
+              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                Polling
               </span>
             )}
             {lastUpdate && (

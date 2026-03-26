@@ -1,9 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict, Set
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from enum import Enum
 import uuid
 import asyncio
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -48,6 +49,194 @@ api_router = APIRouter(prefix="/api")
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# ==================== WEBSOCKET MANAGER ====================
+class ConnectionManager:
+    """
+    WebSocket Connection Manager for real-time updates.
+    Handles multiple client connections and broadcasts updates.
+    """
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.match_subscriptions: Dict[str, Set[WebSocket]] = {}  # match_id -> subscribers
+        self._lock = asyncio.Lock()
+    
+    async def connect(self, websocket: WebSocket, match_id: Optional[str] = None):
+        """Accept a new WebSocket connection"""
+        await websocket.accept()
+        async with self._lock:
+            self.active_connections.append(websocket)
+            if match_id:
+                if match_id not in self.match_subscriptions:
+                    self.match_subscriptions[match_id] = set()
+                self.match_subscriptions[match_id].add(websocket)
+        logger.info(f"WebSocket connected. Total: {len(self.active_connections)}")
+    
+    async def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection"""
+        async with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+            # Remove from all match subscriptions
+            for match_id in list(self.match_subscriptions.keys()):
+                if websocket in self.match_subscriptions[match_id]:
+                    self.match_subscriptions[match_id].discard(websocket)
+                    if not self.match_subscriptions[match_id]:
+                        del self.match_subscriptions[match_id]
+        logger.info(f"WebSocket disconnected. Total: {len(self.active_connections)}")
+    
+    async def subscribe_to_match(self, websocket: WebSocket, match_id: str):
+        """Subscribe a connection to a specific match"""
+        async with self._lock:
+            if match_id not in self.match_subscriptions:
+                self.match_subscriptions[match_id] = set()
+            self.match_subscriptions[match_id].add(websocket)
+    
+    async def broadcast_all(self, message: dict):
+        """Broadcast message to all connected clients"""
+        if not self.active_connections:
+            return
+        
+        message_json = json.dumps(message)
+        disconnected = []
+        
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message_json)
+            except Exception as e:
+                logger.debug(f"Failed to send to client: {e}")
+                disconnected.append(connection)
+        
+        # Clean up disconnected clients
+        for conn in disconnected:
+            await self.disconnect(conn)
+    
+    async def broadcast_match_update(self, match_id: str, data: dict):
+        """Broadcast update to clients subscribed to a specific match"""
+        if match_id not in self.match_subscriptions:
+            return
+        
+        message = {
+            "type": "match_update",
+            "match_id": match_id,
+            "data": data,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        message_json = json.dumps(message)
+        disconnected = []
+        
+        for connection in self.match_subscriptions[match_id]:
+            try:
+                await connection.send_text(message_json)
+            except Exception:
+                disconnected.append(connection)
+        
+        for conn in disconnected:
+            await self.disconnect(conn)
+    
+    async def broadcast_live_matches(self, matches: List[dict]):
+        """Broadcast live matches update to all clients"""
+        message = {
+            "type": "live_matches",
+            "matches": matches,
+            "count": len(matches),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        await self.broadcast_all(message)
+    
+    async def broadcast_match_status_change(self, match_id: str, old_status: str, new_status: str, match_data: dict):
+        """Broadcast when match status changes (e.g., live -> completed)"""
+        message = {
+            "type": "status_change",
+            "match_id": match_id,
+            "old_status": old_status,
+            "new_status": new_status,
+            "match": match_data,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        await self.broadcast_all(message)
+    
+    def get_connection_count(self) -> int:
+        return len(self.active_connections)
+
+# Global WebSocket manager
+ws_manager = ConnectionManager()
+
+# ==================== REAL-TIME DATA CACHE ====================
+class RealTimeCache:
+    """
+    In-memory cache for real-time match data.
+    Stores latest match states for comparison and broadcasting.
+    """
+    def __init__(self):
+        self._matches: Dict[str, dict] = {}
+        self._live_matches: List[dict] = []
+        self._last_update: Optional[datetime] = None
+        self._lock = asyncio.Lock()
+    
+    async def update_match(self, match_id: str, match_data: dict) -> Optional[dict]:
+        """
+        Update match data and return changes if any.
+        Returns dict with changes or None if no significant change.
+        """
+        async with self._lock:
+            old_data = self._matches.get(match_id)
+            self._matches[match_id] = match_data
+            
+            if old_data is None:
+                return {"type": "new_match", "match": match_data}
+            
+            changes = {}
+            
+            # Check status change
+            if old_data.get("status") != match_data.get("status"):
+                changes["status"] = {
+                    "old": old_data.get("status"),
+                    "new": match_data.get("status")
+                }
+            
+            # Check score change
+            if old_data.get("score") != match_data.get("score"):
+                changes["score"] = {
+                    "old": old_data.get("score"),
+                    "new": match_data.get("score")
+                }
+            
+            # Check odds change (significant change > 0.05)
+            old_odds = old_data.get("odds", {})
+            new_odds = match_data.get("odds", {})
+            if old_odds != new_odds:
+                changes["odds"] = {"old": old_odds, "new": new_odds}
+            
+            return changes if changes else None
+    
+    async def set_live_matches(self, matches: List[dict]) -> bool:
+        """Update live matches list. Returns True if changed."""
+        async with self._lock:
+            old_ids = {m.get("match_id") for m in self._live_matches}
+            new_ids = {m.get("match_id") for m in matches}
+            
+            changed = old_ids != new_ids
+            self._live_matches = matches
+            self._last_update = datetime.now(timezone.utc)
+            
+            return changed
+    
+    def get_live_matches(self) -> List[dict]:
+        return self._live_matches
+    
+    def get_match(self, match_id: str) -> Optional[dict]:
+        return self._matches.get(match_id)
+    
+    def get_stats(self) -> dict:
+        return {
+            "total_matches": len(self._matches),
+            "live_matches": len(self._live_matches),
+            "last_update": self._last_update.isoformat() if self._last_update else None
+        }
+
+# Global real-time cache
+realtime_cache = RealTimeCache()
 
 # ==================== ENUMS ====================
 class UserRole(str, Enum):
@@ -937,7 +1126,7 @@ async def get_cricket_quota(current_user: User = Depends(get_current_admin)):
 cricket_scheduler_running = False
 
 async def smart_cricket_poll():
-    """Smart polling function that adjusts frequency based on live matches"""
+    """Smart polling function that adjusts frequency based on live matches and broadcasts via WebSocket"""
     global cricket_scheduler_running
     service = get_cricket_service()
     
@@ -952,21 +1141,38 @@ async def smart_cricket_poll():
         
         # Track match IDs from API for cleanup
         api_match_ids = set()
+        status_changes = []
         
-        # Store/update live matches
+        # Store/update live matches and detect changes
         for match in live_transformed:
             match["updated_at"] = now
             api_match_ids.add(match["match_id"])
+            
+            # Check for changes via realtime cache
+            changes = await realtime_cache.update_match(match["match_id"], match)
+            if changes and changes.get("status"):
+                status_changes.append({
+                    "match_id": match["match_id"],
+                    "old_status": changes["status"]["old"],
+                    "new_status": changes["status"]["new"],
+                    "match": match
+                })
+            
             await db.matches.update_one(
                 {"match_id": match["match_id"]},
                 {"$set": match},
                 upsert=True
             )
+            
+            # Broadcast individual match update to subscribers
+            if ws_manager.get_connection_count() > 0:
+                await ws_manager.broadcast_match_update(match["match_id"], match)
         
         # Store/update upcoming matches
         for match in upcoming_transformed:
             match["updated_at"] = now
             api_match_ids.add(match["match_id"])
+            await realtime_cache.update_match(match["match_id"], match)
             await db.matches.update_one(
                 {"match_id": match["match_id"]},
                 {"$set": match},
@@ -974,7 +1180,6 @@ async def smart_cricket_poll():
             )
         
         # AUTO CLEANUP: Mark matches that were "live" but no longer in API response as "completed"
-        # This handles the edge case where a match ends but status wasn't updated
         if api_match_ids:
             stale_cutoff = now - timedelta(minutes=30)
             result = await db.matches.update_many(
@@ -989,6 +1194,25 @@ async def smart_cricket_poll():
             if result.modified_count > 0:
                 logger.info(f"Auto-marked {result.modified_count} stale matches as completed")
         
+        # Update realtime cache with live matches
+        cache_changed = await realtime_cache.set_live_matches(live_transformed)
+        
+        # Broadcast to WebSocket clients if there are any connected
+        if ws_manager.get_connection_count() > 0:
+            # Broadcast live matches update
+            await ws_manager.broadcast_live_matches(live_transformed)
+            
+            # Broadcast status changes
+            for change in status_changes:
+                await ws_manager.broadcast_match_status_change(
+                    change["match_id"],
+                    change["old_status"],
+                    change["new_status"],
+                    change["match"]
+                )
+            
+            logger.info(f"Broadcasted to {ws_manager.get_connection_count()} WebSocket clients")
+        
         # Log status
         api_status = "AVAILABLE" if data.get("api_available", True) else "RATE LIMITED"
         status = await service.get_service_status()
@@ -996,15 +1220,27 @@ async def smart_cricket_poll():
             f"Cricket poll complete. "
             f"Live: {len(live_transformed)}, Upcoming: {len(upcoming_transformed)}, "
             f"API: {api_status}, "
-            f"Quota: {status['quota']['requests_made']}/{status['quota']['quota_limit']}"
+            f"Quota: {status['quota']['requests_made']}/{status['quota']['quota_limit']}, "
+            f"WS clients: {ws_manager.get_connection_count()}"
         )
         
     except Exception as e:
         logger.error(f"Cricket poll error: {e}")
 
 def run_cricket_poll():
-    """Wrapper to run async poll in sync context"""
-    asyncio.run(smart_cricket_poll())
+    """Wrapper to run async poll in sync context using main event loop"""
+    global main_event_loop
+    try:
+        if main_event_loop and main_event_loop.is_running():
+            future = asyncio.run_coroutine_threadsafe(smart_cricket_poll(), main_event_loop)
+            try:
+                future.result(timeout=120)  # 2 minute timeout
+            except Exception as e:
+                logger.error(f"Cricket poll timed out or failed: {e}")
+        else:
+            logger.warning("Main event loop not available, skipping cricket poll")
+    except Exception as e:
+        logger.error(f"Error in cricket poll wrapper: {e}")
 
 # ==================== USER ROUTES ====================
 @api_router.get("/matches", response_model=List[Match])
@@ -1160,6 +1396,115 @@ async def get_matches_status():
         "upcoming_count": upcoming_count,
         "timestamp": now.isoformat(),
         "api_status": api_status
+    }
+
+
+# ==================== WEBSOCKET ENDPOINTS ====================
+@app.websocket("/api/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    Main WebSocket endpoint for real-time updates.
+    Clients connect here to receive live match updates.
+    """
+    await ws_manager.connect(websocket)
+    try:
+        # Send initial data on connect
+        live_matches = realtime_cache.get_live_matches()
+        await websocket.send_json({
+            "type": "connected",
+            "message": "Connected to PlayXBets real-time updates",
+            "live_matches": live_matches,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Keep connection alive and listen for messages
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                message = json.loads(data)
+                
+                # Handle client messages
+                if message.get("type") == "subscribe_match":
+                    match_id = message.get("match_id")
+                    if match_id:
+                        await ws_manager.subscribe_to_match(websocket, match_id)
+                        # Send current match data
+                        match_data = realtime_cache.get_match(match_id)
+                        if match_data:
+                            await websocket.send_json({
+                                "type": "match_data",
+                                "match_id": match_id,
+                                "data": match_data
+                            })
+                
+                elif message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong", "timestamp": datetime.now(timezone.utc).isoformat()})
+                
+            except asyncio.TimeoutError:
+                # Send heartbeat
+                try:
+                    await websocket.send_json({"type": "heartbeat", "timestamp": datetime.now(timezone.utc).isoformat()})
+                except Exception:
+                    break
+                    
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"WebSocket error: {e}")
+    finally:
+        await ws_manager.disconnect(websocket)
+
+
+@app.websocket("/api/ws/match/{match_id}")
+async def websocket_match_endpoint(websocket: WebSocket, match_id: str):
+    """
+    WebSocket endpoint for a specific match.
+    Clients connect here to receive updates for one match.
+    """
+    await ws_manager.connect(websocket, match_id)
+    try:
+        # Send current match data
+        match_data = realtime_cache.get_match(match_id)
+        if not match_data:
+            # Try fetching from DB
+            match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+            if match:
+                match_data = match
+        
+        await websocket.send_json({
+            "type": "match_subscribed",
+            "match_id": match_id,
+            "data": match_data,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Keep connection alive
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                message = json.loads(data)
+                
+                if message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    
+            except asyncio.TimeoutError:
+                await websocket.send_json({"type": "heartbeat"})
+                
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"Match WebSocket error: {e}")
+    finally:
+        await ws_manager.disconnect(websocket)
+
+
+@api_router.get("/ws/status")
+async def get_websocket_status():
+    """Get WebSocket connection stats"""
+    return {
+        "active_connections": ws_manager.get_connection_count(),
+        "cache_stats": realtime_cache.get_stats(),
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 # ==================== MATCH DETAIL ENDPOINT ====================
@@ -1340,11 +1685,11 @@ micro_betting_router = create_micro_betting_router(db)
 app.include_router(micro_betting_router, prefix="/api")
 
 # WebSocket endpoint for cricket micro betting
-@app.websocket("/ws/cricket-micro")
+@app.websocket("/api/ws/cricket-micro")
 async def cricket_micro_websocket(websocket: WebSocket):
     await cricket_ws_endpoint(websocket)
 
-@app.websocket("/ws/cricket-micro/{match_id}")
+@app.websocket("/api/ws/cricket-micro/{match_id}")
 async def cricket_micro_websocket_match(websocket: WebSocket, match_id: str):
     await cricket_ws_endpoint(websocket, match_id)
 

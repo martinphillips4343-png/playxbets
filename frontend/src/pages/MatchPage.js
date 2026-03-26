@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
 import TiedMatchMarket, { hasTieMarket, getTieMarketData, getMockTieMarketData } from "@/components/TiedMatchMarket";
 import { formatIndianDateTime } from "@/utils/dateFormat";
+import { useMatchUpdates } from "@/hooks/useWebSocket";
 import {
   ChevronLeft,
   ChevronDown,
@@ -18,11 +19,13 @@ import {
   RefreshCw,
   X,
   Home,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 
 // ==================== CONSTANTS ====================
-const LIVE_REFRESH_INTERVAL = 3000; // 3 seconds for live matches
-const UPCOMING_REFRESH_INTERVAL = 30000; // 30 seconds for upcoming
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback when WS is down
 
 // ==================== ODDS CELL COMPONENTS ====================
 const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
@@ -216,6 +219,14 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const { matchId } = useParams();
   const navigate = useNavigate();
 
+  // WebSocket hook for real-time updates
+  const { 
+    match: wsMatch, 
+    isConnected: wsConnected, 
+    lastUpdate: wsLastUpdate, 
+    error: wsError 
+  } = useMatchUpdates(BACKEND_URL, matchId);
+
   // State
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -238,11 +249,68 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
   // Simulated odds state (for live matches)
   const [liveOdds, setLiveOdds] = useState(null);
-  const refreshIntervalRef = useRef(null);
+  const fallbackIntervalRef = useRef(null);
   const oddsIntervalRef = useRef(null);
 
-  // ==================== FETCH MATCH DETAILS ====================
+  // ==================== SYNC WEBSOCKET DATA TO LOCAL STATE ====================
+  useEffect(() => {
+    if (wsMatch) {
+      // Check if match has ended
+      if (wsMatch.matchEnded === true || 
+          ["completed", "ended", "finished"].includes(wsMatch.status?.toLowerCase())) {
+        setMatch({ ...wsMatch, status: "completed" });
+        toast.info("This match has ended");
+      } else {
+        setMatch(wsMatch);
+      }
+      setError(null);
+      setLoading(false);
+      setLastOddsUpdate(wsLastUpdate);
+
+      // Initialize/update live odds from WebSocket data
+      if (wsMatch) {
+        setLiveOdds((prev) => {
+          const newOdds = {
+            home: {
+              back: [wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85, 
+                     (wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85) - 0.01, 
+                     (wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85) - 0.02],
+              lay: [(wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.02, 
+                    (wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.03, 
+                    (wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.04],
+              backStakes: [50000, 30000, 20000],
+              layStakes: [45000, 25000, 15000],
+            },
+            away: {
+              back: [wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95, 
+                     (wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95) - 0.01, 
+                     (wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95) - 0.02],
+              lay: [(wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.02, 
+                    (wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.03, 
+                    (wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.04],
+              backStakes: [40000, 25000, 15000],
+              layStakes: [35000, 20000, 10000],
+            },
+            draw: wsMatch.odds?.draw
+              ? {
+                  back: [wsMatch.odds.draw, wsMatch.odds.draw - 0.02, wsMatch.odds.draw - 0.04],
+                  lay: [wsMatch.odds.draw + 0.02, wsMatch.odds.draw + 0.04, wsMatch.odds.draw + 0.06],
+                  backStakes: [30000, 20000, 10000],
+                  layStakes: [25000, 15000, 8000],
+                }
+              : null,
+          };
+          return newOdds;
+        });
+      }
+    }
+  }, [wsMatch, wsLastUpdate]);
+
+  // ==================== FETCH MATCH DETAILS (FALLBACK) ====================
   const fetchMatch = useCallback(async () => {
+    // Skip if WebSocket is connected and providing data
+    if (wsConnected && wsMatch) return;
+    
     try {
       const response = await api.get(`/match/${matchId}`);
       const matchData = response.data;
@@ -259,7 +327,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
       setMatch(matchData);
       setError(null);
 
-      // Initialize live odds from match data
+      // Initialize live odds from match data (fallback only)
       if (!liveOdds && matchData) {
         setLiveOdds({
           home: {
@@ -290,7 +358,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [matchId, liveOdds]);
+  }, [matchId, liveOdds, wsConnected, wsMatch]);
 
   // ==================== FETCH WALLET ====================
   const fetchWallet = useCallback(async () => {
@@ -344,34 +412,52 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   }, [match, liveOdds]);
 
   // ==================== EFFECTS ====================
+  // Initial fetch for wallet
   useEffect(() => {
-    fetchMatch();
     fetchWallet();
-  }, [fetchMatch, fetchWallet]);
+  }, [fetchWallet]);
 
-  // Set up polling based on match status
+  // Fallback polling when WebSocket is disconnected
   useEffect(() => {
-    if (!match) return;
-
-    const interval = match.status === "live" ? LIVE_REFRESH_INTERVAL : UPCOMING_REFRESH_INTERVAL;
-
-    // Clear existing intervals
-    if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-    if (oddsIntervalRef.current) clearInterval(oddsIntervalRef.current);
-
-    // Set up match data refresh
-    refreshIntervalRef.current = setInterval(fetchMatch, interval);
-
-    // Set up odds simulation for live matches
-    if (match.status === "live") {
-      oddsIntervalRef.current = setInterval(simulateOddsChange, 2000);
+    // If WS is connected, no need for fallback polling
+    if (wsConnected) {
+      if (fallbackIntervalRef.current) {
+        clearInterval(fallbackIntervalRef.current);
+        fallbackIntervalRef.current = null;
+      }
+      return;
     }
 
+    // WS not connected - use fallback polling
+    fetchMatch(); // Initial fetch
+    fallbackIntervalRef.current = setInterval(fetchMatch, FALLBACK_POLL_INTERVAL);
+
     return () => {
-      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-      if (oddsIntervalRef.current) clearInterval(oddsIntervalRef.current);
+      if (fallbackIntervalRef.current) {
+        clearInterval(fallbackIntervalRef.current);
+      }
     };
-  }, [match?.status, fetchMatch, simulateOddsChange]);
+  }, [wsConnected, fetchMatch]);
+
+  // Odds simulation for visual feedback (only when live)
+  useEffect(() => {
+    if (!match || match.status !== "live" || !liveOdds) {
+      if (oddsIntervalRef.current) {
+        clearInterval(oddsIntervalRef.current);
+        oddsIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Simulate small odds changes for visual feedback
+    oddsIntervalRef.current = setInterval(simulateOddsChange, 3000);
+
+    return () => {
+      if (oddsIntervalRef.current) {
+        clearInterval(oddsIntervalRef.current);
+      }
+    };
+  }, [match?.status, liveOdds, simulateOddsChange]);
 
   // ==================== BET SLIP FUNCTIONS ====================
   const addToBetSlip = (selection, type, odds, marketType = "match") => {
@@ -660,11 +746,34 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 )}
               </div>
 
-              {/* Last update indicator */}
-              {isLive && lastOddsUpdate && (
-                <div className="flex items-center gap-1.5 text-gray-400 text-xs">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Updated {lastOddsUpdate.toLocaleTimeString()}</span>
+              {/* Last update indicator with WS status */}
+              {isLive && (
+                <div className="flex items-center gap-3">
+                  {/* WebSocket Connection Status */}
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
+                    wsConnected 
+                      ? "bg-green-600/20 text-green-400" 
+                      : "bg-yellow-600/20 text-yellow-400"
+                  }`}>
+                    {wsConnected ? (
+                      <>
+                        <Wifi className="w-3.5 h-3.5" />
+                        <span>Live</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3.5 h-3.5" />
+                        <span>Polling</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  {lastOddsUpdate && (
+                    <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Updated {lastOddsUpdate.toLocaleTimeString()}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
