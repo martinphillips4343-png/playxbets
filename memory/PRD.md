@@ -10,7 +10,22 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - **Cricket Ball-By-Ball Micro Betting**
 - **Advanced PlayXbets Exchange UI** with multiple market types
 
-## Latest Updates (March 24, 2026)
+## Latest Updates (March 26, 2026)
+
+### Phase 11: Dedicated Match Page (Completed - March 26, 2026)
+Replaced the modal dialog with a full dedicated match page at `/match/{match_id}`:
+- **Navigation**: Click any match row → navigates to `/match/{match_id}` 
+- **Breadcrumb**: Home > Cricket/Football > Match Name
+- **Match Header**: League, Teams, Status (LIVE/SCHEDULED), Date/Time, Format badge, Feature badges (TV, F, BM)
+- **Conditional UI**:
+  - **Upcoming**: "Match has not started yet" message + basic Match Odds only
+  - **Live Cricket**: Full 8-section betting interface (Match Odds, Bookmaker, Session Markets, Over Runs, Fall of Wickets, Team Total, Partnership, Special Markets)
+  - **Live Football**: 3-way betting with Draw option
+- **Bet Slip**: Desktop sidebar (sticky) + Mobile bottom modal
+- **Auto-refresh**: Odds update every 2-3 seconds for live matches with "Updated" timestamp
+- **Responsive**: Mobile-first with bottom nav bar (Home, Bet Slip)
+
+### Previous Updates (March 24, 2026)
 
 ### P0 UI Redesign Complete ✅
 Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/football-live`) pages to match icebook9.com style:
@@ -124,26 +139,43 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
   - Live matches appear at top
   - Consistent across all match listings
 
-- [x] **Match Detail Modal**
-  - Opens on match click
-  - Shows: League, Teams, Date/Time, Format, Status, Venue
-  - Match Odds with Back/Lay buttons
-  - Live Score (when available)
-  - Feature badges (TV, Fancy, Bookmaker)
-  - "Go to Full Exchange" navigation button
-  - Loading state and error handling
+- [x] **Match Detail Modal** *(Replaced by Phase 11)*
+  - Replaced by dedicated `/match/{match_id}` page
 
 - [x] **Backend Endpoint**
   - GET /api/match/{match_id} for detailed match data
   - Reuses cached CricketData API responses
+
+### Phase 11: Dedicated Match Page (Completed - March 26, 2026)
+- [x] **New Route `/match/{match_id}`**
+  - Public route accessible without login
+  - Full match details with all betting markets
+  - Replaces modal-based approach for better UX
+
+- [x] **Match Page Components**
+  - MatchPage.js (~900 lines) with full market rendering
+  - BackOddsCell, LayOddsCell, SessionRow components
+  - MarketHeader with collapsible sections
+  - Mobile bet slip modal with slide-up animation
+
+- [x] **Conditional Rendering**
+  - Upcoming matches: Basic odds + "More markets when live" message
+  - Live cricket: 8 market sections (Match Odds, Bookmaker, Session, Over Runs, Fall of Wickets, Team Total, Partnership, Special)
+  - Live football: 3-way betting with Draw option
+
+- [x] **Auto-refresh System**
+  - Live: 3-second refresh interval with odds simulation
+  - Upcoming: 30-second refresh interval
+  - Visual "Updated" timestamp indicator
 
 ## Test Status
 - Backend: 100% (all tests passed)
 - Frontend: 100% (all UI flows working)
 - Cricket Exchange UI: 100% (verified via testing agent)
 - Football Live UI: 100% (verified via testing agent)
+- Match Page: 100% (verified via testing agent - iteration 7)
 - Mobile Responsiveness: 100% (verified on 390x844 viewport)
-- Last tested: March 24, 2026
+- Last tested: March 26, 2026
 
 ## Credentials
 - Admin: `admin / 123456`
@@ -235,17 +267,19 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 /app/
 ├── backend/
 │   ├── server.py                    # Main FastAPI app
+│   ├── cricket_data_service.py      # CricketData API service
 │   ├── cricket_micro_betting.py     # Micro betting module
 │   ├── requirements.txt
 │   └── tests/
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js
+│   │   ├── App.js                   # Routes including /match/:matchId
 │   │   ├── pages/
-│   │   │   ├── PlayXbetsExchange.js  # NEW: icebook9-style Cricket Exchange
-│   │   │   ├── FootballLive.js       # NEW: icebook9-style Football Exchange
+│   │   │   ├── MatchPage.js         # NEW: Dedicated match betting page
+│   │   │   ├── PlayXbetsExchange.js # icebook9-style Cricket Exchange
+│   │   │   ├── FootballLive.js      # icebook9-style Football Exchange
 │   │   │   ├── CricketMicroBetting.js
-│   │   │   ├── PublicHomepage.js
+│   │   │   ├── PublicHomepage.js    # Homepage (navigates to MatchPage)
 │   │   │   ├── admin/
 │   │   │   └── user/
 │   │   ├── components/
@@ -255,7 +289,8 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 ├── memory/
 │   └── PRD.md
 └── test_reports/
-    └── iteration_3.json              # Latest test results
+    ├── iteration_6.json
+    └── iteration_7.json             # Latest test results (Match Page)
 ```
 
 ## Design Guidelines (icebook9-style)
