@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
 import PublicHomepage from "@/pages/PublicHomepage";
+import MatchPage from "@/pages/MatchPage";
 import CricketMicroBetting from "@/pages/CricketMicroBetting";
 import BluBridgeCricket from "@/pages/BluBridgeCricket";
 import PlayXbetsExchange from "@/pages/PlayXbetsExchange";
@@ -96,6 +97,12 @@ function App() {
           <Route
             path="/"
             element={<PublicHomepage onShowAuth={setShowAuth} user={user} onLogout={handleLogout} />}
+          />
+
+          {/* Match Detail Page (Public) */}
+          <Route
+            path="/match/:matchId"
+            element={<MatchPage user={user} onShowAuth={setShowAuth} onLogout={handleLogout} />}
           />
 
           {/* Cricket Micro Betting */}

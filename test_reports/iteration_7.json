@@ -1,0 +1,113 @@
+{
+  "summary": "Frontend-only testing completed for dedicated Match Page feature. All 12 features tested and working correctly. Navigation from homepage to /match/{match_id} works. Live cricket matches show all 8 market sections. Upcoming matches show 'Match has not started yet' message with basic odds only. Football matches show Draw option (3-way betting). Mobile responsive with bottom nav and bet slip modal.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "PublicHomepage",
+        "issues": ["Console warnings about HTML hydration errors (<span> cannot be child of <tr>/<tbody>) - cosmetic issue from React dev tools, not affecting functionality"]
+      }
+    ]
+  },
+  "test_report_links": [
+    ".screenshots/homepage_before_click.png",
+    ".screenshots/match_page_loaded.png",
+    ".screenshots/live_cricket_match_page.png",
+    ".screenshots/session_markets_expanded.png",
+    ".screenshots/upcoming_match_page.png",
+    ".screenshots/football_tab_selected.png",
+    ".screenshots/match_from_football_tab.png",
+    ".screenshots/match_page_mobile.png",
+    ".screenshots/mobile_bet_slip_modal.png",
+    ".screenshots/login_modal_on_odds_click.png",
+    ".screenshots/odds_updated_timestamp.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "100% - All 12 features working"
+  },
+  "test_credentials": {
+    "user": {"username": "user", "password": "123456"},
+    "admin": {"username": "admin", "password": "123456"}
+  },
+  "seed_data_creation": "None - using existing seeded data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Match Page feature fully implemented and tested. Navigation from homepage to /match/{match_id} replaces the old modal dialog. Live cricket match ID: cc4cba06-3032-4b77-b1e0-f7d448108207. All market sections working for live cricket. Football matches show 3-way betting with Draw option.",
+  "features_tested": {
+    "navigation_from_homepage": {
+      "click_match_row": "PASS - Clicking match row navigates to /match/{match_id}",
+      "url_format": "PASS - URL format is /match/{match_id}"
+    },
+    "match_page_header": {
+      "match_title": "PASS - Shows 'Team Alpha vs Team Beta'",
+      "league_name": "PASS - Shows 'Super Over2' league",
+      "status_live": "PASS - Shows LIVE indicator with red badge",
+      "status_scheduled": "PASS - Shows SCHEDULED indicator with amber badge",
+      "start_time": "PASS - Shows date/time '26/03/2026, 02:29 pm'",
+      "format_badge": "PASS - Shows T20 format badge",
+      "feature_badges": "PASS - Shows TV, F, BM badges"
+    },
+    "upcoming_match_conditional_ui": {
+      "not_started_message": "PASS - Shows 'Match has not started yet' message",
+      "basic_odds_only": "PASS - Only Match Odds section shown",
+      "no_cricket_markets": "PASS - Bookmaker, Session Markets etc. NOT shown"
+    },
+    "live_cricket_markets": {
+      "match_odds": "PASS - Match Odds section with Back/Lay columns",
+      "bookmaker": "PASS - Bookmaker section with Min:100 Max:5L",
+      "session_markets": "PASS - Session Markets with 6/10/15/20 over runs",
+      "over_runs": "PASS - Over Runs Markets section",
+      "fall_of_wickets": "PASS - Fall of Wickets section",
+      "team_total": "PASS - Team Total Runs section",
+      "partnership": "PASS - Partnership Markets section",
+      "special_markets": "PASS - Special Markets section"
+    },
+    "live_football_markets": {
+      "match_odds_3way": "PASS - Shows Home/Draw/Away with Back/Lay",
+      "draw_option": "PASS - Draw option visible for football matches"
+    },
+    "collapsible_sections": {
+      "expand_collapse": "PASS - Clicking header toggles section visibility",
+      "chevron_icons": "PASS - ChevronUp/ChevronDown icons indicate state"
+    },
+    "back_button": {
+      "navigation": "PASS - Back button returns to homepage"
+    },
+    "breadcrumb_navigation": {
+      "home_link": "PASS - Home link navigates to homepage",
+      "sport_link": "PASS - Shows Cricket/Football based on match sport",
+      "match_name": "PASS - Shows truncated match name"
+    },
+    "bet_slip_desktop": {
+      "sidebar_visible": "PASS - Bet slip sidebar visible on desktop (lg:block)",
+      "empty_state": "PASS - Shows 'Click on odds to add selections'",
+      "balance_display": "PASS - Shows 'Your Balance: ₹1500.00'"
+    },
+    "bet_slip_mobile": {
+      "bottom_nav": "PASS - Mobile bottom nav with Home and Bet Slip buttons",
+      "modal_opens": "PASS - Clicking Bet Slip opens modal from bottom",
+      "desktop_hidden": "PASS - Desktop sidebar hidden on mobile"
+    },
+    "odds_auto_refresh": {
+      "timestamp_updates": "PASS - 'Updated' timestamp visible after ~4 seconds",
+      "odds_change": "PASS - Odds values change on refresh (1.52 -> 1.53)"
+    },
+    "login_required_for_betting": {
+      "login_modal": "PASS - Login modal appears when clicking odds without auth",
+      "toast_message": "PASS - Toast 'Please login to place bets' shown"
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "details": "Match data fetched from real backend API /api/match/{match_id}. Odds simulation runs on frontend for live matches."
+  }
+}

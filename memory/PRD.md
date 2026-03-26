@@ -97,24 +97,45 @@ Completely overhauled the Cricket Exchange (`/exchange`) and Football Live (`/fo
 - [x] **All 10 Cricket Market Sections**
   1. MATCH_ODDS - Back/Lay (3 columns each)
   2. Bookmaker - Fixed odds, high limits (Min:100 Max:5L)
-  3. Next Ball - 0, 1, 2, 3, 4, 6, Wicket, Wide/NB
-  4. Session Markets - 6/10/15/20 over runs with format "X over runs TEAM(Team1 vs Team2)adv"
-  5. Over Run Markets - Match 1st Over, Powerplay Runs
-  6. Fall of Wickets - Fall of 1st wkt, 1st 2 wkt Runs
-  7. Next Over Runs - Total runs in next over
-  8. Team Total Runs - Over/Under markets
-  9. Partnership Markets - Current partnership Yes/No
-  10. Special Markets - Batsman 50/100 Yes/No
+  3. Session Markets - 6/10/15/20 over runs with format "X over runs TEAM(Team1 vs Team2)adv"
+  4. Over Run Markets - Match 1st Over, Powerplay Runs
+  5. Fall of Wickets - Fall of 1st wkt, 1st 2 wkt Runs
+  6. Next Over Runs - Total runs in next over
+  7. Team Total Runs - Over/Under markets
+  8. Partnership Markets - Current partnership Yes/No
+  9. Special Markets - Batsman 50/100 Yes/No
 
 - [x] **Cricket Engine Features**
   - Auto-suspend on ball delivery/wicket/boundary (3 sec)
   - "SUSPENDED" status and "BALL IN PLAY" message
   - Ball timer countdown (11 second cycle)
   - Odds movement based on runs/wickets
-  - Auto-settlement of ball-by-ball bets
+  - Cashout buttons (visual only)
 
-- [x] **Cashout Buttons** (visual only, functionality pending)
-- [x] **Football Module UNCHANGED** - Verified working
+- [x] **CricketData API Integration**
+  - Quota management (100 requests/day)
+  - In-memory caching (10-15 min TTL)
+  - Smart scheduler (30 min polling)
+  - Auto quota reset at Indian midnight
+
+### Phase 10: Match Sorting & Detail Panel (Completed - March 25, 2026)
+- [x] **Match Sorting (Cricket + Football)**
+  - All matches sorted by date/time ascending (earliest first)
+  - Live matches appear at top
+  - Consistent across all match listings
+
+- [x] **Match Detail Modal**
+  - Opens on match click
+  - Shows: League, Teams, Date/Time, Format, Status, Venue
+  - Match Odds with Back/Lay buttons
+  - Live Score (when available)
+  - Feature badges (TV, Fancy, Bookmaker)
+  - "Go to Full Exchange" navigation button
+  - Loading state and error handling
+
+- [x] **Backend Endpoint**
+  - GET /api/match/{match_id} for detailed match data
+  - Reuses cached CricketData API responses
 
 ## Test Status
 - Backend: 100% (all tests passed)

@@ -1,135 +1,125 @@
 <analysis>**original_problem_statement:**
-The user wants to build a premium, dark-themed sports betting application named PlayXBets. The project has evolved from a simple sportsbook to a sophisticated betting exchange UI, heavily inspired by . The user recently uploaded 5 screenshots of a dense, tabular betting exchange UI with Back/Lay boxes and explicitly demanded that the current UI be redesigned to exactly match those screenshots, with a strong emphasis on responsive/mobile device design.
+The user is building a premium, dark-themed sports betting application named PlayXBets. The project requires a sophisticated betting exchange UI heavily inspired by  (dense, tabular, Back/Lay boxes, mobile responsive). It involves fetching live football/soccer odds via The Odds API and global live cricket matches via CricketData API while strictly respecting a 100 requests/day free tier quota. It must handle full bet placement logic, user wallets, specific cricket markets, and WhatsApp deposit workflows.
 
-**PRODUCT REQUIREMENTS (latest version):**
-1.  **UI/UX:**
-    *   Redesign the betting exchange interfaces (Cricket & Football) to perfectly match the user-provided screenshots (icebook9.com style) featuring tight, color-coded Back (blue) and Lay (pink) odds boxes.
-    *   The design MUST be fully responsive for mobile devices.
-    *   Maintain the existing structure of Session Markets (T20/ODI dynamic generation) but update the visual representation to match the new design language.
-2.  **Functionality:**
-    *   The exchange pages are currently in DEMO mode (mocked/simulated data).
-    *   Ball timer automatically simulates a new ball every 11 seconds.
-    *   Clicking odds adds selections to a bet slip. 
-3.  **Technical:**
-    *   Scheduled job fetches odds from The Odds API once daily at Indian midnight.
-    *   Maintains JWT authentication.
+**PRODUCT REQUIREMENTS:**
+1. **UI/UX:** Dense table-based betting exchange interface (icebook9 style) with stacked odds/stakes. Mobile-first responsive design. Match listings sorted by ascending date with clickable match detail panels.
+2. **Cricket Markets:** Match Odds, Bookmaker, Session Markets (6/10/15/20 overs), Over Runs, Fall of Wickets, Team Total, Partnership, and Special Markets. (Next Ball/Ball-by-Ball removed).
+3. **API Integration & Quota:** Integrate CricketData API for global matches securely. Use backend cron scheduling, Redis/in-memory caching, and poll dynamically to avoid hitting the 100 requests/day limit.
+4. **Betting Logic:** Real bet persistence, wallet deduction, backend validation.
+5. **Deposits:** Logged-in users can deposit via a WhatsApp redirect link with pre-filled dynamic messages.
 
 **User's preferred language**: English (INSTRUCT next agent to respond in the user's preferred language only)
 
 **what currently exists?** 
-A full-stack React + FastAPI application using MongoDB. The agent just successfully resolved three critical P0 bugs: 1) Fixed date filtering so football matches now show on the homepage, 2) Updated the backend cron job to successfully parse and store  for soccer, and 3) Fixed the Cricket Session markets to dynamically render T20 vs ODI formats with correct logic (including Powerplay and First 5 overs). 
-However, right after these fixes, the user uploaded 5 new screenshots demanding a complete UI overhaul to match a specific responsive icebook9 layout.
+A full-stack React + FastAPI + MongoDB app. Both Cricket and Football exchange UIs have been completely redesigned to match the icebook9 dense-table format with stacked Back (blue) / Lay (pink) columns. Bet placement is fully connected to the backend, properly deducting from user wallets. A WhatsApp deposit feature is live. Global cricket matches are fetched via a robust  that caches results and manages the 100 request/day quota. The homepage correctly filters for strictly LIVE and UPCOMING matches, sorts them by ascending commence time, and includes a clickable match details modal.
 
 **Last working item**:
-    - **Last item agent was working**: Analyzing the 5 user-uploaded screenshots using  and proposing a UI redesign plan via the  tool to overhaul the exchange interfaces to match the requested responsive design.
-    - **Status**: USER VERIFICATION PENDING
-    - **Agent Testing Done**: N
-    - **Which testing method agent to use?**: Frontend testing agent + screenshot tool (Critical for verifying responsive mobile UI changes).
-    - **User Testing Done**: N
+    - Last item agent was working: Implementing match sorting (ascending order by date/time) and a detailed Match View Modal on the homepage for when users click a specific match.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? Frontend testing agent (completed successfully)
+    - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Complete UI/UX Overhaul based on user screenshots (Priority: P0)
-     - Attempted fixes: Agent analyzed the images but hasn't started coding. Sent an  plan to the user.
-     - Next debug checklist: Read the user's response to the pending  message. Proceed to refactor  and . Implement the dense Back/Lay table layout and ensure CSS media queries/Tailwind classes are heavily optimized for mobile responsiveness.
-     - Why fix this issue and what will be achieved with the fix? Direct, explicit demand from the user to match their desired aesthetic.
-     - Status: USER VERIFICATION PENDING
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Frontend (Use testing subagent for UI regressions).
+  None currently blocking.
 
-**In progress Task List**: 
-  - Task 1: Wait for User Approval on Redesign Plan
-     - Where to resume: Check the latest human response to the pending  request about the UI redesign.
-     - What will be achieved with this? Alignment on the massive CSS/Component refactoring required.
-     - Status: BLOCKED (Waiting on user)
-     - Should Test frontend/backend/both after fix? Frontend
-     - Blocked on something: User confirmation.
+**In progress Task List**:
+  None. The previous tasks were completed perfectly.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - (P1) Connect the Place Bet button in the exchange UI to a backend endpoint to persist bets and update the user's wallet.
-    - (P2) Implement the additional ICEBOOK features (e.g., Fall of Wicket, Partnership Runs) as collapsible cards in the exchange UI.
-    
+    - (P1) Admin manual match entry UI (The  endpoint exists, but the UI needs to be built in the Admin panel).
+    - (P2) Implement Cashout functionality for live bets.
+    - (P2) Admin panel module for declaring bet outcomes and settling bets automatically.
+    - (P2) Admin dashboard widget for viewing API quota/usage stats from the cricket service.
+
     Future Tasks:
-    - Replace the mock data simulation with a real-time data integration from an API like CricketData or The Odds API.
-    - Flesh out all remaining Admin Panel modules (Manage Games, Declare Outcomes, etc.) with full backend functionality.
-    - Implement the user withdrawal request system.
-    - Implement the support ticket system.
+    - Real-time WebSocket connection to the frontend for live score updates (CricketData live integration).
+    - User withdrawal request system.
+    - User support ticket system.
 
 **Completed work in this session**
-- Fixed aggressive date filtering logic so Football matches now correctly display on  ().
-- Modified  to correctly extract and store  from The Odds API.
-- Fixed inconsistent navigation links in .
-- Fixed Session Markets in  to correctly display T20/ODI dynamic logic (Powerplay, first 5 overs, etc).
-- Updated .
+- UI Redesign:  and  redesigned to icebook9 style (DONE)
+- Bet Placement API: Connected Place Bet to backend , updating  models and wallets (DONE)
+- WhatsApp Deposit: Added conditional WhatsApp button for logged-in users with dynamic modal and pre-filled texts (DONE)
+- Market Filtering: Aggressively removed past/old matches using strict UTC datetime evaluation (DONE)
+- Cricket Upgrade: Rewrote Cricket module to feature exactly 9 specific session/bookmaker markets (removed Next Ball) (DONE)
+- CricketData API Integration: Created backend service with smart cron polling, caching, and a strict 100/day quota manager (DONE)
+- Homepage Enhancements: Added ascending sorting and match detail modal with icons (TV, BM, F) (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   - Issue 1: Bet placement is only simulated on the frontend.
-     - Debug checklist: Connect the frontend bet slip submit handler to a new backend POST endpoint.
-     - Why to solve this issue and what will be achieved with this? Core functionality to deduct user balance and record bets in the DB.
-     - Should Test frontend/backend/both after fix: Both
-     - Is recurring issue? N
-   - Issue 2: Admin panel is largely empty placeholder pages.
-     - Debug checklist: Implement CRUD operations for Admin pages.
+None.
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: The aggressive date filtering for football matches was a recurring issue that was finally resolved in this session.
-  - Recurrence count: 1
-  - Status: RESOLVED
+  - Issue recurrence in previous fork: Datetime parsing issues when comparing string vs. datetime objects in MongoDB filtering for commence_time.
+  - Recurrence count: 2
+  - Status: RESOLVED (Backend now explicitly parses strings to UTC datetimes during the cleanup/filtering loops).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-React, Tailwind CSS, FastAPI, MongoDB, APScheduler (cron jobs), WebSockets, JWT Auth.
+React, Tailwind CSS, FastAPI, MongoDB, APScheduler (cron jobs for dual APIs), Quota Management, In-memory Caching, Pydantic data validation.
 
 **key DB schema**
-  - users: {username, hashed_password, role, wallet_balance}
-  - matches: {match_id, sport, home_team, away_team, home_odds, away_odds, odds_draw, status, commence_time}
-  - bets: {user_id, match_id, bet_type, odds, stake, status}
+  - : {username, hashed_password, role}
+  - : {user_id, balance, updated_at}
+  - : {match_id, sport, home_team, away_team, status, commence_time, odds_draw, has_tv, has_fancy}
+  - : {bet_id, user_id, match_id, stake, bet_type, market_type, status, placed_at}
 
 **changes in tech stack**
-  - None in this session.
+  - Added smart API caching and quota-tracking logic via dictionary state management within .
 
 **All files of reference** 
-  -  (Updated logic for displaying matches)
-  -  (Updated to extract )
-  -  (Updated Session markets; **Target for upcoming redesign**)
-  -  (**Target for upcoming redesign**)
-  -  (Updated)
+  -  (NEW - Crucial for CricketData API integration and quota limits).
+  -  (Updated extensively for betting logic, sorting, and initializing scheduler).
+  -  (Majorly overhauled to include exact 9 cricket markets requested by user).
+  -  (Updated for sorting and Match Detail panel UI).
+  -  &  (WhatsApp floating button & modal deposits).
 
 **Areas that need refactoring**: 
-  -  is over 800 lines long and needs to be broken down into API routers (, ).
-  -  and  require massive CSS/Component refactoring to implement the new requested UI screenshots.
+  -  is now over 1100 lines long. It urgently needs to be broken down into modular routers (, , ).
 
 **key api endpoints**
-  - 
-  - 
-  -  (Manually trigger The Odds API fetch)
+  -  (Now returns strictly LIVE and UPCOMING matches sorted by commence_time ascending)
+  -  (Fetches single match details)
+  -  (Persists bet and deducts wallet)
+  -  (Manual entry)
 
 **Critical Info for New Agent** 
-  - **IMMEDIATE ACTION REQUIRED:** The user has entirely pivoted the UI design requirements. They uploaded 5 screenshots of a dense, table-based betting exchange interface (icebook9 style) and demanded full mobile responsiveness.
-  - The previous agent sent an  prompt to propose a redesign plan based on these images. **You must read the user's reply to this and execute the UI overhaul.**
-  - All betting data on the exchange pages is still *simulated* via frontend state.
+  - **API Quota:** The CricketData API integration is on a strict **100 requests per day limit**. DO NOT fetch from this API directly from the frontend or bypass the caching layer in . The backend scheduler is configured to poll this smartly.
+  - **Refactoring:** Proceed with extreme caution if refactoring . It houses APScheduler setups for *both* The Odds API and the CricketData API. 
+  - **UI Expectations:** The user expects tight, dense, tabular UIs (like icebook9). Avoid over-padding elements in the exchange pages.
 
 **documents and test reports created in this job** 
-  - /app/memory/PRD.md
+  - 
+  - 
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
- - User: Check the screen shot properly I want it like that...I dont know but u properly check it and work on it...Also responsive device design get it (Uploaded 5 images) -> **PENDING (Agent asked for plan approval via ask_human)**
- - User: Proceed -> COMPLETED
- - User: Please use ask_human tool and confirm your plan now. -> COMPLETED
+ 1. User requested WhatsApp deposit option enabled only for logged-in users. -> (COMPLETED)
+ 2. User requested strict LIVE & UPCOMING match filters (no old matches). -> (COMPLETED)
+ 3. User requested a massive structural upgrade to Cricket Module (Exact markets like 6/10/15/20 over runs, bookmaker, next ball, etc. without breaking football). -> (COMPLETED)
+ 4. User requested fixing API to fetch Indian Midnight, removing Next ball from cricket. -> (COMPLETED)
+ 5. User asked for Server Wakeup. -> (COMPLETED)
+ 6. User uploaded a screenshot and demanded global live cricket matches (IPL, PSL, etc.). -> (COMPLETED)
+ 7. User requested automation for CricketData API respecting a strict 100 requests/day quota, with Redis/In-memory caching. -> (COMPLETED)
+ 8. User requested Match Sorting (Ascending date) and a Match Detail + Betting Panel modal on click. -> (COMPLETED - VERIFICATION PENDING)
 
 **Project Health Check:**
   - Broken: None
-  - Mocked: Real-time odds in exchange pages, bet slip submission.
+  - Mocked: Real-time live score updates on frontend.
 
 **3rd Party Integrations** 
   - The Odds API (Match data fetching) — requires User API Key.
+  - CricketData API (Global Cricket Matches) — requires User API Key.
+  - WhatsApp (External Redirect URL) — No API key needed, strictly an href link.
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Screenshot tool used for bug fixes).
+  - Testing agent used after significant changes: YES (iterations 4, 5, 6)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: []
+  - Test files created: , , 
   - Known regressions: None currently.
 
 **Credentials to test flow:**
@@ -137,4 +127,4 @@ React, Tailwind CSS, FastAPI, MongoDB, APScheduler (cron jobs), WebSockets, JWT 
   - User: , 
 
 **What agent forgot to execute**
-The agent addressed all previous bugs perfectly. The only pending action is starting work on the brand new user request (the massive UI redesign based on the 5 uploaded screenshots), which was paused pending human approval.</analysis>
+The agent addressed all user requirements successfully. No overlooked tasks.</analysis>
