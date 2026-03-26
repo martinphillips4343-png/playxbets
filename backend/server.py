@@ -376,15 +376,30 @@ class OddsService:
         return await OddsService.fetch_sports_data()
 
 # ==================== CRON SCHEDULER ====================
+from apscheduler.schedulers.asyncio import AsyncIOScheduler as APScheduler
 scheduler = BackgroundScheduler()
 
 # Track last poll times for smart polling
 last_odds_poll = None
 live_match_check_enabled = True
+main_event_loop = None  # Will be set at startup
 
 def run_scheduled_odds_fetch():
-    """Wrapper to run async scheduled_odds_fetch in sync scheduler"""
-    asyncio.run(scheduled_odds_fetch_async())
+    """Run scheduled odds fetch - using fire-and-forget approach for async"""
+    global main_event_loop
+    try:
+        if main_event_loop and main_event_loop.is_running():
+            # Schedule on existing main loop
+            future = asyncio.run_coroutine_threadsafe(scheduled_odds_fetch_async(), main_event_loop)
+            # Wait for result with timeout
+            try:
+                future.result(timeout=60)
+            except Exception as e:
+                logger.error(f"Odds fetch timed out or failed: {e}")
+        else:
+            logger.warning("Main event loop not available, skipping scheduled fetch")
+    except Exception as e:
+        logger.error(f"Error scheduling odds fetch: {e}")
 
 async def scheduled_odds_fetch_async():
     """Scheduled task to fetch odds - runs at Indian midnight and checks for live matches"""
@@ -427,8 +442,20 @@ async def check_live_matches_and_poll_async():
         logger.error(f"Live match check failed: {e}")
 
 def run_live_check():
-    """Wrapper to run async live match check in sync scheduler"""
-    asyncio.run(check_live_matches_and_poll_async())
+    """Wrapper to run async live match check"""
+    global main_event_loop
+    try:
+        if main_event_loop and main_event_loop.is_running():
+            # Schedule on existing main loop
+            future = asyncio.run_coroutine_threadsafe(check_live_matches_and_poll_async(), main_event_loop)
+            try:
+                future.result(timeout=60)
+            except Exception as e:
+                logger.error(f"Live check timed out or failed: {e}")
+        else:
+            logger.warning("Main event loop not available, skipping live check")
+    except Exception as e:
+        logger.error(f"Error scheduling live check: {e}")
 
 def start_scheduler():
     """Start the scheduler - polls dynamically based on live matches"""
@@ -1197,6 +1224,10 @@ app.add_middleware(
 # ==================== STARTUP ====================
 @app.on_event("startup")
 async def startup_event():
+    global main_event_loop
+    # Store the main event loop for scheduler tasks
+    main_event_loop = asyncio.get_event_loop()
+    
     # Create default users if they don't exist
     admin_user = await db.users.find_one({"username": "admin"})
     if not admin_user:

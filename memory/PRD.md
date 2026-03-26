@@ -12,6 +12,23 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ## Latest Updates (March 26, 2026)
 
+### Phase 12: Bug Fixes & Improvements (Completed - March 26, 2026)
+1. **Match Odds Layout Fix**: Now shows only 1 Back + 1 Lay column (best odds) in Match Odds section
+   - Bookmaker section still shows 3+3 columns (unchanged)
+   - Back/Lay headers properly centered and aligned
+   - Removed yellow highlighting that was causing misalignment
+
+2. **Admin & User Dashboard Responsive**: Full mobile responsive design
+   - Added hamburger menu for mobile navigation
+   - Collapsible sidebar with smooth slide animation
+   - 2-column grid layout on mobile for stat cards
+   - Added explicit `/admin/dashboard` and `/user/dashboard` routes
+
+3. **Odds API Live Polling**: Dynamic polling based on live matches
+   - Every 2 minutes when live matches exist
+   - Daily at Indian midnight for full refresh
+   - Fixed async event loop issues with proper main loop reference
+
 ### Phase 11: Dedicated Match Page (Completed - March 26, 2026)
 Replaced the modal dialog with a full dedicated match page at `/match/{match_id}`:
 - **Navigation**: Click any match row → navigates to `/match/{match_id}` 
