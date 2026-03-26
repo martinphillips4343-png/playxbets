@@ -786,7 +786,28 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-green-400 font-bold text-sm">LIVE SCORE</span>
               </div>
-              <div className="text-white text-lg font-bold">{match.score.join(" | ")}</div>
+              <div className="text-white text-lg font-bold">
+                {match.score.map((s, idx) => {
+                  // Handle different score formats from CricketData API
+                  if (typeof s === 'string') {
+                    return s;
+                  } else if (typeof s === 'object' && s !== null) {
+                    // Format: {r: "185/4", w: 4, o: 18.2, inning: "Team Name Inning 1"}
+                    const runs = s.r || s.runs || '';
+                    const overs = s.o || s.overs || '';
+                    const inning = s.inning || '';
+                    if (runs && overs) {
+                      return `${runs} (${overs} ov)`;
+                    } else if (runs) {
+                      return runs;
+                    } else if (inning) {
+                      return inning;
+                    }
+                    return JSON.stringify(s);
+                  }
+                  return String(s);
+                }).join(" | ")}
+              </div>
             </div>
           )}
         </div>

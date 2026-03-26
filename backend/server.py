@@ -26,7 +26,7 @@ load_dotenv(ROOT_DIR / '.env')
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "187430fb4c5f437e8c3692bd64d6900a")
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "60578767146aaef0fa7b9992066f62f8")
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 CRICKET_API_KEY = os.getenv("CRICKETDATA_API_KEY", "a185dd9f-67a3-47cf-8ab7-a1294b716031")
 
@@ -470,8 +470,10 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
 class OddsService:
     @staticmethod
     async def fetch_sports_data():
-        """Fetch cricket and football matches from The Odds API"""
-        sports = ["cricket", "soccer"]
+        """Fetch cricket matches from The Odds API (PAID key - Cricket only)"""
+        # IMPORTANT: Only fetch Cricket from paid Odds API
+        # Soccer matches are kept in DB but not refreshed from Odds API
+        sports = ["cricket"]  # Restricted to Cricket only per user requirement
         all_matches = []
         
         for sport in sports:
@@ -479,14 +481,17 @@ class OddsService:
                 url = f"{ODDS_API_BASE}/sports/{sport}/odds"
                 params = {
                     "apiKey": ODDS_API_KEY,
-                    "regions": "us,uk",
+                    "regions": "us,uk,eu,au",  # Extended regions for better coverage
                     "markets": "h2h",
                     "oddsFormat": "decimal"
                 }
                 
                 response = requests.get(url, params=params, timeout=10)
+                logger.info(f"Odds API response status: {response.status_code} for {sport}")
+                
                 if response.status_code == 200:
                     events = response.json()
+                    logger.info(f"Odds API returned {len(events)} {sport} events")
                     
                     for event in events:
                         # Extract odds
@@ -501,8 +506,6 @@ class OddsService:
                                 outcomes = market.get("outcomes", [])
                                 
                                 # Iterate through outcomes and match by name
-                                # Soccer outcomes: team names + "Draw"
-                                # Cricket outcomes: just team names
                                 home_team_lower = event.get("home_team", "").lower()
                                 away_team_lower = event.get("away_team", "").lower()
                                 
@@ -540,7 +543,7 @@ class OddsService:
                             "commence_time": datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00")),
                             "home_odds": home_odds,
                             "away_odds": away_odds,
-                            "odds_draw": draw_odds,  # Draw odds for soccer matches
+                            "odds_draw": draw_odds,
                             "status": "scheduled",
                             "updated_at": datetime.now(timezone.utc)
                         }
@@ -552,10 +555,17 @@ class OddsService:
                             upsert=True
                         )
                         all_matches.append(match_data)
-                
-                logger.info(f"Fetched {len(all_matches)} {sport} matches")
+                    
+                    logger.info(f"Successfully stored {len(all_matches)} {sport} matches from Odds API")
+                elif response.status_code == 401:
+                    logger.error(f"Odds API authentication failed - check API key")
+                elif response.status_code == 429:
+                    logger.warning(f"Odds API rate limited")
+                else:
+                    logger.error(f"Odds API error: {response.status_code} - {response.text[:200]}")
+                    
             except Exception as e:
-                logger.error(f"Error fetching {sport} data: {e}")
+                logger.error(f"Error fetching {sport} data from Odds API: {e}")
         
         return all_matches
 

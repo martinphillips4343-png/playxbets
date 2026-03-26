@@ -12,6 +12,28 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ## Latest Updates (March 26, 2026)
 
+### Phase 15: API Upgrade & Bug Fix (Completed - March 26, 2026)
+
+1. **Odds API Key Upgrade**:
+   - Replaced FREE key with PAID key: `60578767146aaef0fa7b9992066f62f8`
+   - Extended regions for better coverage: `us,uk,eu,au`
+   - Added detailed logging for API responses and errors
+
+2. **Sports Restriction**:
+   - Odds API now fetches **Cricket ONLY** (per user requirement)
+   - Soccer/Football data preserved in DB (existing matches still displayed)
+   - UI tabs remain intact (Cricket + Football)
+
+3. **Bug Fix - Live Score Display**:
+   - **Issue**: Live scores showed `[object Object] | [object Object]`
+   - **Root Cause**: CricketData API returns score as array of objects (e.g., `{r: "185/4", o: 18.2}`)
+   - **Fix**: Added proper object formatting in `MatchPage.js` to display `185/4 (18.2 ov)`
+
+4. **Verification**:
+   - Odds API returning 200 status with 7 cricket events
+   - Live score now displays correctly: `199 (20 ov) | 98 (14.1 ov)`
+   - Both Cricket and Football tabs working
+
 ### Phase 14: Backend-Driven WebSocket System (Completed - March 26, 2026)
 Implemented real-time WebSocket updates to replace heavy REST polling:
 
