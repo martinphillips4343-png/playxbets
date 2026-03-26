@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/App";
 import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
+import TiedMatchMarket, { hasTieMarket, getTieMarketData, getMockTieMarketData } from "@/components/TiedMatchMarket";
 import { formatIndianDateTime } from "@/utils/dateFormat";
 import {
   ChevronLeft,
@@ -179,6 +180,37 @@ const SessionColumnHeaders = () => (
   </div>
 );
 
+// ==================== TIED MATCH SECTION (CONDITIONAL) ====================
+const TiedMatchSection = ({ match, onSelectOdds }) => {
+  // Get tie market data from match (checks multiple sources)
+  const tieMarketData = useMemo(() => {
+    // First check if match has real tie market data
+    const realData = getTieMarketData(match);
+    if (realData) return realData;
+    
+    // Fallback: Only show mock data if match explicitly supports tie market
+    // This ensures TIED_MATCH only shows for matches that support it
+    if (match?.hasTieMarket === true || match?.features?.hasTieMarket === true) {
+      return getMockTieMarketData();
+    }
+    
+    // For cricket T20/ODI matches, tie is possible - show market with mock data
+    // This is a temporary fallback until API integration is complete
+    if (match?.sport === "cricket" && (match?.format === "t20" || match?.format === "odi")) {
+      return getMockTieMarketData();
+    }
+    
+    return null;
+  }, [match]);
+
+  // Don't render if no tie market data
+  if (!tieMarketData) {
+    return null;
+  }
+
+  return <TiedMatchMarket marketData={tieMarketData} onSelectOdds={onSelectOdds} />;
+};
+
 // ==================== MAIN COMPONENT ====================
 export default function MatchPage({ user, onShowAuth, onLogout }) {
   const { matchId } = useParams();
@@ -202,7 +234,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     teamTotal: false,
     partnership: false,
     specialMarkets: false,
-    tiedMatch: true,
   });
 
   // Simulated odds state (for live matches)
@@ -869,151 +900,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== TIED_MATCH (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
-              <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="tied-match-section">
-                {/* Header */}
-                <div className="flex items-center justify-between bg-[#4A6A8A] px-4 py-3">
-                  <h3 className="text-base md:text-lg font-bold text-white uppercase tracking-wide">TIED_MATCH</h3>
-                  <button
-                    className="bg-[#28A745] hover:bg-[#218838] text-white font-semibold px-4 py-2 rounded transition-colors text-sm"
-                    onClick={() => toast.info("Cashout feature coming soon!")}
-                    data-testid="tied-match-cashout-btn"
-                  >
-                    Cashout
-                  </button>
-                </div>
-
-                {/* Column Headers */}
-                <div className="flex items-stretch bg-[#E8E8E8] border-b border-gray-300">
-                  <div className="flex-1 min-w-[180px] p-3 flex items-center">
-                    <span className="text-sm text-cyan-600 font-semibold">Max: 1</span>
-                  </div>
-                  <div className="flex">
-                    <div className="w-[60px] p-2 flex items-center justify-center bg-[#72BBEF]/30">
-                      <span className="text-xs font-bold text-[#1E88E5]">Back</span>
-                    </div>
-                    <div className="w-[60px] p-2 hidden md:block"></div>
-                    <div className="w-[60px] p-2 hidden md:block"></div>
-                  </div>
-                  <div className="flex">
-                    <div className="w-[60px] p-2 flex items-center justify-center bg-[#FAA9BA]/30">
-                      <span className="text-xs font-bold text-[#E91E63]">Lay</span>
-                    </div>
-                    <div className="w-[60px] p-2 hidden md:block"></div>
-                    <div className="w-[60px] p-2 hidden md:block"></div>
-                  </div>
-                </div>
-
-                {/* YES Row */}
-                <div className="flex items-stretch border-b border-gray-200 bg-[#F5F5F5]">
-                  <div className="flex-1 min-w-[180px] p-3 flex items-center">
-                    <span className="text-sm md:text-base text-gray-900 font-semibold">Yes</span>
-                  </div>
-                  <div className="flex">
-                    {/* Back columns (3 levels) - Blue shades */}
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Back", 44, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#B3D9F5] hover:bg-[#9CCCF0] transition-colors"
-                      data-testid="tied-yes-back-1"
-                    >
-                      <span className="text-sm font-bold text-gray-900">44</span>
-                      <span className="text-[9px] text-gray-600">21.62</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Back", 48, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#C5E3F8] hover:bg-[#B3D9F5] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">48</span>
-                      <span className="text-[9px] text-gray-600">9.26</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Back", 50, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">50</span>
-                      <span className="text-[9px] text-gray-600">17.11</span>
-                    </button>
-                  </div>
-                  <div className="flex">
-                    {/* Lay columns (3 levels) - Pink shades */}
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Lay", 65, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-colors"
-                      data-testid="tied-yes-lay-1"
-                    >
-                      <span className="text-sm font-bold text-gray-900">65</span>
-                      <span className="text-[9px] text-gray-600">73.61</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Lay", 90, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FCCCD6] hover:bg-[#FAA9BA] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">90</span>
-                      <span className="text-[9px] text-gray-600">10</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match Yes", "Lay", 95, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FDDDE3] hover:bg-[#FCCCD6] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">95</span>
-                      <span className="text-[9px] text-gray-600">10</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* NO Row */}
-                <div className="flex items-stretch bg-[#F5F5F5]">
-                  <div className="flex-1 min-w-[180px] p-3 flex items-center">
-                    <span className="text-sm md:text-base text-gray-900 font-semibold">No</span>
-                  </div>
-                  <div className="flex">
-                    {/* Back columns - suspended/empty for NO */}
-                    <div className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#E0E0E0]">
-                      <span className="text-sm font-bold text-gray-500">-</span>
-                      <span className="text-[9px] text-gray-400">-</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#E8E8E8] hidden md:flex">
-                      <span className="text-sm font-bold text-gray-500">-</span>
-                      <span className="text-[9px] text-gray-400">-</span>
-                    </div>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match No", "Back", 1.01, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#72BBEF] hover:bg-[#5BA8DC] transition-colors hidden md:flex"
-                      data-testid="tied-no-back-3"
-                    >
-                      <span className="text-sm font-bold text-gray-900">1.01</span>
-                      <span className="text-[9px] text-gray-600">16586.06</span>
-                    </button>
-                  </div>
-                  <div className="flex">
-                    {/* Lay columns for NO */}
-                    <button
-                      onClick={() => addToBetSlip("Tied Match No", "Lay", 1.02, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FAA9BA] hover:bg-[#E8899A] transition-colors"
-                      data-testid="tied-no-lay-1"
-                    >
-                      <span className="text-sm font-bold text-gray-900">1.02</span>
-                      <span className="text-[9px] text-gray-600">838.67</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match No", "Lay", 1.03, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FCCCD6] hover:bg-[#FAA9BA] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">1.03</span>
-                      <span className="text-[9px] text-gray-600">17214.99</span>
-                    </button>
-                    <button
-                      onClick={() => addToBetSlip("Tied Match No", "Lay", 1.04, "tiedmatch")}
-                      className="flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#FDDDE3] hover:bg-[#FCCCD6] transition-colors hidden md:flex"
-                    >
-                      <span className="text-sm font-bold text-gray-900">1.04</span>
-                      <span className="text-[9px] text-gray-600">9771.32</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* ==================== TIED_MATCH (DYNAMIC - LIVE CRICKET ONLY) ==================== */}
+            {isLive && isCricket && <TiedMatchSection match={match} onSelectOdds={addToBetSlip} />}
           </div>
 
           {/* ==================== BET SLIP SIDEBAR (DESKTOP) ==================== */}
