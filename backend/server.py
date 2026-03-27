@@ -732,6 +732,18 @@ async def check_live_matches_and_poll_async():
     """Check if there are live matches and poll more frequently for real-time updates"""
     global last_odds_poll
     try:
+        current_time = datetime.now(timezone.utc)
+        
+        # Auto-mark scheduled matches as "live" if their commence_time has passed
+        # This handles cases where CricketData API doesn't detect the match as live
+        await db.matches.update_many(
+            {
+                "status": "scheduled",
+                "commence_time": {"$lt": current_time}
+            },
+            {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time}}
+        )
+        
         # Count live matches
         live_count = await db.matches.count_documents({"status": "live"})
         
@@ -1451,8 +1463,18 @@ async def get_matches(sport: Optional[str] = None):
                 if ct.tzinfo is None:
                     ct = ct.replace(tzinfo=timezone.utc)
                 
-                # Only include if match is in the FUTURE (upcoming)
-                if ct > now:
+                # Include if match is upcoming OR recently started (within 6 hours)
+                # Recently started matches may not yet be marked as "live" by external API
+                six_hours_ago = now - timedelta(hours=6)
+                if ct > six_hours_ago:
+                    # If match started already, auto-mark as live
+                    if ct <= now and m.get("status") == "scheduled":
+                        await db.matches.update_one(
+                            {"match_id": m.get("match_id")},
+                            {"$set": {"status": "live", "matchStarted": True}}
+                        )
+                        m["status"] = "live"
+                        m["matchStarted"] = True
                     filtered_matches.append(m)
                     
             except Exception as e:
@@ -1660,6 +1682,21 @@ async def get_match_detail(match_id: str):
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
+    # Helper to serialize datetime with UTC timezone
+    def serialize_dt(dt):
+        if dt is None:
+            return None
+        if isinstance(dt, datetime):
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        if isinstance(dt, str):
+            # If string without timezone, append +00:00
+            if '+' not in dt and 'Z' not in dt and dt != '':
+                return dt + '+00:00'
+            return dt.replace('Z', '+00:00')
+        return str(dt)
+    
     # Build detailed response
     response = {
         "match_id": match.get("match_id"),
@@ -1667,7 +1704,7 @@ async def get_match_detail(match_id: str):
         "league": match.get("league", ""),
         "home_team": match.get("home_team"),
         "away_team": match.get("away_team"),
-        "commence_time": match.get("commence_time"),
+        "commence_time": serialize_dt(match.get("commence_time")),
         "status": match.get("status", "scheduled"),
         "venue": match.get("venue", ""),
         "format": match.get("format", "t20"),
@@ -1692,8 +1729,8 @@ async def get_match_detail(match_id: str):
         # Additional match info
         "match_type": match.get("match_type", ""),
         "winner": match.get("winner"),
-        "created_at": match.get("created_at"),
-        "updated_at": match.get("updated_at"),
+        "created_at": serialize_dt(match.get("created_at")),
+        "updated_at": serialize_dt(match.get("updated_at")),
     }
     
     # For cricket matches, try to get additional info from CricketData service cache

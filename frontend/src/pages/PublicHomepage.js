@@ -111,7 +111,10 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
       try {
         const matchTime = new Date(m.commence_time);
         const now = new Date();
-        return matchTime > now;
+        // Show upcoming matches AND recently started matches (within 6 hours of start)
+        // Recently started matches may not be marked as "live" yet by the API
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        return matchTime > sixHoursAgo;
       } catch {
         return false;
       }
