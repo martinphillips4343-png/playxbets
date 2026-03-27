@@ -743,7 +743,6 @@ async def check_live_matches_and_poll_async():
         current_time = datetime.now(timezone.utc)
         
         # Auto-mark scheduled matches as "live" if their commence_time has passed
-        # This handles cases where CricketData API doesn't detect the match as live
         await db.matches.update_many(
             {
                 "status": "scheduled",
@@ -752,7 +751,109 @@ async def check_live_matches_and_poll_async():
             {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time}}
         )
         
-        # Count live matches
+        # ==================== AUTO-DETECT COMPLETED MATCHES ====================
+        # Check all "live" matches against the Odds API and cricScore to detect completions
+        our_live_matches = await db.matches.find({"status": "live"}, {"_id": 0}).to_list(100)
+        
+        if our_live_matches:
+            # Fetch current Odds API events to compare
+            try:
+                odds_url = f"{ODDS_API_BASE}/sports/cricket/odds"
+                odds_params = {
+                    "apiKey": ODDS_API_KEY,
+                    "regions": "us,uk",
+                    "markets": "h2h",
+                    "oddsFormat": "decimal"
+                }
+                odds_resp = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: requests.get(odds_url, params=odds_params, timeout=15)
+                )
+                odds_events = odds_resp.json() if odds_resp.status_code == 200 else []
+                odds_team_pairs = set()
+                for ev in odds_events:
+                    h = ev.get("home_team", "").lower().strip()
+                    a = ev.get("away_team", "").lower().strip()
+                    odds_team_pairs.add((h, a))
+            except Exception as e:
+                logger.error(f"Odds API check failed: {e}")
+                odds_team_pairs = None  # Don't use for detection if failed
+            
+            # Fetch cricScore for completion detection
+            try:
+                service = get_cricket_service()
+                cricscore_data = await service._api_request("cricScore", cache_ttl=15)
+                cricscore_statuses = {}
+                if cricscore_data and cricscore_data.get("data"):
+                    for cs in cricscore_data["data"]:
+                        t1 = (cs.get("t1") or "").lower()
+                        t2 = (cs.get("t2") or "").lower()
+                        cricscore_statuses[(t1, t2)] = cs.get("ms", "")
+            except Exception:
+                cricscore_statuses = {}
+            
+            for our_match in our_live_matches:
+                match_id = our_match.get("match_id")
+                home = our_match.get("home_team", "").lower()
+                away = our_match.get("away_team", "").lower()
+                commence = our_match.get("commence_time")
+                
+                should_complete = False
+                completion_reason = ""
+                
+                # Method 1: Match not in Odds API anymore = completed
+                if odds_team_pairs is not None:
+                    in_odds = (home, away) in odds_team_pairs or (away, home) in odds_team_pairs
+                    if not in_odds:
+                        # Double check with fuzzy matching
+                        home_words = set(w for w in home.split() if len(w) > 2)
+                        found = False
+                        for (h, a) in odds_team_pairs:
+                            h_words = set(w for w in h.split() if len(w) > 2)
+                            a_words = set(w for w in a.split() if len(w) > 2)
+                            if home_words & h_words and home_words & a_words:
+                                found = True
+                                break
+                            if home_words & a_words:
+                                found = True
+                                break
+                        if not found:
+                            should_complete = True
+                            completion_reason = "Not in Odds API"
+                
+                # Method 2: cricScore shows non-live status
+                for (t1, t2), ms in cricscore_statuses.items():
+                    home_words = [w for w in home.split() if len(w) > 2]
+                    if any(w in t1 for w in home_words) and any(w in t2 for w in home_words):
+                        pass  # same logic
+                    t1_match = any(w in t1 for w in home_words) or any(w in t2 for w in [w for w in away.split() if len(w) > 2])
+                    t2_match = any(w in t2 for w in home_words) or any(w in t1 for w in [w for w in away.split() if len(w) > 2])
+                    if t1_match or t2_match:
+                        if ms in ("result", "complete", "abandoned", "no result"):
+                            should_complete = True
+                            completion_reason = f"cricScore status: {ms}"
+                            break
+                
+                # Method 3: T20 match live for > 5 hours = likely completed
+                if commence and isinstance(commence, datetime):
+                    if commence.tzinfo is None:
+                        commence = commence.replace(tzinfo=timezone.utc)
+                    hours_since_start = (current_time - commence).total_seconds() / 3600
+                    if hours_since_start > 5:
+                        should_complete = True
+                        completion_reason = f"Live for {hours_since_start:.1f} hours"
+                
+                if should_complete:
+                    logger.info(f"Auto-completing match: {our_match.get('home_team')} vs {our_match.get('away_team')} - Reason: {completion_reason}")
+                    await db.matches.update_one(
+                        {"match_id": match_id},
+                        {"$set": {
+                            "status": "completed",
+                            "matchEnded": True,
+                            "updated_at": current_time
+                        }}
+                    )
+        
+        # Count live matches (after completion detection)
         live_count = await db.matches.count_documents({"status": "live"})
         
         if live_count > 0:
