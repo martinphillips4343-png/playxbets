@@ -323,16 +323,19 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                         </div>
                       </td>
                       
-                      {/* Home Odds */}
+                      {/* Home Odds - Show real API odds, or "-" if not available */}
                       <td className="px-2 py-3 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleBetClick(match, match.home_team, match.home_odds || 1.85, "home");
+                            if (match.home_odds) {
+                              handleBetClick(match, match.home_team, match.home_odds, "home");
+                            }
                           }}
-                          className="w-full bg-[#72BBEF] hover:bg-[#5BA8DC] text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                          disabled={!match.home_odds}
+                          className={`w-full ${match.home_odds ? 'bg-[#72BBEF] hover:bg-[#5BA8DC] cursor-pointer' : 'bg-gray-600 cursor-not-allowed'} text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors`}
                         >
-                          {match.home_odds?.toFixed(2) || "1.85"}
+                          {match.home_odds?.toFixed(2) || "-"}
                         </button>
                       </td>
                       
@@ -342,25 +345,31 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleBetClick(match, "Draw", match.odds_draw || 3.20, "draw");
+                              if (match.odds_draw) {
+                                handleBetClick(match, "Draw", match.odds_draw, "draw");
+                              }
                             }}
-                            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                            disabled={!match.odds_draw}
+                            className={`w-full ${match.odds_draw ? 'bg-gray-200 hover:bg-gray-300 cursor-pointer' : 'bg-gray-600 cursor-not-allowed'} text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors`}
                           >
-                            {match.odds_draw?.toFixed(2) || "3.20"}
+                            {match.odds_draw?.toFixed(2) || "-"}
                           </button>
                         </td>
                       )}
                       
-                      {/* Away Odds */}
+                      {/* Away Odds - Show real API odds, or "-" if not available */}
                       <td className="px-2 py-3 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleBetClick(match, match.away_team, match.away_odds || 1.95, "away");
+                            if (match.away_odds) {
+                              handleBetClick(match, match.away_team, match.away_odds, "away");
+                            }
                           }}
-                          className="w-full bg-[#FAA9BA] hover:bg-[#E8899A] text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors"
+                          disabled={!match.away_odds}
+                          className={`w-full ${match.away_odds ? 'bg-[#FAA9BA] hover:bg-[#E8899A] cursor-pointer' : 'bg-gray-600 cursor-not-allowed'} text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors`}
                         >
-                          {match.away_odds?.toFixed(2) || "1.95"}
+                          {match.away_odds?.toFixed(2) || "-"}
                         </button>
                       </td>
                     </tr>

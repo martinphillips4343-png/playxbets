@@ -267,41 +267,39 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
       setLoading(false);
       setLastOddsUpdate(wsLastUpdate);
 
-      // Initialize/update live odds from WebSocket data
+      // Initialize/update live odds from WebSocket data - USE REAL API ODDS
       if (wsMatch) {
-        setLiveOdds((prev) => {
-          const newOdds = {
+        // Get real odds from API (home_odds/away_odds or odds object)
+        const homeBack = wsMatch.odds?.home_back || wsMatch.odds?.home || wsMatch.home_odds;
+        const awayBack = wsMatch.odds?.away_back || wsMatch.odds?.away || wsMatch.away_odds;
+        const homeLay = wsMatch.odds?.home_lay || (homeBack ? homeBack + 0.02 : null);
+        const awayLay = wsMatch.odds?.away_lay || (awayBack ? awayBack + 0.02 : null);
+        
+        // Only set odds if we have REAL data from API
+        if (homeBack && awayBack) {
+          setLiveOdds({
             home: {
-              back: [wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85, 
-                     (wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85) - 0.01, 
-                     (wsMatch.odds?.home || prev?.home?.back?.[0] || 1.85) - 0.02],
-              lay: [(wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.02, 
-                    (wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.03, 
-                    (wsMatch.odds?.home || prev?.home?.lay?.[0] || 1.87) + 0.04],
-              backStakes: [50000, 30000, 20000],
-              layStakes: [45000, 25000, 15000],
+              back: [homeBack],
+              lay: [homeLay],
+              backStakes: [50000],
+              layStakes: [45000],
             },
             away: {
-              back: [wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95, 
-                     (wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95) - 0.01, 
-                     (wsMatch.odds?.away || prev?.away?.back?.[0] || 1.95) - 0.02],
-              lay: [(wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.02, 
-                    (wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.03, 
-                    (wsMatch.odds?.away || prev?.away?.lay?.[0] || 1.97) + 0.04],
-              backStakes: [40000, 25000, 15000],
-              layStakes: [35000, 20000, 10000],
+              back: [awayBack],
+              lay: [awayLay],
+              backStakes: [40000],
+              layStakes: [35000],
             },
             draw: wsMatch.odds?.draw
               ? {
-                  back: [wsMatch.odds.draw, wsMatch.odds.draw - 0.02, wsMatch.odds.draw - 0.04],
-                  lay: [wsMatch.odds.draw + 0.02, wsMatch.odds.draw + 0.04, wsMatch.odds.draw + 0.06],
-                  backStakes: [30000, 20000, 10000],
-                  layStakes: [25000, 15000, 8000],
+                  back: [wsMatch.odds.draw],
+                  lay: [wsMatch.odds.draw + 0.02],
+                  backStakes: [30000],
+                  layStakes: [25000],
                 }
               : null,
-          };
-          return newOdds;
-        });
+          });
+        }
       }
     }
   }, [wsMatch, wsLastUpdate]);
@@ -327,27 +325,34 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
       setMatch(matchData);
       setError(null);
 
-      // Initialize live odds from match data (fallback only)
-      if (!liveOdds && matchData) {
+      // Initialize live odds from REAL API data only
+      // Get real odds from API (home_odds/away_odds or odds object)
+      const homeBack = matchData.odds?.home_back || matchData.odds?.home || matchData.home_odds;
+      const awayBack = matchData.odds?.away_back || matchData.odds?.away || matchData.away_odds;
+      const homeLay = matchData.odds?.home_lay || (homeBack ? homeBack + 0.02 : null);
+      const awayLay = matchData.odds?.away_lay || (awayBack ? awayBack + 0.02 : null);
+      
+      // Only set odds if we have REAL data from API
+      if (homeBack && awayBack) {
         setLiveOdds({
           home: {
-            back: [matchData.odds?.home || 1.85, (matchData.odds?.home || 1.85) - 0.01, (matchData.odds?.home || 1.85) - 0.02],
-            lay: [(matchData.odds?.home || 1.85) + 0.02, (matchData.odds?.home || 1.85) + 0.03, (matchData.odds?.home || 1.85) + 0.04],
-            backStakes: [50000, 30000, 20000],
-            layStakes: [45000, 25000, 15000],
+            back: [homeBack],
+            lay: [homeLay],
+            backStakes: [50000],
+            layStakes: [45000],
           },
           away: {
-            back: [matchData.odds?.away || 1.95, (matchData.odds?.away || 1.95) - 0.01, (matchData.odds?.away || 1.95) - 0.02],
-            lay: [(matchData.odds?.away || 1.95) + 0.02, (matchData.odds?.away || 1.95) + 0.03, (matchData.odds?.away || 1.95) + 0.04],
-            backStakes: [40000, 25000, 15000],
-            layStakes: [35000, 20000, 10000],
+            back: [awayBack],
+            lay: [awayLay],
+            backStakes: [40000],
+            layStakes: [35000],
           },
           draw: matchData.odds?.draw
             ? {
-                back: [matchData.odds.draw, matchData.odds.draw - 0.02, matchData.odds.draw - 0.04],
-                lay: [matchData.odds.draw + 0.02, matchData.odds.draw + 0.04, matchData.odds.draw + 0.06],
-                backStakes: [30000, 20000, 10000],
-                layStakes: [25000, 15000, 8000],
+                back: [matchData.odds.draw],
+                lay: [matchData.odds.draw + 0.02],
+                backStakes: [30000],
+                layStakes: [25000],
               }
             : null,
         });
@@ -358,7 +363,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [matchId, liveOdds, wsConnected, wsMatch]);
+  }, [matchId, wsConnected, wsMatch]);
 
   // ==================== FETCH WALLET ====================
   const fetchWallet = useCallback(async () => {
@@ -374,42 +379,14 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     }
   }, [user]);
 
-  // ==================== SIMULATE ODDS CHANGES (LIVE MATCHES) ====================
+  // ==================== NO ODDS SIMULATION - USE REAL API DATA ====================
+  // Odds are fetched from Odds API and should NOT be simulated/changed locally
+  // Real-time updates come from WebSocket which broadcasts fresh API data
   const simulateOddsChange = useCallback(() => {
-    if (!match || match.status !== "live" || !liveOdds) return;
-
-    setLiveOdds((prev) => {
-      if (!prev) return prev;
-
-      const randomVariation = () => (Math.random() - 0.5) * 0.04;
-      const newOdds = {
-        home: {
-          back: prev.home.back.map((o) => Math.max(1.01, +(o + randomVariation()).toFixed(2))),
-          lay: prev.home.lay.map((o) => Math.max(1.02, +(o + randomVariation()).toFixed(2))),
-          backStakes: prev.home.backStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 5000))),
-          layStakes: prev.home.layStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 5000))),
-        },
-        away: {
-          back: prev.away.back.map((o) => Math.max(1.01, +(o + randomVariation()).toFixed(2))),
-          lay: prev.away.lay.map((o) => Math.max(1.02, +(o + randomVariation()).toFixed(2))),
-          backStakes: prev.away.backStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 5000))),
-          layStakes: prev.away.layStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 5000))),
-        },
-        draw: prev.draw
-          ? {
-              back: prev.draw.back.map((o) => Math.max(1.01, +(o + randomVariation()).toFixed(2))),
-              lay: prev.draw.lay.map((o) => Math.max(1.02, +(o + randomVariation()).toFixed(2))),
-              backStakes: prev.draw.backStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 3000))),
-              layStakes: prev.draw.layStakes.map((s) => Math.max(1000, s + Math.floor((Math.random() - 0.5) * 3000))),
-            }
-          : null,
-      };
-
-      return newOdds;
-    });
-
-    setLastOddsUpdate(new Date());
-  }, [match, liveOdds]);
+    // DISABLED: Do not simulate odds - use real API data only
+    // Real odds updates come from WebSocket broadcasts
+    return;
+  }, []);
 
   // ==================== EFFECTS ====================
   // Initial fetch for wallet

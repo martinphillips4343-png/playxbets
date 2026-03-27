@@ -468,111 +468,198 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
 
 # ==================== ODDS API SERVICE ====================
 class OddsService:
+    """
+    Service to fetch odds from The Odds API and merge with CricketData matches.
+    Uses team name matching to link odds to existing matches.
+    """
+    
     @staticmethod
-    async def fetch_sports_data():
-        """Fetch cricket matches from The Odds API (PAID key - Cricket only)"""
-        # IMPORTANT: Only fetch Cricket from paid Odds API
-        # Soccer matches are kept in DB but not refreshed from Odds API
-        sports = ["cricket"]  # Restricted to Cricket only per user requirement
-        all_matches = []
-        
-        for sport in sports:
-            try:
-                url = f"{ODDS_API_BASE}/sports/{sport}/odds"
-                params = {
-                    "apiKey": ODDS_API_KEY,
-                    "regions": "us,uk,eu,au",  # Extended regions for better coverage
-                    "markets": "h2h",
-                    "oddsFormat": "decimal"
+    def normalize_team_name(name: str) -> str:
+        """Normalize team name for matching"""
+        if not name:
+            return ""
+        # Remove common suffixes and normalize
+        name = name.lower().strip()
+        # Remove common words that differ between APIs
+        for word in [" cricket", " fc", " cc", " xi", " team"]:
+            name = name.replace(word, "")
+        return name.strip()
+    
+    @staticmethod
+    def calculate_lay_odds(back_odds: float, spread: float = 0.02) -> float:
+        """Calculate lay odds from back odds with spread"""
+        if back_odds is None:
+            return None
+        return round(back_odds + spread, 2)
+    
+    @staticmethod
+    async def fetch_and_merge_odds():
+        """
+        Fetch odds from Odds API and merge with existing CricketData matches.
+        This ensures we show REAL odds, not simulated values.
+        """
+        try:
+            url = f"{ODDS_API_BASE}/sports/cricket/odds"
+            params = {
+                "apiKey": ODDS_API_KEY,
+                "regions": "us,uk,eu,au",
+                "markets": "h2h",
+                "oddsFormat": "decimal"
+            }
+            
+            response = requests.get(url, params=params, timeout=15)
+            logger.info(f"Odds API response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"Odds API error: {response.status_code}")
+                return []
+            
+            events = response.json()
+            logger.info(f"Odds API returned {len(events)} cricket events")
+            
+            merged_count = 0
+            created_count = 0
+            
+            for event in events:
+                home_team = event.get("home_team", "")
+                away_team = event.get("away_team", "")
+                commence_time = event.get("commence_time", "")
+                
+                # Extract odds from bookmaker
+                home_odds = None
+                away_odds = None
+                bookmaker_name = None
+                
+                if event.get("bookmakers"):
+                    # Use first available bookmaker
+                    bookmaker = event["bookmakers"][0]
+                    bookmaker_name = bookmaker.get("title", "Unknown")
+                    
+                    if bookmaker.get("markets"):
+                        market = bookmaker["markets"][0]
+                        outcomes = market.get("outcomes", [])
+                        
+                        home_lower = home_team.lower()
+                        away_lower = away_team.lower()
+                        
+                        for outcome in outcomes:
+                            name = outcome.get("name", "").lower()
+                            price = outcome.get("price")
+                            
+                            if name == home_lower or home_lower in name:
+                                home_odds = price
+                            elif name == away_lower or away_lower in name:
+                                away_odds = price
+                        
+                        # Fallback matching
+                        if home_odds is None or away_odds is None:
+                            prices = [o.get("price") for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"]]
+                            if len(prices) >= 2:
+                                if home_odds is None:
+                                    home_odds = prices[0]
+                                if away_odds is None:
+                                    away_odds = prices[1] if len(prices) > 1 else prices[0]
+                
+                # Parse commence time properly
+                try:
+                    if commence_time:
+                        commence_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+                    else:
+                        commence_dt = datetime.now(timezone.utc)
+                except:
+                    commence_dt = datetime.now(timezone.utc)
+                
+                # Calculate lay odds (spread of 0.02)
+                home_lay = OddsService.calculate_lay_odds(home_odds)
+                away_lay = OddsService.calculate_lay_odds(away_odds)
+                
+                # Build odds object for storage
+                odds_data = {
+                    "home": home_odds,
+                    "away": away_odds,
+                    "home_back": home_odds,
+                    "home_lay": home_lay,
+                    "away_back": away_odds,
+                    "away_lay": away_lay,
+                    "bookmaker": bookmaker_name,
+                    "last_update": datetime.now(timezone.utc)
                 }
                 
-                response = requests.get(url, params=params, timeout=10)
-                logger.info(f"Odds API response status: {response.status_code} for {sport}")
+                # Try to find existing match in DB by team names
+                home_normalized = OddsService.normalize_team_name(home_team)
+                away_normalized = OddsService.normalize_team_name(away_team)
                 
-                if response.status_code == 200:
-                    events = response.json()
-                    logger.info(f"Odds API returned {len(events)} {sport} events")
-                    
-                    for event in events:
-                        # Extract odds
-                        home_odds = None
-                        away_odds = None
-                        draw_odds = None
-                        
-                        if event.get("bookmakers"):
-                            bookmaker = event["bookmakers"][0]
-                            if bookmaker.get("markets"):
-                                market = bookmaker["markets"][0]
-                                outcomes = market.get("outcomes", [])
-                                
-                                # Iterate through outcomes and match by name
-                                home_team_lower = event.get("home_team", "").lower()
-                                away_team_lower = event.get("away_team", "").lower()
-                                
-                                for outcome in outcomes:
-                                    name = outcome.get("name", "")
-                                    name_lower = name.lower()
-                                    price = outcome.get("price")
-                                    
-                                    if name_lower == home_team_lower:
-                                        home_odds = price
-                                    elif name_lower == away_team_lower:
-                                        away_odds = price
-                                    elif name_lower == "draw" or name_lower == "tie":
-                                        draw_odds = price
-                                
-                                # Fallback for home/away if name matching didn't work
-                                if home_odds is None:
-                                    for outcome in outcomes:
-                                        if outcome.get("name", "").lower() not in ["draw", "tie"]:
-                                            home_odds = outcome.get("price")
-                                            break
-                                            
-                                if away_odds is None:
-                                    for outcome in outcomes:
-                                        if outcome.get("name", "").lower() not in ["draw", "tie"] and outcome.get("price") != home_odds:
-                                            away_odds = outcome.get("price")
-                                            break
-                        
-                        match_data = {
-                            "match_id": event["id"],
-                            "sport": sport,
-                            "league": event.get("sport_title", "Unknown"),
-                            "home_team": event["home_team"],
-                            "away_team": event["away_team"],
-                            "commence_time": datetime.fromisoformat(event["commence_time"].replace("Z", "+00:00")),
+                existing_match = await db.matches.find_one({
+                    "$or": [
+                        # Exact match
+                        {"home_team": home_team, "away_team": away_team},
+                        # Partial match (team name contains)
+                        {"home_team": {"$regex": home_normalized, "$options": "i"},
+                         "away_team": {"$regex": away_normalized, "$options": "i"}},
+                        # Reversed teams
+                        {"home_team": {"$regex": away_normalized, "$options": "i"},
+                         "away_team": {"$regex": home_normalized, "$options": "i"}}
+                    ]
+                })
+                
+                if existing_match:
+                    # Update existing match with odds
+                    await db.matches.update_one(
+                        {"_id": existing_match["_id"]},
+                        {"$set": {
+                            "odds": odds_data,
                             "home_odds": home_odds,
                             "away_odds": away_odds,
-                            "odds_draw": draw_odds,
-                            "status": "scheduled",
-                            "updated_at": datetime.now(timezone.utc)
-                        }
-                        
-                        # Upsert to prevent duplicates
-                        await db.matches.update_one(
-                            {"match_id": match_data["match_id"]},
-                            {"$set": match_data},
-                            upsert=True
-                        )
-                        all_matches.append(match_data)
-                    
-                    logger.info(f"Successfully stored {len(all_matches)} {sport} matches from Odds API")
-                elif response.status_code == 401:
-                    logger.error(f"Odds API authentication failed - check API key")
-                elif response.status_code == 429:
-                    logger.warning(f"Odds API rate limited")
+                            "odds_updated_at": datetime.now(timezone.utc),
+                            "commence_time": commence_dt  # Update with correct time from Odds API
+                        }}
+                    )
+                    merged_count += 1
+                    logger.info(f"Merged odds for: {home_team} vs {away_team} - Back: {home_odds}/{away_odds}")
                 else:
-                    logger.error(f"Odds API error: {response.status_code} - {response.text[:200]}")
+                    # Create new match from Odds API
+                    match_data = {
+                        "match_id": event["id"],
+                        "sport": "cricket",
+                        "league": event.get("sport_title", "Cricket"),
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "commence_time": commence_dt,
+                        "odds": odds_data,
+                        "home_odds": home_odds,
+                        "away_odds": away_odds,
+                        "status": "scheduled",
+                        "matchStarted": False,
+                        "matchEnded": False,
+                        "updated_at": datetime.now(timezone.utc)
+                    }
                     
-            except Exception as e:
-                logger.error(f"Error fetching {sport} data from Odds API: {e}")
-        
-        return all_matches
+                    await db.matches.update_one(
+                        {"match_id": event["id"]},
+                        {"$set": match_data},
+                        upsert=True
+                    )
+                    created_count += 1
+                    logger.info(f"Created match: {home_team} vs {away_team} - Odds: {home_odds}/{away_odds}")
+            
+            logger.info(f"Odds sync complete: {merged_count} merged, {created_count} created")
+            return events
+            
+        except Exception as e:
+            logger.error(f"Error in fetch_and_merge_odds: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    @staticmethod
+    async def fetch_sports_data():
+        """Main entry point - fetch and merge odds"""
+        return await OddsService.fetch_and_merge_odds()
 
     @staticmethod
     async def manual_refresh():
-        """Manual trigger for cron job"""
-        return await OddsService.fetch_sports_data()
+        """Manual trigger for odds refresh"""
+        return await OddsService.fetch_and_merge_odds()
 
 # ==================== CRON SCHEDULER ====================
 from apscheduler.schedulers.asyncio import AsyncIOScheduler as APScheduler
