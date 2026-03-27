@@ -270,6 +270,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const [ballRunning, setBallRunning] = useState(false);
   const [matchSuspended, setMatchSuspended] = useState(false);
   const [liveScoreData, setLiveScoreData] = useState(null);
+  const [teamBetTotals, setTeamBetTotals] = useState({ home: 0, away: 0 });
 
   // Expanded markets state
   const [expandedMarkets, setExpandedMarkets] = useState({
@@ -525,6 +526,26 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   useEffect(() => {
     fetchWallet();
   }, [fetchWallet]);
+
+  // Fetch total bet amounts per team for this match
+  useEffect(() => {
+    if (!matchId || !match) return;
+    const fetchBetTotals = async () => {
+      try {
+        const response = await api.get(`/match/${matchId}/bet-totals`);
+        const data = response.data;
+        setTeamBetTotals({
+          home: data.home_total || 0,
+          away: data.away_total || 0,
+        });
+      } catch {
+        // Silently fail — totals are informational
+      }
+    };
+    fetchBetTotals();
+    const interval = setInterval(fetchBetTotals, 15000); // Refresh every 15s
+    return () => clearInterval(interval);
+  }, [matchId, match]);
 
   // Fallback polling when WebSocket is disconnected
   useEffect(() => {
@@ -1003,7 +1024,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 <>
                   {/* Min/Max Bet Limit */}
                   <div className="flex items-center px-3 py-1.5 bg-[#1a2332] border-b border-gray-700/50">
-                    <span className="text-[11px] text-gray-400 font-medium" data-testid="min-max-label">Min: 100 | Max: 2,00,000</span>
+                    <span className="text-[11px] text-cyan-400 font-medium" data-testid="min-max-label">Min: 100  Max: 15L</span>
                   </div>
                   <MatchOddsColumnHeaders />
                   
@@ -1018,8 +1039,13 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                   
                   {/* Home Team */}
                   <div className="flex items-stretch border-b border-gray-700/50">
-                    <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
+                    <div className="flex-1 min-w-[120px] p-2 md:p-3 flex flex-col justify-center bg-[#1E2736]">
                       <span className="text-sm text-white font-medium">{match.home_team}</span>
+                      {teamBetTotals.home > 0 && (
+                        <span className="text-[11px] text-green-400 font-bold" data-testid="home-bet-total">
+                          {teamBetTotals.home.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
+                        </span>
+                      )}
                     </div>
                     <BackOddsCell
                       odds={liveOdds?.home.back[0]}
@@ -1060,8 +1086,13 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
                   {/* Away Team */}
                   <div className="flex items-stretch">
-                    <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
+                    <div className="flex-1 min-w-[120px] p-2 md:p-3 flex flex-col justify-center bg-[#1E2736]">
                       <span className="text-sm text-white font-medium">{match.away_team}</span>
+                      {teamBetTotals.away > 0 && (
+                        <span className="text-[11px] text-green-400 font-bold" data-testid="away-bet-total">
+                          {teamBetTotals.away.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
+                        </span>
+                      )}
                     </div>
                     <BackOddsCell
                       odds={liveOdds?.away.back[0]}

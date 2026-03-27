@@ -1828,6 +1828,37 @@ async def get_websocket_status():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
+# ==================== BET TOTALS PER TEAM ENDPOINT ====================
+@api_router.get("/match/{match_id}/bet-totals")
+async def get_match_bet_totals(match_id: str):
+    """Get total bet amounts per team for a specific match"""
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0, "home_team": 1, "away_team": 1})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    home_team = match.get("home_team", "")
+    away_team = match.get("away_team", "")
+    
+    # Aggregate total stakes per selected_team
+    pipeline = [
+        {"$match": {"match_id": match_id, "status": {"$ne": "cancelled"}}},
+        {"$group": {"_id": "$selected_team", "total": {"$sum": "$stake"}}}
+    ]
+    
+    results = await db.bets.aggregate(pipeline).to_list(10)
+    
+    totals = {}
+    for r in results:
+        totals[r["_id"]] = r["total"]
+    
+    return {
+        "match_id": match_id,
+        "home_team": home_team,
+        "away_team": away_team,
+        "home_total": totals.get(home_team, 0),
+        "away_total": totals.get(away_team, 0),
+    }
+
 # ==================== MATCH DETAIL ENDPOINT ====================
 @api_router.get("/match/{match_id}")
 async def get_match_detail(match_id: str):
