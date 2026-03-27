@@ -319,6 +319,8 @@ class Match(BaseModel):
     home_odds: Optional[float] = None
     away_odds: Optional[float] = None
     odds_draw: Optional[float] = None  # Draw odds for soccer matches
+    # Full odds object with back/lay
+    odds: Optional[dict] = None
     status: str = "scheduled"  # scheduled, live, completed
     winner: Optional[str] = None
     # Cricket-specific fields
@@ -326,6 +328,11 @@ class Match(BaseModel):
     has_fancy: bool = False  # Fancy markets available
     has_bookmaker: bool = False  # Bookmaker available
     format: Optional[str] = None  # t20, odi, test, t10
+    venue: Optional[str] = None  # Match venue
+    score: Optional[list] = None  # Live score data
+    matchStarted: Optional[bool] = None  # From CricketData API
+    matchEnded: Optional[bool] = None  # From CricketData API
+    hasTieMarket: Optional[bool] = False  # Tie market available
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
