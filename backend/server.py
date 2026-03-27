@@ -51,6 +51,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ==================== WEBSOCKET MANAGER ====================
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, datetime):
+        if obj.tzinfo is None:
+            obj = obj.replace(tzinfo=timezone.utc)
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
 class ConnectionManager:
     """
     WebSocket Connection Manager for real-time updates.
@@ -97,7 +105,7 @@ class ConnectionManager:
         if not self.active_connections:
             return
         
-        message_json = json.dumps(message)
+        message_json = json.dumps(message, default=json_serial)
         disconnected = []
         
         for connection in self.active_connections:
@@ -122,7 +130,7 @@ class ConnectionManager:
             "data": data,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
-        message_json = json.dumps(message)
+        message_json = json.dumps(message, default=json_serial)
         disconnected = []
         
         for connection in self.match_subscriptions[match_id]:
@@ -758,7 +766,19 @@ async def check_live_matches_and_poll_async():
                 data = await service.get_all_matches()
                 live_transformed = await service.transform_for_frontend(data.get("live", []))
                 
-                # Update and broadcast each live match
+                # Also fetch cricScore for broader live score data
+                try:
+                    cricscore_data = await service._api_request("cricScore", cache_ttl=15)
+                    cricscore_live = []
+                    if cricscore_data and cricscore_data.get("data"):
+                        for cs in cricscore_data["data"]:
+                            if cs.get("ms") == "live":
+                                cricscore_live.append(cs)
+                except Exception as e:
+                    logger.error(f"cricScore fetch failed: {e}")
+                    cricscore_live = []
+                
+                # Update and broadcast each live match from CricketData currentMatches
                 for match in live_transformed:
                     match["updated_at"] = current_time
                     await db.matches.update_one(
@@ -769,6 +789,45 @@ async def check_live_matches_and_poll_async():
                     # Broadcast to WebSocket subscribers immediately
                     if ws_manager.get_connection_count() > 0:
                         await ws_manager.broadcast_match_update(match["match_id"], match)
+                
+                # Merge cricScore data into our live matches by team name matching
+                # This handles cases where Odds API match_id != CricketData match_id
+                our_live_matches = await db.matches.find({"status": "live"}, {"_id": 0}).to_list(100)
+                for our_match in our_live_matches:
+                    home = our_match.get("home_team", "").lower()
+                    away = our_match.get("away_team", "").lower()
+                    
+                    for cs in cricscore_live:
+                        t1 = (cs.get("t1") or "").lower()
+                        t2 = (cs.get("t2") or "").lower()
+                        
+                        # Fuzzy team name matching (handles abbreviations like [QTG], [KRK])
+                        home_words = [w for w in home.split() if len(w) > 2]
+                        away_words = [w for w in away.split() if len(w) > 2]
+                        
+                        t1_match = any(word in t1 for word in home_words) or any(word in t1 for word in away_words)
+                        t2_match = any(word in t2 for word in home_words) or any(word in t2 for word in away_words)
+                        
+                        if t1_match and t2_match:
+                            # Found matching match - merge score data
+                            score_parts = []
+                            t1_name = cs.get("t1", "").split("[")[0].strip()
+                            t2_name = cs.get("t2", "").split("[")[0].strip()
+                            t1s = cs.get("t1s", "")
+                            t2s = cs.get("t2s", "")
+                            
+                            if t1s:
+                                score_parts.append(f"{t1_name}: {t1s}")
+                            if t2s:
+                                score_parts.append(f"{t2_name}: {t2s}")
+                            
+                            if score_parts:
+                                await db.matches.update_one(
+                                    {"match_id": our_match["match_id"]},
+                                    {"$set": {"score": score_parts, "updated_at": current_time}}
+                                )
+                                logger.info(f"Merged score for {our_match['home_team']} vs {our_match['away_team']}: {score_parts}")
+                            break
                 
                 # Broadcast all live matches to general subscribers
                 if ws_manager.get_connection_count() > 0 and live_transformed:

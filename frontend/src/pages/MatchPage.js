@@ -757,34 +757,40 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
           </div>
 
           {/* Live Score Section */}
-          {isLive && match.score && match.score.length > 0 && (
-            <div className="mt-4 bg-[#1E2736] rounded-lg p-4">
+          {isLive && (
+            <div className="mt-4 bg-[#1E2736] rounded-lg p-4" data-testid="live-score-section">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-green-400 font-bold text-sm">LIVE SCORE</span>
               </div>
-              <div className="text-white text-lg font-bold">
-                {match.score.map((s, idx) => {
-                  // Handle different score formats from CricketData API
-                  if (typeof s === 'string') {
-                    return s;
-                  } else if (typeof s === 'object' && s !== null) {
-                    // Format: {r: "185/4", w: 4, o: 18.2, inning: "Team Name Inning 1"}
-                    const runs = s.r || s.runs || '';
-                    const overs = s.o || s.overs || '';
-                    const inning = s.inning || '';
-                    if (runs && overs) {
-                      return `${runs} (${overs} ov)`;
-                    } else if (runs) {
-                      return runs;
-                    } else if (inning) {
-                      return inning;
+              {match.score && match.score.length > 0 ? (
+                <div className="text-white text-lg font-bold">
+                  {match.score.map((s, idx) => {
+                    // Handle different score formats from CricketData API
+                    if (typeof s === 'string') {
+                      return s;
+                    } else if (typeof s === 'object' && s !== null) {
+                      // Format: {r: "185/4", w: 4, o: 18.2, inning: "Team Name Inning 1"}
+                      const runs = s.r || s.runs || '';
+                      const overs = s.o || s.overs || '';
+                      const inning = s.inning || '';
+                      if (runs && overs) {
+                        return `${runs} (${overs} ov)`;
+                      } else if (runs) {
+                        return runs;
+                      } else if (inning) {
+                        return inning;
+                      }
+                      return JSON.stringify(s);
                     }
-                    return JSON.stringify(s);
-                  }
-                  return String(s);
-                }).join(" | ")}
-              </div>
+                    return String(s);
+                  }).join(" | ")}
+                </div>
+              ) : (
+                <div className="text-gray-400 text-sm">
+                  Score updates will appear here once available from the live feed.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -817,6 +823,10 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               />
               {expandedMarkets.matchOdds && (
                 <>
+                  {/* Min/Max Bet Limit */}
+                  <div className="flex items-center px-3 py-1.5 bg-[#1a2332] border-b border-gray-700/50">
+                    <span className="text-[11px] text-gray-400 font-medium" data-testid="min-max-label">Min: 100 | Max: 2,00,000</span>
+                  </div>
                   <MatchOddsColumnHeaders />
                   {/* Home Team */}
                   <div className="flex items-stretch border-b border-gray-700/50">
