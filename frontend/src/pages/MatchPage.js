@@ -50,12 +50,12 @@ const useOddsFlash = (currentOdds) => {
 };
 
 // ==================== ODDS CELL COMPONENTS ====================
-const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
+const BackOddsCell = ({ odds, onClick, suspended = false, size = "normal" }) => {
   const flashClass = useOddsFlash(odds);
   
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a3a8a]/30`}>
+      <div className={`flex items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a3a8a]/30`}>
         <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="suspended-label">SUSPENDED</span>
       </div>
     );
@@ -63,21 +63,20 @@ const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal"
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a56db] hover:bg-[#1e40af] transition-all cursor-pointer active:scale-95 ${flashClass}`}
+      className={`flex items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a56db] hover:bg-[#1e40af] transition-all cursor-pointer active:scale-95 ${flashClass}`}
       data-testid="back-odds-btn"
     >
       <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
-      <span className="text-[9px] text-gray-300">{stake?.toLocaleString() || ""}</span>
     </button>
   );
 };
 
-const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
+const LayOddsCell = ({ odds, onClick, suspended = false, size = "normal" }) => {
   const flashClass = useOddsFlash(odds);
   
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#7f1d1d]/30`}>
+      <div className={`flex items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#7f1d1d]/30`}>
         <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="suspended-label">SUSPENDED</span>
       </div>
     );
@@ -85,11 +84,10 @@ const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#991b1b] hover:bg-[#7f1d1d] transition-all cursor-pointer active:scale-95 ${flashClass}`}
+      className={`flex items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#991b1b] hover:bg-[#7f1d1d] transition-all cursor-pointer active:scale-95 ${flashClass}`}
       data-testid="lay-odds-btn"
     >
       <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
-      <span className="text-[9px] text-gray-300">{stake?.toLocaleString() || ""}</span>
     </button>
   );
 };
@@ -820,7 +818,18 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const isLive = match.status === "live";
   const isCricket = match.sport === "cricket";
   const totalStake = betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0), 0);
-  const potentialProfit = betSlip.reduce((sum, b) => sum + (parseFloat(b.stake) || 0) * (b.odds - 1), 0);
+  const potentialProfit = betSlip.reduce((sum, b) => {
+    const stake = parseFloat(b.stake) || 0;
+    if (b.type === "Back") return sum + stake * (b.odds - 1);
+    if (b.type === "Lay") return sum + stake; // Lay profit = stake
+    return sum + stake * (b.odds - 1);
+  }, 0);
+  const potentialLoss = betSlip.reduce((sum, b) => {
+    const stake = parseFloat(b.stake) || 0;
+    if (b.type === "Back") return sum + stake; // Back loss = stake
+    if (b.type === "Lay") return sum + stake * (b.odds - 1); // Lay liability
+    return sum + stake;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-[#0D1117]" data-testid="match-page">
@@ -1049,14 +1058,12 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     </div>
                     <BackOddsCell
                       odds={liveOdds?.home.back[0]}
-                      stake={liveOdds?.home.backStakes[0]}
                       onClick={() => addToBetSlip(match.home_team, "Back", liveOdds?.home.back[0])}
                       size="large"
                       suspended={isLive && (ballRunning || matchSuspended)}
                     />
                     <LayOddsCell
                       odds={liveOdds?.home.lay[0]}
-                      stake={liveOdds?.home.layStakes[0]}
                       onClick={() => addToBetSlip(match.home_team, "Lay", liveOdds?.home.lay[0])}
                       size="large"
                       suspended={isLive && (ballRunning || matchSuspended)}
@@ -1071,13 +1078,11 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       </div>
                       <BackOddsCell
                         odds={liveOdds.draw.back[0]}
-                        stake={liveOdds.draw.backStakes[0]}
                         onClick={() => addToBetSlip("Draw", "Back", liveOdds.draw.back[0])}
                         size="large"
                       />
                       <LayOddsCell
                         odds={liveOdds.draw.lay[0]}
-                        stake={liveOdds.draw.layStakes[0]}
                         onClick={() => addToBetSlip("Draw", "Lay", liveOdds.draw.lay[0])}
                         size="large"
                       />
@@ -1096,14 +1101,12 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     </div>
                     <BackOddsCell
                       odds={liveOdds?.away.back[0]}
-                      stake={liveOdds?.away.backStakes[0]}
                       onClick={() => addToBetSlip(match.away_team, "Back", liveOdds?.away.back[0])}
                       size="large"
                       suspended={isLive && (ballRunning || matchSuspended)}
                     />
                     <LayOddsCell
                       odds={liveOdds?.away.lay[0]}
-                      stake={liveOdds?.away.layStakes[0]}
                       onClick={() => addToBetSlip(match.away_team, "Lay", liveOdds?.away.lay[0])}
                       size="large"
                       suspended={isLive && (ballRunning || matchSuspended)}
@@ -1298,13 +1301,45 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                           onChange={(e) => updateStake(bet.id, e.target.value)}
                           placeholder="Stake"
                           className="w-full bg-[#0D1117] border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                          data-testid="stake-input"
                         />
-                        {bet.stake && (
-                          <div className="flex justify-between mt-2 text-xs">
-                            <span className="text-gray-400">Profit:</span>
-                            <span className="text-green-400 font-medium">
-                              +₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}
-                            </span>
+                        {bet.stake && parseFloat(bet.stake) > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-400">Stake:</span>
+                              <span className="text-white font-medium" data-testid="bet-stake-value">₹{parseFloat(bet.stake).toLocaleString("en-IN")}</span>
+                            </div>
+                            {bet.type === "Back" ? (
+                              <>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-400">Profit:</span>
+                                  <span className="text-green-400 font-medium" data-testid="bet-profit-value">
+                                    +₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-400">Loss:</span>
+                                  <span className="text-red-400 font-medium" data-testid="bet-loss-value">
+                                    -₹{(parseFloat(bet.stake) || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-400">Profit:</span>
+                                  <span className="text-green-400 font-medium" data-testid="bet-profit-value">
+                                    +₹{(parseFloat(bet.stake) || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-400">Liability:</span>
+                                  <span className="text-red-400 font-medium" data-testid="bet-liability-value">
+                                    -₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}
+                                  </span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1314,11 +1349,15 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     <div className="border-t border-gray-700 pt-3 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Total Stake:</span>
-                        <span className="text-white font-medium">₹{totalStake.toFixed(2)}</span>
+                        <span className="text-white font-medium" data-testid="total-stake">₹{totalStake.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Potential Profit:</span>
-                        <span className="text-green-400 font-medium">+₹{potentialProfit.toFixed(2)}</span>
+                        <span className="text-green-400 font-medium" data-testid="total-profit">+₹{potentialProfit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Potential Loss:</span>
+                        <span className="text-red-400 font-medium" data-testid="total-loss">-₹{potentialLoss.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                       </div>
                     </div>
 
@@ -1418,17 +1457,52 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                         placeholder="Stake"
                         className="w-full bg-[#0D1117] border border-gray-700 rounded px-3 py-2 text-white text-sm"
                       />
+                      {bet.stake && parseFloat(bet.stake) > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-400">Stake:</span>
+                            <span className="text-white">₹{parseFloat(bet.stake).toLocaleString("en-IN")}</span>
+                          </div>
+                          {bet.type === "Back" ? (
+                            <>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Profit:</span>
+                                <span className="text-green-400">+₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Loss:</span>
+                                <span className="text-red-400">-₹{(parseFloat(bet.stake) || 0).toFixed(2)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Profit:</span>
+                                <span className="text-green-400">+₹{(parseFloat(bet.stake) || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">Liability:</span>
+                                <span className="text-red-400">-₹{((parseFloat(bet.stake) || 0) * (bet.odds - 1)).toFixed(2)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
                   <div className="border-t border-gray-700 pt-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Total Stake:</span>
-                      <span className="text-white font-medium">₹{totalStake.toFixed(2)}</span>
+                      <span className="text-white font-medium">₹{totalStake.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Potential Profit:</span>
-                      <span className="text-green-400 font-medium">+₹{potentialProfit.toFixed(2)}</span>
+                      <span className="text-green-400 font-medium">+₹{potentialProfit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Potential Loss:</span>
+                      <span className="text-red-400 font-medium">-₹{potentialLoss.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Balance:</span>
