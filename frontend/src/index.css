@@ -118,3 +118,33 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+
+/* ==================== ODDS FLASH ANIMATIONS ==================== */
+@keyframes flashGreen {
+  0% { background-color: rgba(34, 197, 94, 0.7); transform: scale(1.05); }
+  50% { background-color: rgba(34, 197, 94, 0.3); }
+  100% { background-color: transparent; transform: scale(1); }
+}
+
+@keyframes flashRed {
+  0% { background-color: rgba(239, 68, 68, 0.7); transform: scale(1.05); }
+  50% { background-color: rgba(239, 68, 68, 0.3); }
+  100% { background-color: transparent; transform: scale(1); }
+}
+
+.odds-flash-up {
+  animation: flashGreen 1.5s ease-out;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+.odds-flash-down {
+  animation: flashRed 1.5s ease-out;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+/* Ball Running pulse */
+@keyframes ballPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

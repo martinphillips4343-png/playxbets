@@ -26,21 +26,44 @@ import {
 // ==================== CONSTANTS ====================
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const FALLBACK_POLL_INTERVAL = 5000; // 5 seconds fallback for real-time live score sync
+const LIVE_SCORE_POLL_INTERVAL = 10000; // 10 seconds for live score polling
+
+// ==================== ODDS FLASH ANIMATION HOOK ====================
+const useOddsFlash = (currentOdds) => {
+  const prevOddsRef = useRef(null);
+  const [flashClass, setFlashClass] = useState("");
+
+  useEffect(() => {
+    if (prevOddsRef.current !== null && currentOdds !== null && currentOdds !== prevOddsRef.current) {
+      if (currentOdds > prevOddsRef.current) {
+        setFlashClass("odds-flash-up");
+      } else {
+        setFlashClass("odds-flash-down");
+      }
+      const timer = setTimeout(() => setFlashClass(""), 1500);
+      return () => clearTimeout(timer);
+    }
+    prevOddsRef.current = currentOdds;
+  }, [currentOdds]);
+
+  return flashClass;
+};
 
 // ==================== ODDS CELL COMPONENTS ====================
 const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
+  const flashClass = useOddsFlash(odds);
+  
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a3a8a]/30 text-gray-400`}>
-        <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
-        <span className="text-[9px]">-</span>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a3a8a]/30`}>
+        <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="suspended-label">SUSPENDED</span>
       </div>
     );
   }
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a56db] hover:bg-[#1e40af] transition-all cursor-pointer active:scale-95`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a56db] hover:bg-[#1e40af] transition-all cursor-pointer active:scale-95 ${flashClass}`}
       data-testid="back-odds-btn"
     >
       <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
@@ -50,18 +73,19 @@ const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal"
 };
 
 const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
+  const flashClass = useOddsFlash(odds);
+  
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#7f1d1d]/30 text-gray-400`}>
-        <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
-        <span className="text-[9px]">-</span>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#7f1d1d]/30`}>
+        <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="suspended-label">SUSPENDED</span>
       </div>
     );
   }
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#991b1b] hover:bg-[#7f1d1d] transition-all cursor-pointer active:scale-95`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#991b1b] hover:bg-[#7f1d1d] transition-all cursor-pointer active:scale-95 ${flashClass}`}
       data-testid="lay-odds-btn"
     >
       <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
@@ -71,35 +95,43 @@ const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" 
 };
 
 // ==================== SESSION ROW COMPONENT ====================
-const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, suspended = false }) => {
+const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, suspended = false, ballRunning = false }) => {
   return (
     <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
       <div className="flex-1 min-w-[180px] p-2 md:p-3 flex items-center">
         <span className="text-xs md:text-sm text-white font-medium">{name}</span>
       </div>
       <div className="flex">
-        <button
-          onClick={() => !suspended && onSelect(name, "No", noValue)}
-          disabled={suspended}
-          className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
-            suspended ? "bg-[#991b1b]/30 text-gray-400" : "bg-[#FAA9BA] hover:bg-[#E8899A]"
-          } transition-colors`}
-          data-testid="session-no-btn"
-        >
-          <span className="text-sm font-bold text-gray-900">{noValue}</span>
-          <span className="text-[9px] text-gray-700">{noStake}</span>
-        </button>
-        <button
-          onClick={() => !suspended && onSelect(name, "Yes", yesValue)}
-          disabled={suspended}
-          className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
-            suspended ? "bg-[#1a56db]/30 text-gray-400" : "bg-[#72BBEF] hover:bg-[#5BA8DC]"
-          } transition-colors`}
-          data-testid="session-yes-btn"
-        >
-          <span className="text-sm font-bold text-gray-900">{yesValue}</span>
-          <span className="text-[9px] text-gray-700">{yesStake}</span>
-        </button>
+        {ballRunning ? (
+          <div className="flex items-center justify-center w-[130px] bg-yellow-500/20">
+            <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="ball-running-label">BALL RUNNING</span>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => !suspended && onSelect(name, "No", noValue)}
+              disabled={suspended}
+              className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
+                suspended ? "bg-[#991b1b]/30 text-gray-400" : "bg-[#FAA9BA] hover:bg-[#E8899A]"
+              } transition-colors`}
+              data-testid="session-no-btn"
+            >
+              <span className="text-sm font-bold text-gray-900">{noValue}</span>
+              <span className="text-[9px] text-gray-700">{noStake}</span>
+            </button>
+            <button
+              onClick={() => !suspended && onSelect(name, "Yes", yesValue)}
+              disabled={suspended}
+              className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
+                suspended ? "bg-[#1a56db]/30 text-gray-400" : "bg-[#72BBEF] hover:bg-[#5BA8DC]"
+              } transition-colors`}
+              data-testid="session-yes-btn"
+            >
+              <span className="text-sm font-bold text-gray-900">{yesValue}</span>
+              <span className="text-[9px] text-gray-700">{yesStake}</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -235,6 +267,9 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const [betSlip, setBetSlip] = useState([]);
   const [showMobileBetSlip, setShowMobileBetSlip] = useState(false);
   const [lastOddsUpdate, setLastOddsUpdate] = useState(null);
+  const [ballRunning, setBallRunning] = useState(false);
+  const [matchSuspended, setMatchSuspended] = useState(false);
+  const [liveScoreData, setLiveScoreData] = useState(null);
 
   // Expanded markets state
   const [expandedMarkets, setExpandedMarkets] = useState({
@@ -388,6 +423,103 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     return;
   }, []);
 
+  // ==================== BALL RUNNING / SUSPENDED CYCLE FOR LIVE MATCHES ====================
+  // Simulates the betting exchange experience where markets cycle between
+  // active → ball running → suspended → active with updated values
+  useEffect(() => {
+    if (!match || match.status !== "live") {
+      setBallRunning(false);
+      setMatchSuspended(false);
+      return;
+    }
+
+    // Cycle: Active (8s) → Ball Running (3s) → Suspended (2s) → Active with new odds
+    const cycleDuration = 13000; // 13 seconds full cycle
+    let cycleTimer;
+
+    const runCycle = () => {
+      // Phase 1: Ball Running
+      setBallRunning(true);
+      setMatchSuspended(false);
+
+      setTimeout(() => {
+        // Phase 2: Suspended (odds being recalculated)
+        setBallRunning(false);
+        setMatchSuspended(true);
+
+        setTimeout(() => {
+          // Phase 3: Active again with potentially updated values
+          setMatchSuspended(false);
+          setBallRunning(false);
+        }, 2000);
+      }, 3000);
+    };
+
+    // Start first cycle after 8 seconds
+    const initialDelay = setTimeout(() => {
+      runCycle();
+      cycleTimer = setInterval(runCycle, cycleDuration);
+    }, 8000);
+
+    return () => {
+      clearTimeout(initialDelay);
+      if (cycleTimer) clearInterval(cycleTimer);
+      setBallRunning(false);
+      setMatchSuspended(false);
+    };
+  }, [match?.status, match?.match_id]);
+
+  // ==================== LIVE SCORE POLLING ====================
+  useEffect(() => {
+    if (!match || match.status !== "live") return;
+
+    const fetchLiveScore = async () => {
+      try {
+        const response = await api.get(`/match/${matchId}`);
+        const data = response.data;
+        if (data.score && data.score.length > 0) {
+          setLiveScoreData(data.score);
+          // Also update match score
+          setMatch(prev => prev ? { ...prev, score: data.score } : prev);
+        }
+        // Update odds if changed
+        const homeBack = data.odds?.home_back || data.odds?.home || data.home_odds;
+        const awayBack = data.odds?.away_back || data.odds?.away || data.away_odds;
+        if (homeBack && awayBack) {
+          setLiveOdds(prev => {
+            const newOdds = {
+              home: {
+                back: [homeBack],
+                lay: [homeBack + 0.02],
+                backStakes: [Math.floor(30000 + Math.random() * 40000)],
+                layStakes: [Math.floor(25000 + Math.random() * 35000)],
+              },
+              away: {
+                back: [awayBack],
+                lay: [awayBack + 0.02],
+                backStakes: [Math.floor(25000 + Math.random() * 35000)],
+                layStakes: [Math.floor(20000 + Math.random() * 30000)],
+              },
+              draw: data.odds?.draw ? {
+                back: [data.odds.draw],
+                lay: [data.odds.draw + 0.02],
+                backStakes: [30000],
+                layStakes: [25000],
+              } : null,
+            };
+            return newOdds;
+          });
+        }
+      } catch (err) {
+        // Silent fail for live score polling
+      }
+    };
+
+    fetchLiveScore();
+    const interval = setInterval(fetchLiveScore, LIVE_SCORE_POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [match?.status, matchId]);
+
   // ==================== EFFECTS ====================
   // Initial fetch for wallet
   useEffect(() => {
@@ -516,8 +648,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     setExpandedMarkets((prev) => ({ ...prev, [market]: !prev[market] }));
   };
 
-  // ==================== GENERATE SESSION MARKETS ====================
-  const getSessionMarkets = () => {
+  // ==================== GENERATE SESSION MARKETS (DYNAMIC) ====================
+  const getSessionMarkets = useCallback(() => {
     if (!match || match.sport !== "cricket") return [];
     
     const sessions = [];
@@ -525,19 +657,65 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     const homeShort = match.home_team?.substring(0, 3).toUpperCase() || "HOM";
     const awayShort = match.away_team?.substring(0, 3).toUpperCase() || "AWY";
 
+    // Parse live score to calculate dynamic session values
+    let currentRuns = 0;
+    let currentOvers = 0;
+    let currentWickets = 0;
+    const scoreData = liveScoreData || match.score || [];
+    
+    if (scoreData.length > 0) {
+      const firstInning = scoreData[0];
+      if (typeof firstInning === "string") {
+        // Format: "Team: 143/6 (17.0)"
+        const runsMatch = firstInning.match(/(\d+)\/(\d+)\s*\((\d+\.?\d*)\)/);
+        if (runsMatch) {
+          currentRuns = parseInt(runsMatch[1]);
+          currentWickets = parseInt(runsMatch[2]);
+          currentOvers = parseFloat(runsMatch[3]);
+        }
+      } else if (typeof firstInning === "object") {
+        currentRuns = parseInt(firstInning.r) || 0;
+        currentOvers = parseFloat(firstInning.o) || 0;
+        currentWickets = parseInt(firstInning.w) || 0;
+      }
+    }
+
+    // Calculate current run rate
+    const currentRunRate = currentOvers > 0 ? currentRuns / currentOvers : 7.5 + Math.random() * 2;
+    
+    // Add small randomness to simulate live market movement
+    const jitter = () => Math.floor(Math.random() * 3) - 1;
+
     overTargets.forEach((ov) => {
-      const baseRuns = Math.floor(ov * 8.2);
-      sessions.push({
-        name: `${ov} over runs ${homeShort}(${homeShort} vs ${awayShort})adv`,
-        noValue: baseRuns - 2,
-        yesValue: baseRuns,
-        noStake: 100,
-        yesStake: 100,
-      });
+      if (currentOvers > 0 && ov <= currentOvers) {
+        // Over already passed - show actual result or close projection
+        const projectedRuns = Math.floor(ov * currentRunRate);
+        sessions.push({
+          name: `${ov} over runs ${homeShort}(${homeShort} vs ${awayShort})adv`,
+          noValue: projectedRuns - 1,
+          yesValue: projectedRuns + 1,
+          noStake: 100,
+          yesStake: 100,
+          completed: true,
+        });
+      } else {
+        // Future overs - project based on current run rate
+        const projectedRuns = currentOvers > 0
+          ? Math.floor(currentRuns + (ov - currentOvers) * currentRunRate)
+          : Math.floor(ov * (7.5 + Math.random() * 2));
+        sessions.push({
+          name: `${ov} over runs ${homeShort}(${homeShort} vs ${awayShort})adv`,
+          noValue: projectedRuns - 2 + jitter(),
+          yesValue: projectedRuns + jitter(),
+          noStake: 100,
+          yesStake: 100,
+          completed: false,
+        });
+      }
     });
 
     return sessions;
-  };
+  }, [match, liveScoreData]);
 
   const getOverRunsMarkets = () => {
     if (!match || match.sport !== "cricket") return [];
@@ -828,6 +1006,16 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     <span className="text-[11px] text-gray-400 font-medium" data-testid="min-max-label">Min: 100 | Max: 2,00,000</span>
                   </div>
                   <MatchOddsColumnHeaders />
+                  
+                  {/* Ball Running / Suspended overlay for Match Odds */}
+                  {isLive && (ballRunning || matchSuspended) && (
+                    <div className="flex items-center justify-center py-1 bg-red-900/40">
+                      <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="match-odds-status">
+                        {ballRunning ? "BALL RUNNING" : "SUSPENDED"}
+                      </span>
+                    </div>
+                  )}
+                  
                   {/* Home Team */}
                   <div className="flex items-stretch border-b border-gray-700/50">
                     <div className="flex-1 min-w-[120px] p-2 md:p-3 flex items-center bg-[#1E2736]">
@@ -838,12 +1026,14 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       stake={liveOdds?.home.backStakes[0]}
                       onClick={() => addToBetSlip(match.home_team, "Back", liveOdds?.home.back[0])}
                       size="large"
+                      suspended={isLive && (ballRunning || matchSuspended)}
                     />
                     <LayOddsCell
                       odds={liveOdds?.home.lay[0]}
                       stake={liveOdds?.home.layStakes[0]}
                       onClick={() => addToBetSlip(match.home_team, "Lay", liveOdds?.home.lay[0])}
                       size="large"
+                      suspended={isLive && (ballRunning || matchSuspended)}
                     />
                   </div>
 
@@ -878,12 +1068,14 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       stake={liveOdds?.away.backStakes[0]}
                       onClick={() => addToBetSlip(match.away_team, "Back", liveOdds?.away.back[0])}
                       size="large"
+                      suspended={isLive && (ballRunning || matchSuspended)}
                     />
                     <LayOddsCell
                       odds={liveOdds?.away.lay[0]}
                       stake={liveOdds?.away.layStakes[0]}
                       onClick={() => addToBetSlip(match.away_team, "Lay", liveOdds?.away.lay[0])}
                       size="large"
+                      suspended={isLive && (ballRunning || matchSuspended)}
                     />
                   </div>
                 </>
@@ -905,6 +1097,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...session}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "session")}
                       />
                     ))}
@@ -928,6 +1121,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...market}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "over")}
                       />
                     ))}
@@ -951,6 +1145,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...market}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "wicket")}
                       />
                     ))}
@@ -974,6 +1169,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...market}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "total")}
                       />
                     ))}
@@ -997,6 +1193,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...market}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "partnership")}
                       />
                     ))}
@@ -1020,6 +1217,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       <SessionRow
                         key={idx}
                         {...market}
+                        ballRunning={isLive && ballRunning}
                         onSelect={(name, type, value) => addToBetSlip(`${name} ${type}`, type, value, "special")}
                       />
                     ))}
