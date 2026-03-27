@@ -1,90 +1,71 @@
 # PlayXBets - Product Requirements Document
 
 ## Original Problem Statement
-Build a premium, dark-themed sports betting application named "PlayXBets" featuring a dense, tabular betting exchange UI. The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API).
+Build a premium, dark-themed sports betting application named "PlayXBets" featuring a dense, tabular betting exchange UI for cricket. The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API).
 
 ## Tech Stack
-- **Frontend**: React 18.2.0 + Tailwind CSS + Shadcn/UI
+- **Frontend**: React 18.2.0 + Tailwind CSS + Shadcn/UI + Lucide React icons
 - **Backend**: FastAPI + MongoDB Atlas
 - **Real-time**: WebSockets (FastAPI)
 - **APIs**: CricketData API (Paid), The Odds API (Paid)
 
-## Core Features Implemented
+## Completed Features
 
 ### Authentication & Users
 - JWT-based auth (admin/user roles)
 - Admin: admin/123456, User: user/123456
 
-### Match Data
-- CricketData API integration for live matches + scores
-- The Odds API (paid key) for real-time odds
-- WebSocket real-time updates
-- Backend polling (20s live, 60s scheduled)
-- Score merging from cricScore endpoint (team name matching)
-- Auto-mark matches as "live" when commence_time passes
+### Homepage (Redesigned 2026-03-27)
+- Cricket-only (Football tab removed)
+- Filter tabs: Cricket | Live Cricket | Upcoming | Select Date
+- Clean match list with arrow navigation (no Back/Lay columns)
+- Ascending date sort, live matches first
+- Real-time WebSocket status indicator
+- Responsive mobile card layout
 
-### Betting Exchange UI
+### Match Betting Page
 - **Back = Blue (#1a56db), Lay = Dark Red (#991b1b)**
-- **Min: 100 | Max: 2,00,000** label on Match Odds
-- **BALL RUNNING** indicator (3s cycle) - session markets show BALL RUNNING during ball delivery
-- **SUSPENDED** indicator (2s cycle) - Match Odds cells show SUSPENDED with red pulse animation
-- **Odds flash animation** - green flash for odds up, red flash for odds down (CSS keyframes)
-- **Dynamic session markets** - values update based on live score/run rate data
-- **Pre-match markets**: ALL 8 market sections visible for scheduled matches
-- **Live Score section** - shows actual score from CricketData API when available
-- **Bet Slip**: Right sidebar with selection management, stake input, profit calculation
+- **Min: 100 Max: 15L** label
+- **Green bet totals** below team names (aggregated from DB)
+- **BALL RUNNING / SUSPENDED** cycle for live matches
+- **Odds flash animations** (green up, red down)
+- **Dynamic session markets** based on live score run rate
+- **8 market sections**: Match Odds, Session, Over Runs, Fall of Wickets, Team Total, Partnership, Special, Tied Match
+- **Bet Slip** panel with selection management
 
-### Market Sections (All Cricket Matches)
-1. Match Odds (Back/Lay)
-2. Session Markets (No/Yes - 6, 10, 15, 20 over runs)
-3. Over Runs Markets
-4. Fall of Wickets
-5. Team Total Runs
-6. Partnership Markets
-7. Special Markets
-8. Tied Match (with Cashout)
+### Auto Match Management
+- Auto-mark scheduled → live when commence_time passes
+- Auto-detect completed matches via Odds API + cricScore
+- Time-based completion (>5hrs since start)
+- Completed matches auto-removed from active list
 
-### Live Match Features
-- Ball Running → Suspended → Active cycle (8s → 3s → 2s)
-- Live score polling every 10 seconds
-- Odds flash animations on value changes
-- WebSocket connection status indicator
+### Real-time Data
+- WebSocket live updates
+- Backend polling: 20s live, 60s scheduled
+- cricScore endpoint for live score merging
+- Score merging by team name matching (cross-API ID handling)
 
-## Completed Work Log
-- WebSocket integration (DONE)
-- Paid Odds API + CricketData API key upgrade (DONE)
-- Dynamic odds merging from Odds API (DONE)
-- Timezone fix with field_serializer (DONE)
-- Back/Lay color update - Blue/Dark Red (DONE, TESTED)
-- Pre-match market visibility (DONE, TESTED)
-- MongoDB Atlas migration (DONE)
-- Admin/User seeding on live DB (DONE)
-- date-fns downgrade 4.x→2.30.0 (DONE)
-- React downgrade 19→18.2.0 (DONE)
-- **2026-03-27: BALL RUNNING / SUSPENDED cycle** (DONE, TESTED 100%)
-- **2026-03-27: Odds flash animations** (DONE, TESTED)
-- **2026-03-27: Dynamic session markets** based on run rate (DONE, TESTED)
-- **2026-03-27: Live score polling + cricScore merging** (DONE, TESTED)
-- **2026-03-27: Min/Max bet label** (DONE, TESTED)
+### Bet Totals API
+- `/api/match/{id}/bet-totals` — aggregates stakes per team from bets collection
 
-## Upcoming Tasks (P1-P2)
-1. (P1) Admin Manual Match Entry UI - Frontend form for /api/admin/cricket/seed
-2. (P2) Cashout Functionality - Backend logic for live bet cashout
-3. (P2) Admin Bet Settlement Panel - Declare match outcomes & auto-settle bets
-4. (P2) Admin API Quota Dashboard - CricketData/Odds API usage stats
+## Upcoming Tasks
+1. **(P1) Bet Settlement Logic** — When match completes, winning bettors get stake × odds
+2. **(P1) User/Admin Panel Clean Separation** — Distinct dashboards and menus
+3. **(P2) Admin Manual Match Entry UI**
+4. **(P2) Cashout Functionality**
+5. **(P2) Admin Bet Settlement Panel**
 
 ## Future/Backlog
 - User withdrawal request system
 - User support ticket system
-- Code Architecture Refactor: Break server.py (~1970 lines) into modular routers
+- Code Architecture Refactor: Break server.py (~2000 lines) into modular routers
 
 ## Key Files
-- `/app/backend/server.py` - Main backend (needs refactoring)
-- `/app/backend/cricket_data_service.py` - Cricket API service
-- `/app/frontend/src/pages/MatchPage.js` - Match betting page
-- `/app/frontend/src/pages/PublicHomepage.js` - Homepage
-- `/app/frontend/src/index.css` - Flash animation CSS
-- `/app/frontend/src/components/TiedMatchMarket.js` - Tied match component
+- `/app/backend/server.py` — Main backend
+- `/app/backend/cricket_data_service.py` — Cricket API service
+- `/app/frontend/src/pages/PublicHomepage.js` — Homepage (redesigned)
+- `/app/frontend/src/pages/MatchPage.js` — Match betting page
+- `/app/frontend/src/index.css` — Flash animation CSS
 
 ## 3rd Party Integrations
 - The Odds API (Paid key in backend/.env)
