@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_serializer
 from typing import List, Optional, Dict, Set
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
@@ -309,7 +309,12 @@ class Transaction(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Match(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(
+        extra="ignore",
+        json_encoders={
+            datetime: lambda v: v.isoformat() if v.tzinfo else v.replace(tzinfo=timezone.utc).isoformat()
+        }
+    )
     match_id: str
     sport: str
     league: str
@@ -335,6 +340,15 @@ class Match(BaseModel):
     hasTieMarket: Optional[bool] = False  # Tie market available
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    @field_serializer('commence_time', 'created_at', 'updated_at')
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Ensure all datetimes are serialized with UTC timezone"""
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
 
 class CricketMatchCreate(BaseModel):
     """Admin can manually create cricket matches"""
