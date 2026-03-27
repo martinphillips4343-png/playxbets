@@ -27,7 +27,7 @@ export default function PublicHeader({ onShowAuth, activeTab, onTabChange, user,
             </h1>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-6"  style={{ display:'none'}}>
             <Link 
               to="/"
               className={`hover:text-yellow-400 transition-colors font-medium ${location.pathname === "/" ? "text-yellow-400" : ""}`}

@@ -31,7 +31,7 @@ const FALLBACK_POLL_INTERVAL = 5000; // 5 seconds fallback for real-time live sc
 const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#72BBEF]/30 text-gray-400`}>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a3a8a]/30 text-gray-400`}>
         <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
         <span className="text-[9px]">-</span>
       </div>
@@ -40,11 +40,11 @@ const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal"
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#72BBEF] hover:bg-[#5BA8DC] transition-all cursor-pointer active:scale-95`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#1a56db] hover:bg-[#1e40af] transition-all cursor-pointer active:scale-95`}
       data-testid="back-odds-btn"
     >
-      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-gray-900`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
-      <span className="text-[9px] text-gray-700">{stake?.toLocaleString() || ""}</span>
+      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
+      <span className="text-[9px] text-gray-300">{stake?.toLocaleString() || ""}</span>
     </button>
   );
 };
@@ -52,7 +52,7 @@ const BackOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal"
 const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" }) => {
   if (suspended) {
     return (
-      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#FAA9BA]/30 text-gray-400`}>
+      <div className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#7f1d1d]/30 text-gray-400`}>
         <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold`}>-</span>
         <span className="text-[9px]">-</span>
       </div>
@@ -61,11 +61,11 @@ const LayOddsCell = ({ odds, stake, onClick, suspended = false, size = "normal" 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#FAA9BA] hover:bg-[#E8899A] transition-all cursor-pointer active:scale-95`}
+      className={`flex flex-col items-center justify-center ${size === "large" ? "p-3 min-w-[80px]" : "p-1.5 min-w-[60px]"} bg-[#991b1b] hover:bg-[#7f1d1d] transition-all cursor-pointer active:scale-95`}
       data-testid="lay-odds-btn"
     >
-      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-gray-900`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
-      <span className="text-[9px] text-gray-700">{stake?.toLocaleString() || ""}</span>
+      <span className={`${size === "large" ? "text-lg" : "text-sm"} font-bold text-white`}>{typeof odds === "number" ? odds.toFixed(2) : odds}</span>
+      <span className="text-[9px] text-gray-300">{stake?.toLocaleString() || ""}</span>
     </button>
   );
 };
@@ -82,7 +82,7 @@ const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, susp
           onClick={() => !suspended && onSelect(name, "No", noValue)}
           disabled={suspended}
           className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
-            suspended ? "bg-[#FAA9BA]/30 text-gray-400" : "bg-[#FAA9BA] hover:bg-[#E8899A]"
+            suspended ? "bg-[#991b1b]/30 text-gray-400" : "bg-[#FAA9BA] hover:bg-[#E8899A]"
           } transition-colors`}
           data-testid="session-no-btn"
         >
@@ -93,7 +93,7 @@ const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, susp
           onClick={() => !suspended && onSelect(name, "Yes", yesValue)}
           disabled={suspended}
           className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${
-            suspended ? "bg-[#72BBEF]/30 text-gray-400" : "bg-[#72BBEF] hover:bg-[#5BA8DC]"
+            suspended ? "bg-[#1a56db]/30 text-gray-400" : "bg-[#72BBEF] hover:bg-[#5BA8DC]"
           } transition-colors`}
           data-testid="session-yes-btn"
         >
@@ -137,11 +137,11 @@ const MarketHeader = ({ title, isExpanded, onToggle, maxBet, minBet }) => {
 const MatchOddsColumnHeaders = () => (
   <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
     <div className="flex-1 min-w-[120px] p-2"></div>
-    <div className="w-[80px] p-1 flex items-center justify-center bg-[#72BBEF]/10">
-      <span className="text-[10px] font-bold text-[#72BBEF]">Back</span>
+    <div className="w-[80px] p-1 flex items-center justify-center bg-[#1a56db]/20">
+      <span className="text-[10px] font-bold text-[#60a5fa]">Back</span>
     </div>
-    <div className="w-[80px] p-1 flex items-center justify-center bg-[#FAA9BA]/10">
-      <span className="text-[10px] font-bold text-[#FAA9BA]">Lay</span>
+    <div className="w-[80px] p-1 flex items-center justify-center bg-[#991b1b]/20">
+      <span className="text-[10px] font-bold text-[#fca5a5]">Lay</span>
     </div>
   </div>
 );
@@ -151,15 +151,15 @@ const ColumnHeaders = () => (
   <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
     <div className="flex-1 min-w-[120px] p-2"></div>
     <div className="flex">
-      <div className="w-[60px] p-1 text-center bg-[#72BBEF]/10">
-        <span className="text-[10px] font-bold text-[#72BBEF]">Back</span>
+      <div className="w-[60px] p-1 text-center bg-[#1a56db]/20">
+        <span className="text-[10px] font-bold text-[#60a5fa]">Back</span>
       </div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
     </div>
     <div className="flex">
-      <div className="w-[60px] p-1 text-center bg-[#FAA9BA]/10">
-        <span className="text-[10px] font-bold text-[#FAA9BA]">Lay</span>
+      <div className="w-[60px] p-1 text-center bg-[#991b1b]/20">
+        <span className="text-[10px] font-bold text-[#fca5a5]">Lay</span>
       </div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
       <div className="w-[60px] p-1 text-center hidden md:block"></div>
@@ -173,11 +173,11 @@ const SessionColumnHeaders = () => (
       <span className="text-[10px] text-cyan-400 font-semibold">Session</span>
     </div>
     <div className="flex">
-      <div className="w-[65px] p-1 text-center bg-[#FAA9BA]/20">
-        <span className="text-[10px] font-bold text-[#FAA9BA]">No</span>
+      <div className="w-[65px] p-1 text-center bg-[#991b1b]/20">
+        <span className="text-[10px] font-bold text-[#fca5a5]">No</span>
       </div>
-      <div className="w-[65px] p-1 text-center bg-[#72BBEF]/20">
-        <span className="text-[10px] font-bold text-[#72BBEF]">Yes</span>
+      <div className="w-[65px] p-1 text-center bg-[#1a56db]/20">
+        <span className="text-[10px] font-bold text-[#60a5fa]">Yes</span>
       </div>
     </div>
   </div>
@@ -239,7 +239,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   // Expanded markets state
   const [expandedMarkets, setExpandedMarkets] = useState({
     matchOdds: true,
-    sessionMarkets: false,
+    sessionMarkets: true,
     overRuns: false,
     fallOfWickets: false,
     teamTotal: false,
@@ -803,7 +803,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                   <span className="font-medium">Match has not started yet</span>
                 </div>
                 <p className="text-amber-300/70 text-sm mt-1">
-                  More markets will be available when the match goes live. Basic odds are shown below.
+                  Place your bets now! All markets are available for pre-match betting.
                 </p>
               </div>
             )}
@@ -880,8 +880,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               )}
             </div>
 
-            {/* ==================== SESSION MARKETS (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== SESSION MARKETS (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="session-markets-section">
                 <MarketHeader
                   title="Session Markets"
@@ -903,8 +903,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== OVER RUNS (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== OVER RUNS (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="over-runs-section">
                 <MarketHeader
                   title="Over Runs Markets"
@@ -926,8 +926,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== FALL OF WICKETS (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== FALL OF WICKETS (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="fall-of-wickets-section">
                 <MarketHeader
                   title="Fall of Wickets"
@@ -949,8 +949,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== TEAM TOTAL (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== TEAM TOTAL (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="team-total-section">
                 <MarketHeader
                   title="Team Total Runs"
@@ -972,8 +972,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== PARTNERSHIP (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== PARTNERSHIP (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="partnership-section">
                 <MarketHeader
                   title="Partnership Markets"
@@ -995,8 +995,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== SPECIAL MARKETS (LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && (
+            {/* ==================== SPECIAL MARKETS (CRICKET) ==================== */}
+            {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="special-markets-section">
                 <MarketHeader
                   title="Special Markets"
@@ -1018,8 +1018,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== TIED_MATCH (DYNAMIC - LIVE CRICKET ONLY) ==================== */}
-            {isLive && isCricket && <TiedMatchSection match={match} onSelectOdds={addToBetSlip} />}
+            {/* ==================== TIED_MATCH (DYNAMIC - CRICKET) ==================== */}
+            {isCricket && <TiedMatchSection match={match} onSelectOdds={addToBetSlip} />}
           </div>
 
           {/* ==================== BET SLIP SIDEBAR (DESKTOP) ==================== */}

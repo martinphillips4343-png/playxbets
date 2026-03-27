@@ -251,9 +251,9 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
               <thead className="bg-[#243a5e] text-white">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold text-sm">Match</th>
-                  <th className="px-2 py-3 text-center font-bold text-sm w-24">1</th>
+                  <th className="px-2 py-3 text-center font-bold text-sm w-24 bg-[#1a56db]/30">Back</th>
                   {activeTab === "soccer" && <th className="px-2 py-3 text-center font-bold text-sm w-24">X</th>}
-                  <th className="px-2 py-3 text-center font-bold text-sm w-24">2</th>
+                  <th className="px-2 py-3 text-center font-bold text-sm w-24 bg-[#991b1b]/30">Lay</th>
                 </tr>
               </thead>
               <tbody>
@@ -333,7 +333,7 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                             }
                           }}
                           disabled={!match.home_odds}
-                          className={`w-full ${match.home_odds ? 'bg-[#72BBEF] hover:bg-[#5BA8DC] cursor-pointer' : 'bg-gray-600 cursor-not-allowed'} text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors`}
+                          className={`w-full ${match.home_odds ? 'bg-[#1a56db] hover:bg-[#1e40af] cursor-pointer text-white' : 'bg-gray-600 cursor-not-allowed text-gray-400'} font-bold text-sm py-2 px-2 rounded transition-colors`}
                         >
                           {match.home_odds?.toFixed(2) || "-"}
                         </button>
@@ -367,7 +367,7 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                             }
                           }}
                           disabled={!match.away_odds}
-                          className={`w-full ${match.away_odds ? 'bg-[#FAA9BA] hover:bg-[#E8899A] cursor-pointer' : 'bg-gray-600 cursor-not-allowed'} text-gray-900 font-bold text-sm py-2 px-2 rounded transition-colors`}
+                          className={`w-full ${match.away_odds ? 'bg-[#991b1b] hover:bg-[#7f1d1d] cursor-pointer text-white' : 'bg-gray-600 cursor-not-allowed text-gray-400'} font-bold text-sm py-2 px-2 rounded transition-colors`}
                         >
                           {match.away_odds?.toFixed(2) || "-"}
                         </button>

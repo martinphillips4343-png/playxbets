@@ -20,14 +20,14 @@ import { toast } from "sonner";
 const TiedBackOddsCell = ({ odds, volume, onClick, level = 0, suspended = false }) => {
   // Different blue shades based on level (0 = darkest/primary, 2 = lightest)
   const bgColors = [
-    "bg-[#72BBEF] hover:bg-[#5BA8DC]",      // Primary (level 0)
-    "bg-[#B3D9F5] hover:bg-[#9CCCF0]",      // Light (level 1)
-    "bg-[#C5E3F8] hover:bg-[#B3D9F5]",      // Lighter (level 2)
+    "bg-[#1a56db] hover:bg-[#1e40af]",      // Primary (level 0)
+    "bg-[#2563eb] hover:bg-[#1d4ed8]",      // Light (level 1)
+    "bg-[#3b82f6] hover:bg-[#2563eb]",      // Lighter (level 2)
   ];
   
   if (suspended || odds === null || odds === undefined) {
     return (
-      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#E0E0E0] ${level > 0 ? "hidden md:flex" : ""}`}>
+      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#1a3a8a]/30 ${level > 0 ? "hidden md:flex" : ""}`}>
         <span className="text-sm font-bold text-gray-500">-</span>
         <span className="text-[9px] text-gray-400">-</span>
       </div>
@@ -40,10 +40,10 @@ const TiedBackOddsCell = ({ odds, volume, onClick, level = 0, suspended = false 
       className={`flex flex-col items-center justify-center p-1.5 w-[60px] ${bgColors[level]} transition-colors ${level > 0 ? "hidden md:flex" : ""}`}
       data-testid={`tied-back-${level}`}
     >
-      <span className="text-sm font-bold text-gray-900">
+      <span className="text-sm font-bold text-white">
         {typeof odds === "number" ? (odds >= 10 ? odds.toFixed(0) : odds.toFixed(2)) : odds}
       </span>
-      <span className="text-[9px] text-gray-600">{volume?.toLocaleString() || ""}</span>
+      <span className="text-[9px] text-gray-300">{volume?.toLocaleString() || ""}</span>
     </button>
   );
 };
@@ -52,14 +52,14 @@ const TiedBackOddsCell = ({ odds, volume, onClick, level = 0, suspended = false 
 const TiedLayOddsCell = ({ odds, volume, onClick, level = 0, suspended = false }) => {
   // Different pink shades based on level (0 = darkest/primary, 2 = lightest)
   const bgColors = [
-    "bg-[#FAA9BA] hover:bg-[#E8899A]",      // Primary (level 0)
-    "bg-[#FCCCD6] hover:bg-[#FAA9BA]",      // Light (level 1)
-    "bg-[#FDDDE3] hover:bg-[#FCCCD6]",      // Lighter (level 2)
+    "bg-[#991b1b] hover:bg-[#7f1d1d]",      // Primary (level 0)
+    "bg-[#b91c1c] hover:bg-[#991b1b]",      // Light (level 1)
+    "bg-[#dc2626] hover:bg-[#b91c1c]",      // Lighter (level 2)
   ];
   
   if (suspended || odds === null || odds === undefined) {
     return (
-      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#F0E0E5] ${level > 0 ? "hidden md:flex" : ""}`}>
+      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#7f1d1d]/30 ${level > 0 ? "hidden md:flex" : ""}`}>
         <span className="text-sm font-bold text-gray-500">-</span>
         <span className="text-[9px] text-gray-400">-</span>
       </div>
@@ -72,10 +72,10 @@ const TiedLayOddsCell = ({ odds, volume, onClick, level = 0, suspended = false }
       className={`flex flex-col items-center justify-center p-1.5 w-[60px] ${bgColors[level]} transition-colors ${level > 0 ? "hidden md:flex" : ""}`}
       data-testid={`tied-lay-${level}`}
     >
-      <span className="text-sm font-bold text-gray-900">
+      <span className="text-sm font-bold text-white">
         {typeof odds === "number" ? (odds >= 10 ? odds.toFixed(0) : odds.toFixed(2)) : odds}
       </span>
-      <span className="text-[9px] text-gray-600">{volume?.toLocaleString() || ""}</span>
+      <span className="text-[9px] text-gray-300">{volume?.toLocaleString() || ""}</span>
     </button>
   );
 };
@@ -114,22 +114,22 @@ export default function TiedMatchMarket({ marketData, onSelectOdds }) {
       </div>
 
       {/* Column Headers */}
-      <div className="flex items-stretch bg-[#E8E8E8] border-b border-gray-300">
+      <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
         <div className="flex-1 min-w-[180px] p-3 flex items-center">
-          <span className="text-sm text-cyan-600 font-semibold">
+          <span className="text-sm text-cyan-400 font-semibold">
             Max: {marketData.maxBet || 1}
           </span>
         </div>
         <div className="flex">
-          <div className="w-[60px] p-2 flex items-center justify-center bg-[#72BBEF]/30">
-            <span className="text-xs font-bold text-[#1E88E5]">Back</span>
+          <div className="w-[60px] p-2 flex items-center justify-center bg-[#1a56db]/30">
+            <span className="text-xs font-bold text-[#60a5fa]">Back</span>
           </div>
           <div className="w-[60px] p-2 hidden md:block"></div>
           <div className="w-[60px] p-2 hidden md:block"></div>
         </div>
         <div className="flex">
-          <div className="w-[60px] p-2 flex items-center justify-center bg-[#FAA9BA]/30">
-            <span className="text-xs font-bold text-[#E91E63]">Lay</span>
+          <div className="w-[60px] p-2 flex items-center justify-center bg-[#991b1b]/30">
+            <span className="text-xs font-bold text-[#fca5a5]">Lay</span>
           </div>
           <div className="w-[60px] p-2 hidden md:block"></div>
           <div className="w-[60px] p-2 hidden md:block"></div>
@@ -147,11 +147,11 @@ export default function TiedMatchMarket({ marketData, onSelectOdds }) {
         return (
           <div
             key={runner.name || runnerIndex}
-            className={`flex items-stretch bg-[#F5F5F5] ${!isLastRow ? "border-b border-gray-200" : ""}`}
+            className={`flex items-stretch bg-[#1E2736] ${!isLastRow ? "border-b border-gray-700/50" : ""}`}
           >
             {/* Runner Name */}
             <div className="flex-1 min-w-[180px] p-3 flex items-center">
-              <span className="text-sm md:text-base text-gray-900 font-semibold">
+              <span className="text-sm md:text-base text-white font-semibold">
                 {runner.name || runner}
               </span>
             </div>

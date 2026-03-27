@@ -171,7 +171,7 @@ export default function BluBridgeCricket() {
             </div>
 
             {/* Desktop Menu */}
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="hidden md:flex items-center gap-6" style={{ display:'none'}}>
               <button className="text-cyan-400 font-semibold border-b-2 border-cyan-400 pb-1">
                 Cricket
               </button>
