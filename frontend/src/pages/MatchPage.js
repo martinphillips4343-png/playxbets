@@ -42,30 +42,30 @@ const useOddsFlash = (currentOdds) => {
   return flash;
 };
 
-// ==================== 3-LEVEL ODDS CELL ====================
+// ==================== ODDS CELL ====================
 const OddsCell = ({ price, size, type, isBest, onClick, suspended }) => {
   const flash = useOddsFlash(price);
   const isBack = type === "back";
   
   if (suspended) {
     return (
-      <div className="flex flex-col items-center justify-center p-1 min-w-[55px] md:min-w-[65px] bg-gray-700/40">
+      <div className="flex flex-col items-center justify-center p-1.5 w-[75px] bg-gray-700/40">
         <span className="text-[9px] font-bold text-red-400 animate-pulse">-</span>
       </div>
     );
   }
   
   const bgClass = isBack
-    ? isBest ? "bg-[#1a56db] hover:bg-[#1e40af]" : "bg-[#1a56db]/60 hover:bg-[#1a56db]/80"
-    : isBest ? "bg-[#991b1b] hover:bg-[#7f1d1d]" : "bg-[#991b1b]/60 hover:bg-[#991b1b]/80";
+    ? "bg-[#1a56db] hover:bg-[#1e40af]"
+    : "bg-[#991b1b] hover:bg-[#7f1d1d]";
 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center p-1 min-w-[55px] md:min-w-[65px] ${bgClass} transition-all cursor-pointer active:scale-95 border-r border-gray-700/30 ${flash}`}
+      className={`flex flex-col items-center justify-center p-1.5 w-[75px] ${bgClass} transition-all cursor-pointer active:scale-95 border-r border-gray-700/30 ${flash}`}
       data-testid={`${type}-odds-cell`}
     >
-      <span className={`${isBest ? "text-sm md:text-base font-bold" : "text-xs md:text-sm font-semibold"} text-white`}>
+      <span className="text-sm md:text-base font-bold text-white">
         {price ? price.toFixed(2) : "-"}
       </span>
       <span className="text-[8px] md:text-[9px] text-white/60">
@@ -75,14 +75,18 @@ const OddsCell = ({ price, size, type, isBest, onClick, suspended }) => {
   );
 };
 
-// ==================== SESSION ROW ====================
-const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, suspended = false, ballRunning = false }) => (
+// ==================== SESSION ROW (with SUSPENDED for completed overs) ====================
+const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, suspended = false, ballRunning = false, completed = false }) => (
   <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
     <div className="flex-1 min-w-[180px] p-2 md:p-3 flex items-center">
       <span className="text-xs md:text-sm text-white font-medium">{name}</span>
     </div>
     <div className="flex">
-      {ballRunning ? (
+      {completed ? (
+        <div className="flex items-center justify-center w-[130px] bg-gray-700/40">
+          <span className="text-xs font-bold text-red-400" data-testid="session-suspended-label">SUSPENDED</span>
+        </div>
+      ) : ballRunning ? (
         <div className="flex items-center justify-center w-[130px] bg-yellow-500/20">
           <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="ball-running-label">BALL RUNNING</span>
         </div>
@@ -91,20 +95,20 @@ const SessionRow = ({ name, noValue, yesValue, noStake, yesStake, onSelect, susp
           <button
             onClick={() => !suspended && onSelect(name, "No", noValue)}
             disabled={suspended}
-            className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${suspended ? "bg-[#991b1b]/30 text-gray-400" : "bg-[#FAA9BA] hover:bg-[#E8899A]"} transition-colors`}
+            className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${suspended ? "bg-[#dc2626]/30 text-gray-400" : "bg-[#dc2626] hover:bg-[#b91c1c]"} transition-colors`}
             data-testid="session-no-btn"
           >
-            <span className="text-sm font-bold text-gray-900">{noValue}</span>
-            <span className="text-[9px] text-gray-700">{noStake}</span>
+            <span className="text-sm font-bold text-white">{noValue}</span>
+            <span className="text-[9px] text-white/60">{noStake ? noStake.toLocaleString("en-IN") : "-"}</span>
           </button>
           <button
             onClick={() => !suspended && onSelect(name, "Yes", yesValue)}
             disabled={suspended}
-            className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${suspended ? "bg-[#1a56db]/30 text-gray-400" : "bg-[#72BBEF] hover:bg-[#5BA8DC]"} transition-colors`}
+            className={`flex flex-col items-center justify-center p-1.5 w-[65px] ${suspended ? "bg-[#2563eb]/30 text-gray-400" : "bg-[#2563eb] hover:bg-[#1d4ed8]"} transition-colors`}
             data-testid="session-yes-btn"
           >
-            <span className="text-sm font-bold text-gray-900">{yesValue}</span>
-            <span className="text-[9px] text-gray-700">{yesStake}</span>
+            <span className="text-sm font-bold text-white">{yesValue}</span>
+            <span className="text-[9px] text-white/60">{yesStake ? yesStake.toLocaleString("en-IN") : "-"}</span>
           </button>
         </>
       )}
@@ -124,28 +128,12 @@ const MarketHeader = ({ title, isExpanded, onToggle, maxBet, minBet }) => (
   </div>
 );
 
-// ==================== MATCH ODDS 3-LEVEL HEADER ====================
-const MatchOdds3LevelHeader = () => (
+// ==================== MATCH ODDS HEADER (CLEAN - NO LABELS) ====================
+const MatchOddsHeader = () => (
   <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
     <div className="flex-1 min-w-[120px] p-2"></div>
-    <div className="flex">
-      <div className="hidden md:flex">
-        <div className="w-[65px] p-1 text-center bg-[#1a56db]/10"></div>
-        <div className="w-[65px] p-1 text-center bg-[#1a56db]/15"></div>
-      </div>
-      <div className="w-[65px] p-1 text-center bg-[#1a56db]/25">
-        <span className="text-[10px] font-bold text-[#60a5fa]">Back</span>
-      </div>
-    </div>
-    <div className="flex">
-      <div className="w-[65px] p-1 text-center bg-[#991b1b]/25">
-        <span className="text-[10px] font-bold text-[#fca5a5]">Lay</span>
-      </div>
-      <div className="hidden md:flex">
-        <div className="w-[65px] p-1 text-center bg-[#991b1b]/15"></div>
-        <div className="w-[65px] p-1 text-center bg-[#991b1b]/10"></div>
-      </div>
-    </div>
+    <div className="w-[75px] p-1 text-center"></div>
+    <div className="w-[75px] p-1 text-center"></div>
   </div>
 );
 
@@ -153,50 +141,11 @@ const SessionColumnHeaders = () => (
   <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
     <div className="flex-1 min-w-[180px] p-2"><span className="text-[10px] text-cyan-400 font-semibold">Session</span></div>
     <div className="flex">
-      <div className="w-[65px] p-1 text-center bg-[#991b1b]/20"><span className="text-[10px] font-bold text-[#fca5a5]">No</span></div>
-      <div className="w-[65px] p-1 text-center bg-[#1a56db]/20"><span className="text-[10px] font-bold text-[#60a5fa]">Yes</span></div>
+      <div className="w-[65px] p-1 text-center bg-[#dc2626]/20"><span className="text-[10px] font-bold text-[#fca5a5]">No</span></div>
+      <div className="w-[65px] p-1 text-center bg-[#2563eb]/20"><span className="text-[10px] font-bold text-[#60a5fa]">Yes</span></div>
     </div>
   </div>
 );
-
-// ==================== BOOKMAKER ROW ====================
-const BookmakerRow = ({ teamName, backRate, layRate, size, onClick, suspended }) => {
-  if (suspended) {
-    return (
-      <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
-        <div className="flex-1 min-w-[120px] p-2 flex items-center">
-          <span className="text-xs text-white font-medium">{teamName}</span>
-        </div>
-        <div className="flex items-center justify-center w-[130px] bg-gray-700/40">
-          <span className="text-xs text-red-400 font-bold animate-pulse">SUSPENDED</span>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
-      <div className="flex-1 min-w-[120px] p-2 flex items-center">
-        <span className="text-xs text-white font-medium">{teamName}</span>
-      </div>
-      <button
-        onClick={() => onClick("Back", backRate)}
-        className="flex flex-col items-center justify-center p-1.5 min-w-[65px] bg-[#1a56db] hover:bg-[#1e40af] transition-all active:scale-95 border-r border-gray-700/30"
-        data-testid="bookmaker-back-btn"
-      >
-        <span className="text-sm font-bold text-white">{backRate}</span>
-        <span className="text-[8px] text-white/60">{size ? size.toLocaleString("en-IN") : "-"}</span>
-      </button>
-      <button
-        onClick={() => onClick("Lay", layRate)}
-        className="flex flex-col items-center justify-center p-1.5 min-w-[65px] bg-[#991b1b] hover:bg-[#7f1d1d] transition-all active:scale-95"
-        data-testid="bookmaker-lay-btn"
-      >
-        <span className="text-sm font-bold text-white">{layRate}</span>
-        <span className="text-[8px] text-white/60">{size ? size.toLocaleString("en-IN") : "-"}</span>
-      </button>
-    </div>
-  );
-};
 
 // ==================== MAIN COMPONENT ====================
 export default function MatchPage({ user, onShowAuth, onLogout }) {
@@ -220,7 +169,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
   const [expandedMarkets, setExpandedMarkets] = useState({
     matchOdds: true,
-    bookmaker: true,
     sessionMarkets: true,
     overRuns: false,
     fallOfWickets: false,
@@ -501,7 +449,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const potentialProfit = betSlip.reduce((s, b) => { const st = parseFloat(b.stake) || 0; return s + (b.type === "Back" ? st * (b.odds - 1) : st); }, 0);
   const potentialLoss = betSlip.reduce((s, b) => { const st = parseFloat(b.stake) || 0; return s + (b.type === "Back" ? st : st * (b.odds - 1)); }, 0);
 
-  // ==================== RENDER TEAM ROW WITH 3-LEVEL DEPTH ====================
+  // ==================== RENDER TEAM ROW (SINGLE BACK + LAY) ====================
   const renderTeamOddsRow = (teamName, teamData, teamKey) => {
     const backs = teamData?.back || [];
     const lays = teamData?.lay || [];
@@ -509,9 +457,11 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     const laySizes = teamData?.laySizes || [];
     const exp = teamKey === "home" ? exposure.home_exposure : exposure.away_exposure;
 
-    // Display order: Back levels [2, 1, 0(best)] | Lay levels [0(best), 1, 2]
-    const backDisplay = [...backs].reverse();
-    const backSizeDisplay = [...backSizes].reverse();
+    // Best back (first element) and best lay (first element)
+    const bestBack = backs[0];
+    const bestLay = lays[0];
+    const bestBackSize = backSizes[0];
+    const bestLaySize = laySizes[0];
 
     return (
       <div className="flex items-stretch border-b border-gray-700/50" data-testid={`${teamKey}-team-row`}>
@@ -524,28 +474,10 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
             </span>
           )}
         </div>
-        {/* Back columns: 3rd, 2nd (hidden mobile), BEST */}
-        <div className="flex">
-          {/* Extra back levels - desktop only */}
-          <div className="hidden md:flex">
-            {backDisplay.slice(0, -1).map((price, idx) => (
-              <OddsCell key={`back-${idx}`} price={price} size={backSizeDisplay[idx]} type="back" isBest={false} onClick={() => addToBetSlip(teamName, "Back", price)} suspended={isSuspended} />
-            ))}
-          </div>
-          {/* Best back - always visible */}
-          <OddsCell price={backDisplay[backDisplay.length - 1]} size={backSizeDisplay[backSizeDisplay.length - 1]} type="back" isBest={true} onClick={() => addToBetSlip(teamName, "Back", backDisplay[backDisplay.length - 1])} suspended={isSuspended} />
-        </div>
-        {/* Lay columns: BEST, 2nd, 3rd (hidden mobile) */}
-        <div className="flex">
-          {/* Best lay - always visible */}
-          <OddsCell price={lays[0]} size={laySizes[0]} type="lay" isBest={true} onClick={() => addToBetSlip(teamName, "Lay", lays[0])} suspended={isSuspended} />
-          {/* Extra lay levels - desktop only */}
-          <div className="hidden md:flex">
-            {lays.slice(1).map((price, idx) => (
-              <OddsCell key={`lay-${idx}`} price={price} size={laySizes[idx + 1]} type="lay" isBest={false} onClick={() => addToBetSlip(teamName, "Lay", price)} suspended={isSuspended} />
-            ))}
-          </div>
-        </div>
+        {/* Single Back cell */}
+        <OddsCell price={bestBack} size={bestBackSize} type="back" isBest={true} onClick={() => addToBetSlip(teamName, "Back", bestBack)} suspended={isSuspended} />
+        {/* Single Lay cell */}
+        <OddsCell price={bestLay} size={bestLaySize} type="lay" isBest={true} onClick={() => addToBetSlip(teamName, "Lay", bestLay)} suspended={isSuspended} />
       </div>
     );
   };
@@ -749,7 +681,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     <div className="flex items-center px-3 py-1.5 bg-[#1a2332] border-b border-gray-700/50">
                       <span className="text-[11px] text-cyan-400 font-medium" data-testid="min-max-label">Max: 1L</span>
                     </div>
-                    <MatchOdds3LevelHeader />
+                    <MatchOddsHeader />
                     {isLive && (ballRunning || matchSuspended) && (
                       <div className="flex items-center justify-center py-1 bg-red-900/40">
                         <span className="text-xs font-bold text-red-400 animate-pulse" data-testid="match-odds-status">{ballRunning ? "BALL RUNNING" : "SUSPENDED"}</span>
@@ -764,38 +696,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 )}
               </div>
 
-              {/* ==================== BOOKMAKER SECTIONS ==================== */}
-              {liveOdds?.bookmakers?.map((bk, bkIdx) => (
-                <div key={bkIdx} className="bg-[#161B22] rounded-lg overflow-hidden" data-testid={`bookmaker-section-${bkIdx}`}>
-                  <MarketHeader title={bk.name} isExpanded={expandedMarkets.bookmaker} onToggle={() => toggleMarket("bookmaker")} minBet={bk.min_bet} maxBet={bk.max_bet} />
-                  {expandedMarkets.bookmaker && (
-                    <>
-                      <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
-                        <div className="flex-1 min-w-[120px] p-2"></div>
-                        <div className="w-[65px] p-1 text-center bg-[#1a56db]/20"><span className="text-[10px] font-bold text-[#60a5fa]">Back</span></div>
-                        <div className="w-[65px] p-1 text-center bg-[#991b1b]/20"><span className="text-[10px] font-bold text-[#fca5a5]">Lay</span></div>
-                      </div>
-                      <BookmakerRow
-                        teamName={match.home_team}
-                        backRate={bk.home_back}
-                        layRate={bk.home_lay}
-                        size={bk.home_size}
-                        onClick={(type, rate) => addToBetSlip(match.home_team, type, 1 + rate / 100, "bookmaker")}
-                        suspended={isSuspended}
-                      />
-                      <BookmakerRow
-                        teamName={match.away_team}
-                        backRate={bk.away_back}
-                        layRate={bk.away_lay}
-                        size={bk.away_size}
-                        onClick={(type, rate) => addToBetSlip(match.away_team, type, 1 + rate / 100, "bookmaker")}
-                        suspended={isSuspended}
-                      />
-                    </>
-                  )}
-                </div>
-              ))}
-
               {/* ==================== SESSION MARKETS ==================== */}
               {isCricket && (
                 <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="session-markets-section">
@@ -803,7 +703,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                   {expandedMarkets.sessionMarkets && (
                     <>
                       <SessionColumnHeaders />
-                      {getSessionMarkets().map((s, i) => <SessionRow key={i} {...s} ballRunning={isLive && ballRunning} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "session")} />)}
+                      {getSessionMarkets().map((s, i) => <SessionRow key={i} {...s} ballRunning={isLive && ballRunning} suspended={isLive && matchSuspended} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "session")} />)}
                     </>
                   )}
                 </div>

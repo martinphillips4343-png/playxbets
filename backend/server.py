@@ -1279,19 +1279,27 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Live match polling - check every 20 SECONDS for real-time live score updates
+    # Live match polling - check every 10 SECONDS for real-time updates
     scheduler.add_job(
         run_live_check,
-        IntervalTrigger(seconds=20),
+        IntervalTrigger(seconds=10),
         id='live_match_polling',
         replace_existing=True
     )
     
-    # Cricket data - frequent polling every 1 minute for live data (increased frequency)
+    # Cricket data - frequent polling every 10 seconds for live data
     scheduler.add_job(
         run_cricket_poll,
-        IntervalTrigger(minutes=1),
+        IntervalTrigger(seconds=10),
         id='fetch_cricket_job',
+        replace_existing=True
+    )
+    
+    # Odds fetch - every 10 seconds for live odds updates
+    scheduler.add_job(
+        run_scheduled_odds_fetch,
+        IntervalTrigger(seconds=10),
+        id='fetch_odds_interval',
         replace_existing=True
     )
     
