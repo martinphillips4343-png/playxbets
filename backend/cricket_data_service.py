@@ -430,7 +430,7 @@ class CricketDataService:
             "quota": quota.to_dict(),
             "cache": cache.get_stats(),
             "has_live_matches": self._live_matches_exist,
-            "poll_interval_min": POLL_INTERVAL_LIVE if self._live_matches_exist else POLL_INTERVAL_IDLE
+            "poll_interval_min": POLL_INTERVAL_LIVE_SECONDS if self._live_matches_exist else POLL_INTERVAL_IDLE
         }
     
     async def transform_for_frontend(self, matches: List[Dict]) -> List[Dict]:

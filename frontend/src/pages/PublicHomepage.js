@@ -290,6 +290,19 @@ export default function PublicHomepage({ onShowAuth, user, onLogout }) {
                   </div>
                 </div>
 
+                {/* Odds Badge */}
+                <div className="flex-shrink-0 mr-2 text-right">
+                  {match.home_odds ? (
+                    <div className="text-xs">
+                      <span className="font-bold text-[#1a56db]">{match.home_odds}</span>
+                      <span className="text-gray-400 mx-1">/</span>
+                      <span className="font-bold text-[#991b1b]">{match.away_odds}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 italic" data-testid="odds-not-available">Odds N/A</span>
+                  )}
+                </div>
+
                 {/* Arrow */}
                 <div className="flex-shrink-0">
                   <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-gray-400" />

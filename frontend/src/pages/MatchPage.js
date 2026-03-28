@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const FALLBACK_POLL_INTERVAL = 5000;
-const LIVE_SCORE_POLL_INTERVAL = 10000;
+const FALLBACK_POLL_INTERVAL = 8000;
+const LIVE_SCORE_POLL_INTERVAL = 15000;
 
 // ==================== ODDS FLASH ANIMATION HOOK ====================
 const useOddsFlash = (currentOdds) => {
