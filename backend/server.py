@@ -515,6 +515,48 @@ class OddsService:
         return name.strip()
     
     @staticmethod
+    def _canonicalize(name: str) -> str:
+        """Reduce a team name to a canonical form for comparison."""
+        import re
+        n = name.lower().strip()
+        # Known aliases: APIs spell these differently
+        aliases = {
+            "bangalore": "bengaluru",
+            "pindiz": "rawalpindiz",
+            "rawalpindi": "rawalpindiz",
+        }
+        for old, new in aliases.items():
+            n = n.replace(old, new)
+        return re.sub(r'[^a-z0-9]', '', n)
+    
+    @staticmethod
+    def teams_match(name_a: str, name_b: str) -> bool:
+        """Check if two team names refer to the same team using fuzzy matching."""
+        if not name_a or not name_b:
+            return False
+        a = name_a.lower().strip()
+        b = name_b.lower().strip()
+        # Exact match
+        if a == b:
+            return True
+        # One contains the other
+        if a in b or b in a:
+            return True
+        # Canonical form comparison (handles Bangalore/Bengaluru etc.)
+        a_canon = OddsService._canonicalize(name_a)
+        b_canon = OddsService._canonicalize(name_b)
+        if a_canon == b_canon:
+            return True
+        if a_canon in b_canon or b_canon in a_canon:
+            return True
+        # Check if first significant word matches (e.g. "Peshawar Zalmi" vs "Peshawar")
+        a_words = a.split()
+        b_words = b.split()
+        if a_words and b_words and len(a_words[0]) > 3 and a_words[0] == b_words[0]:
+            return True
+        return False
+    
+    @staticmethod
     def calculate_lay_odds(back_odds: float, spread: float = 0.02) -> float:
         """Calculate lay odds from back odds with spread"""
         if back_odds is None:
@@ -568,26 +610,24 @@ class OddsService:
                         market = bookmaker["markets"][0]
                         outcomes = market.get("outcomes", [])
                         
-                        home_lower = home_team.lower()
-                        away_lower = away_team.lower()
-                        
                         for outcome in outcomes:
-                            name = outcome.get("name", "").lower()
+                            name = outcome.get("name", "")
                             price = outcome.get("price")
                             
-                            if name == home_lower or home_lower in name:
+                            if OddsService.teams_match(name, home_team):
                                 home_odds = price
-                            elif name == away_lower or away_lower in name:
+                            elif OddsService.teams_match(name, away_team):
                                 away_odds = price
                         
-                        # Fallback matching
+                        # Fallback: if fuzzy match didn't work, use positional order
                         if home_odds is None or away_odds is None:
-                            prices = [o.get("price") for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"]]
-                            if len(prices) >= 2:
+                            non_draw = [o for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"]]
+                            if len(non_draw) >= 2:
                                 if home_odds is None:
-                                    home_odds = prices[0]
+                                    home_odds = non_draw[0].get("price")
                                 if away_odds is None:
-                                    away_odds = prices[1] if len(prices) > 1 else prices[0]
+                                    away_odds = non_draw[1].get("price") if len(non_draw) > 1 else non_draw[0].get("price")
+                                logger.warning(f"Fallback odds assignment for {home_team} vs {away_team}: home={home_odds}, away={away_odds}")
                 
                 # Parse commence time properly
                 try:
@@ -618,7 +658,13 @@ class OddsService:
                 home_normalized = OddsService.normalize_team_name(home_team)
                 away_normalized = OddsService.normalize_team_name(away_team)
                 
-                existing_match = await db.matches.find_one({
+                # Build broader search: also try first word (city name) for multi-word teams
+                home_words = home_team.split()
+                away_words = away_team.split()
+                home_first = home_words[0] if home_words and len(home_words[0]) > 3 else home_normalized
+                away_first = away_words[0] if away_words and len(away_words[0]) > 3 else away_normalized
+                
+                team_query = {
                     "$or": [
                         # Exact match
                         {"home_team": home_team, "away_team": away_team},
@@ -627,24 +673,85 @@ class OddsService:
                          "away_team": {"$regex": away_normalized, "$options": "i"}},
                         # Reversed teams
                         {"home_team": {"$regex": away_normalized, "$options": "i"},
-                         "away_team": {"$regex": home_normalized, "$options": "i"}}
+                         "away_team": {"$regex": home_normalized, "$options": "i"}},
+                        # First-word (city) match - handles Bangalore/Bengaluru etc.
+                        {"home_team": {"$regex": home_first, "$options": "i"},
+                         "away_team": {"$regex": away_first, "$options": "i"}},
+                        # First-word reversed
+                        {"home_team": {"$regex": away_first, "$options": "i"},
+                         "away_team": {"$regex": home_first, "$options": "i"}}
                     ]
-                })
+                }
+                
+                # Find ALL matching entries, then prefer CricketData entries over Odds-API duplicates
+                candidates = await db.matches.find(team_query).to_list(length=10)
+                existing_match = None
+                odds_api_duplicate = None
+                
+                for c in candidates:
+                    mid = c.get("match_id", "")
+                    # CricketData match IDs are UUIDs with dashes (e.g., "e5b677a2-6e87-4c9e-...")
+                    # Odds API match IDs are plain hex without dashes (e.g., "4271efd7136de067...")
+                    is_odds_api_entry = isinstance(mid, str) and len(mid) > 20 and "-" not in mid
+                    if is_odds_api_entry:
+                        odds_api_duplicate = c
+                    else:
+                        if existing_match is None:
+                            existing_match = c
+                
+                # If no CricketData entry found, use the Odds-API entry as fallback
+                if not existing_match and odds_api_duplicate:
+                    existing_match = odds_api_duplicate
                 
                 if existing_match:
-                    # Update existing match with odds
+                    # Detect if the DB match has teams in reverse order vs Odds API
+                    db_home = existing_match.get("home_team", "")
+                    db_away = existing_match.get("away_team", "")
+                    
+                    is_reversed = False
+                    if OddsService.teams_match(home_team, db_away) and OddsService.teams_match(away_team, db_home):
+                        # Teams are reversed — Odds API home = DB away
+                        if not (OddsService.teams_match(home_team, db_home) and OddsService.teams_match(away_team, db_away)):
+                            is_reversed = True
+                    
+                    if is_reversed:
+                        # Swap odds to align with the DB record's team order
+                        final_home_odds = away_odds
+                        final_away_odds = home_odds
+                        final_home_lay = away_lay
+                        final_away_lay = home_lay
+                        logger.info(f"REVERSED match detected: OddsAPI [{home_team} vs {away_team}] -> DB [{db_home} vs {db_away}]. Swapping odds.")
+                    else:
+                        final_home_odds = home_odds
+                        final_away_odds = away_odds
+                        final_home_lay = home_lay
+                        final_away_lay = away_lay
+                    
+                    # Build corrected odds data
+                    corrected_odds_data = {
+                        "home": final_home_odds,
+                        "away": final_away_odds,
+                        "home_back": final_home_odds,
+                        "home_lay": final_home_lay,
+                        "away_back": final_away_odds,
+                        "away_lay": final_away_lay,
+                        "bookmaker": bookmaker_name,
+                        "last_update": datetime.now(timezone.utc)
+                    }
+                    
+                    # Update existing match with correctly aligned odds
                     await db.matches.update_one(
                         {"_id": existing_match["_id"]},
                         {"$set": {
-                            "odds": odds_data,
-                            "home_odds": home_odds,
-                            "away_odds": away_odds,
+                            "odds": corrected_odds_data,
+                            "home_odds": final_home_odds,
+                            "away_odds": final_away_odds,
                             "odds_updated_at": datetime.now(timezone.utc),
-                            "commence_time": commence_dt  # Update with correct time from Odds API
+                            "commence_time": commence_dt
                         }}
                     )
                     merged_count += 1
-                    logger.info(f"Merged odds for: {home_team} vs {away_team} - Back: {home_odds}/{away_odds}")
+                    logger.info(f"Merged odds for: {db_home} vs {db_away} - Home Back: {final_home_odds}, Away Back: {final_away_odds} (reversed={is_reversed})")
                 else:
                     # Create new match from Odds API
                     match_data = {
@@ -672,6 +779,36 @@ class OddsService:
                     logger.info(f"Created match: {home_team} vs {away_team} - Odds: {home_odds}/{away_odds}")
             
             logger.info(f"Odds sync complete: {merged_count} merged, {created_count} created")
+            
+            # Post-merge cleanup: remove Odds-API-created duplicates where a CricketData entry exists
+            all_matches = await db.matches.find({}, {"_id": 1, "match_id": 1, "home_team": 1, "away_team": 1}).to_list(length=500)
+            cleanup_count = 0
+            
+            # Group by canonical team pair
+            from collections import defaultdict
+            team_groups = defaultdict(list)
+            for m in all_matches:
+                pair = tuple(sorted([
+                    OddsService._canonicalize(m.get("home_team", "")),
+                    OddsService._canonicalize(m.get("away_team", ""))
+                ]))
+                mid = m.get("match_id", "")
+                is_odds_api = isinstance(mid, str) and len(mid) > 20 and "-" not in mid
+                team_groups[pair].append({"_id": m["_id"], "is_odds_api": is_odds_api, "home": m.get("home_team"), "away": m.get("away_team")})
+            
+            for pair, entries in team_groups.items():
+                if len(entries) > 1:
+                    has_cricketdata = any(not e["is_odds_api"] for e in entries)
+                    if has_cricketdata:
+                        for e in entries:
+                            if e["is_odds_api"]:
+                                await db.matches.delete_one({"_id": e["_id"]})
+                                cleanup_count += 1
+                                logger.info(f"Cleaned up Odds-API duplicate: {e['home']} vs {e['away']}")
+            
+            if cleanup_count > 0:
+                logger.info(f"Cleaned up {cleanup_count} Odds-API duplicate entries")
+            
             return events
             
         except Exception as e:

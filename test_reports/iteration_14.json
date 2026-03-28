@@ -1,0 +1,109 @@
+{
+  "summary": "Completed testing of PlayXBets P0 bug fix for odds merge/swap issue. All 15 backend tests passed. Frontend verified working correctly with odds displayed properly for matches. The fix for detecting reversed team order between Odds API and CricketData API is working - odds are correctly aligned with home/away teams.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_odds_merge_fix.py",
+    "/app/test_reports/pytest/odds_merge_fix_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_odds_merge_fix.py"
+  ],
+  "success_rate": {
+    "backend": "100% - 15/15 tests passed",
+    "frontend": "100% - All features working"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - using existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0 bug fix verified. Odds merge/swap issue is resolved. Key findings: (1) 8 matches have odds from Odds API, (2) Odds are correctly aligned with home/away teams (no swapping), (3) Lay odds are correctly calculated as back + 0.02, (4) No exact duplicate matches found (same teams on same date), (5) Admin cron endpoint works for manual odds refresh, (6) Team name matching handles Bangalore/Bengaluru and Rawalpindi variations.",
+  "features_tested": {
+    "matches_endpoint_returns_odds": {
+      "status": "PASS",
+      "details": "8 matches have odds data from Odds API"
+    },
+    "odds_consistency_home_away": {
+      "status": "PASS",
+      "details": "home_odds matches odds.home, away_odds matches odds.away"
+    },
+    "odds_reasonable_values": {
+      "status": "PASS",
+      "details": "All odds within 1.01-100 range"
+    },
+    "match_detail_returns_odds": {
+      "status": "PASS",
+      "details": "Match detail endpoint returns correct odds"
+    },
+    "no_duplicate_matches": {
+      "status": "PASS",
+      "details": "No exact duplicates (same teams, same date)"
+    },
+    "admin_login": {
+      "status": "PASS",
+      "details": "Admin login works with username=admin, password=123456"
+    },
+    "admin_cron_run": {
+      "status": "PASS",
+      "details": "Cron endpoint triggers odds refresh, fetched 8 matches"
+    },
+    "user_login": {
+      "status": "PASS",
+      "details": "User login works with username=user, password=123456"
+    },
+    "frontend_homepage_loads": {
+      "status": "PASS",
+      "details": "Homepage loads with 34 matches, filter tabs working"
+    },
+    "frontend_match_page_odds": {
+      "status": "PASS",
+      "details": "Match page shows correct Back/Lay odds (e.g., Gujarat Titans: Back 2.05, Lay 2.07)"
+    },
+    "odds_not_swapped": {
+      "status": "PASS",
+      "details": "Odds correctly aligned with home/away teams - Peshawar Zalmi (home) has higher odds (3.65) than Rawalpindiz (away) at 1.27"
+    },
+    "lay_higher_than_back": {
+      "status": "PASS",
+      "details": "All lay odds are >= back odds (correct spread)"
+    },
+    "team_name_matching": {
+      "status": "PASS",
+      "details": "Fuzzy matching handles Bangalore/Bengaluru, Rawalpindi/Rawalpindiz variations"
+    }
+  },
+  "p0_bug_fix_verification": {
+    "issue": "Odds from The Odds API were being mismatched/swapped when merged with CricketData API matches",
+    "fix_components": [
+      "Detecting when DB matches have teams in reversed order vs Odds API events and swapping odds accordingly",
+      "Improved fuzzy team name matching (handles Bangalore/Bengaluru, Rawalpindi variations)",
+      "Post-merge cleanup of Odds-API-created duplicate entries"
+    ],
+    "verification_result": "PASS - All fix components verified working correctly",
+    "evidence": [
+      "Peshawar Zalmi vs Rawalpindiz: home_odds=3.65, away_odds=1.27 - correctly aligned",
+      "Gujarat Titans vs Punjab Kings: home_odds=2.05, away_odds=1.76 - correctly aligned",
+      "No duplicate matches found for same team pair on same date",
+      "Royal Challengers Bengaluru matches found (Bangalore/Bengaluru matching works)",
+      "Rawalpindiz matches found (Rawalpindi variation matching works)"
+    ]
+  },
+  "screenshots_taken": [
+    ".screenshots/homepage_odds_test.png - Homepage with 34 matches",
+    ".screenshots/match_page_odds_test.png - Victoria vs South Australia match page",
+    ".screenshots/match_with_odds.png - Peshawar Zalmi vs Rawalpindiz with odds",
+    ".screenshots/gujarat_match.png - Gujarat Titans vs Punjab Kings with odds"
+  ]
+}
