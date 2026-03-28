@@ -26,6 +26,7 @@ import MatchDetail from "@/pages/user/MatchDetail";
 import BetHistory from "@/pages/user/BetHistory";
 import MyWithdrawals from "@/pages/user/MyWithdrawals";
 import MyTickets from "@/pages/user/MyTickets";
+import RechargeHistory from "@/pages/user/RechargeHistory";
 import "@/App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -191,6 +192,7 @@ function App() {
             <Route path="match/:matchId" element={<MatchDetail />} />
             <Route path="history" element={<BetHistory />} />
             <Route path="withdrawals" element={<MyWithdrawals />} />
+            <Route path="recharges" element={<RechargeHistory />} />
             <Route path="tickets" element={<MyTickets />} />
           </Route>
         </Routes>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut, Users, Menu, X } from "lucide-react";
+import { Home, TrendingUp, History, ArrowDownCircle, MessageSquare, LogOut, Users, Menu, X, Wallet } from "lucide-react";
 
 export default function UserLayout({ user, onLogout }) {
   const location = useLocation();
@@ -9,8 +9,9 @@ export default function UserLayout({ user, onLogout }) {
   const menuItems = [
     { path: "/user", label: "Dashboard", icon: Home, exact: true },
     { path: "/user/betting", label: "Place Bets", icon: TrendingUp },
-    { path: "/user/history", label: "My Bets", icon: History },
-    { path: "/user/withdrawals", label: "Withdrawals", icon: ArrowDownCircle },
+    { path: "/user/history", label: "Betting History", icon: History },
+    { path: "/user/recharges", label: "Recharge History", icon: Wallet },
+    { path: "/user/withdrawals", label: "Withdrawal History", icon: ArrowDownCircle },
     { path: "/user/tickets", label: "Support", icon: MessageSquare },
   ];
 

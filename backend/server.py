@@ -596,38 +596,104 @@ class OddsService:
                 away_team = event.get("away_team", "")
                 commence_time = event.get("commence_time", "")
                 
-                # Extract odds from bookmaker
-                home_odds = None
-                away_odds = None
+                # Extract odds from ALL bookmakers to build order book
+                home_prices = []
+                away_prices = []
                 bookmaker_name = None
                 
-                if event.get("bookmakers"):
-                    # Use first available bookmaker
-                    bookmaker = event["bookmakers"][0]
-                    bookmaker_name = bookmaker.get("title", "Unknown")
+                for bookmaker in event.get("bookmakers", []):
+                    if not bookmaker_name:
+                        bookmaker_name = bookmaker.get("title", "Unknown")
                     
                     if bookmaker.get("markets"):
                         market = bookmaker["markets"][0]
                         outcomes = market.get("outcomes", [])
+                        bk_home = None
+                        bk_away = None
                         
                         for outcome in outcomes:
                             name = outcome.get("name", "")
                             price = outcome.get("price")
-                            
+                            if price is None:
+                                continue
                             if OddsService.teams_match(name, home_team):
-                                home_odds = price
+                                bk_home = price
                             elif OddsService.teams_match(name, away_team):
-                                away_odds = price
+                                bk_away = price
                         
-                        # Fallback: if fuzzy match didn't work, use positional order
-                        if home_odds is None or away_odds is None:
-                            non_draw = [o for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"]]
+                        # Fallback positional
+                        if bk_home is None or bk_away is None:
+                            non_draw = [o for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"] and o.get("price")]
                             if len(non_draw) >= 2:
-                                if home_odds is None:
-                                    home_odds = non_draw[0].get("price")
-                                if away_odds is None:
-                                    away_odds = non_draw[1].get("price") if len(non_draw) > 1 else non_draw[0].get("price")
-                                logger.warning(f"Fallback odds assignment for {home_team} vs {away_team}: home={home_odds}, away={away_odds}")
+                                if bk_home is None:
+                                    bk_home = non_draw[0]["price"]
+                                if bk_away is None:
+                                    bk_away = non_draw[1]["price"]
+                        
+                        if bk_home:
+                            home_prices.append(bk_home)
+                        if bk_away:
+                            away_prices.append(bk_away)
+                
+                if not home_prices or not away_prices:
+                    continue
+                
+                # Best odds (used for primary display)
+                home_odds = max(home_prices)
+                away_odds = max(away_prices)
+                
+                # Build 3-level order book
+                # Back: sorted descending (best = highest price first)
+                home_back_sorted = sorted(set(home_prices), reverse=True)[:3]
+                away_back_sorted = sorted(set(away_prices), reverse=True)[:3]
+                
+                # Pad to 3 levels if needed
+                while len(home_back_sorted) < 3:
+                    home_back_sorted.append(round(home_back_sorted[-1] - 0.02, 2))
+                while len(away_back_sorted) < 3:
+                    away_back_sorted.append(round(away_back_sorted[-1] - 0.02, 2))
+                
+                # Lay: best back + spread
+                home_lay_sorted = [round(p + 0.04 + i * 0.02, 2) for i, p in enumerate(home_back_sorted)]
+                away_lay_sorted = [round(p + 0.04 + i * 0.02, 2) for i, p in enumerate(away_back_sorted)]
+                
+                # Generate realistic liquidity amounts
+                import random
+                def gen_liquidity():
+                    return round(random.uniform(100, 25000), 2)
+                
+                home_back_sizes = [gen_liquidity() for _ in range(3)]
+                home_lay_sizes = [gen_liquidity() for _ in range(3)]
+                away_back_sizes = [gen_liquidity() for _ in range(3)]
+                away_lay_sizes = [gen_liquidity() for _ in range(3)]
+                
+                # Bookmaker section: Indian rate format = (decimal - 1) * 100
+                bookmaker_odds = []
+                bk_list = event.get("bookmakers", [])
+                for bk_idx, bk in enumerate(bk_list[:2]):
+                    bk_mkt = bk.get("markets", [{}])[0]
+                    bk_outcomes = bk_mkt.get("outcomes", [])
+                    bk_h, bk_a = None, None
+                    for o in bk_outcomes:
+                        p = o.get("price")
+                        if p is None:
+                            continue
+                        if OddsService.teams_match(o.get("name", ""), home_team):
+                            bk_h = p
+                        elif OddsService.teams_match(o.get("name", ""), away_team):
+                            bk_a = p
+                    if bk_h and bk_a:
+                        bookmaker_odds.append({
+                            "name": f"Bookmaker{' ' + str(bk_idx + 1) if bk_idx > 0 else ''}",
+                            "home_back": round((bk_h - 1) * 100),
+                            "home_lay": round((bk_h - 1) * 100 + random.randint(5, 15)),
+                            "away_back": round((bk_a - 1) * 100),
+                            "away_lay": round((bk_a - 1) * 100 + random.randint(2, 8)),
+                            "home_size": random.choice([125000, 250000, 375000, 500000]),
+                            "away_size": random.choice([500000, 1000000, 1500000]),
+                            "min_bet": 100,
+                            "max_bet": "15L" if bk_idx == 0 else "5L",
+                        })
                 
                 # Parse commence time properly
                 try:
@@ -642,7 +708,7 @@ class OddsService:
                 home_lay = OddsService.calculate_lay_odds(home_odds)
                 away_lay = OddsService.calculate_lay_odds(away_odds)
                 
-                # Build odds object for storage
+                # Build odds object with full order book
                 odds_data = {
                     "home": home_odds,
                     "away": away_odds,
@@ -650,8 +716,19 @@ class OddsService:
                     "home_lay": home_lay,
                     "away_back": away_odds,
                     "away_lay": away_lay,
+                    # 3-level order book
+                    "home_back_levels": home_back_sorted,
+                    "home_lay_levels": home_lay_sorted,
+                    "away_back_levels": away_back_sorted,
+                    "away_lay_levels": away_lay_sorted,
+                    "home_back_sizes": home_back_sizes,
+                    "home_lay_sizes": home_lay_sizes,
+                    "away_back_sizes": away_back_sizes,
+                    "away_lay_sizes": away_lay_sizes,
+                    # Bookmaker section data
+                    "bookmakers": bookmaker_odds,
                     "bookmaker": bookmaker_name,
-                    "last_update": datetime.now(timezone.utc)
+                    "last_update": datetime.now(timezone.utc).isoformat()
                 }
                 
                 # Try to find existing match in DB by team names
@@ -720,14 +797,44 @@ class OddsService:
                         final_away_odds = home_odds
                         final_home_lay = away_lay
                         final_away_lay = home_lay
+                        # Swap order book levels too
+                        final_home_back_levels = away_back_sorted
+                        final_home_lay_levels = away_lay_sorted
+                        final_away_back_levels = home_back_sorted
+                        final_away_lay_levels = home_lay_sorted
+                        final_home_back_sizes = away_back_sizes
+                        final_home_lay_sizes = away_lay_sizes
+                        final_away_back_sizes = home_back_sizes
+                        final_away_lay_sizes = home_lay_sizes
+                        # Swap bookmaker odds too
+                        final_bookmakers = []
+                        for bk in bookmaker_odds:
+                            final_bookmakers.append({
+                                **bk,
+                                "home_back": bk["away_back"],
+                                "home_lay": bk["away_lay"],
+                                "away_back": bk["home_back"],
+                                "away_lay": bk["home_lay"],
+                                "home_size": bk["away_size"],
+                                "away_size": bk["home_size"],
+                            })
                         logger.info(f"REVERSED match detected: OddsAPI [{home_team} vs {away_team}] -> DB [{db_home} vs {db_away}]. Swapping odds.")
                     else:
                         final_home_odds = home_odds
                         final_away_odds = away_odds
                         final_home_lay = home_lay
                         final_away_lay = away_lay
+                        final_home_back_levels = home_back_sorted
+                        final_home_lay_levels = home_lay_sorted
+                        final_away_back_levels = away_back_sorted
+                        final_away_lay_levels = away_lay_sorted
+                        final_home_back_sizes = home_back_sizes
+                        final_home_lay_sizes = home_lay_sizes
+                        final_away_back_sizes = away_back_sizes
+                        final_away_lay_sizes = away_lay_sizes
+                        final_bookmakers = bookmaker_odds
                     
-                    # Build corrected odds data
+                    # Build corrected odds data with full order book
                     corrected_odds_data = {
                         "home": final_home_odds,
                         "away": final_away_odds,
@@ -735,8 +842,17 @@ class OddsService:
                         "home_lay": final_home_lay,
                         "away_back": final_away_odds,
                         "away_lay": final_away_lay,
+                        "home_back_levels": final_home_back_levels,
+                        "home_lay_levels": final_home_lay_levels,
+                        "away_back_levels": final_away_back_levels,
+                        "away_lay_levels": final_away_lay_levels,
+                        "home_back_sizes": final_home_back_sizes,
+                        "home_lay_sizes": final_home_lay_sizes,
+                        "away_back_sizes": final_away_back_sizes,
+                        "away_lay_sizes": final_away_lay_sizes,
+                        "bookmakers": final_bookmakers,
                         "bookmaker": bookmaker_name,
-                        "last_update": datetime.now(timezone.utc)
+                        "last_update": datetime.now(timezone.utc).isoformat()
                     }
                     
                     # Update existing match with correctly aligned odds
@@ -2042,6 +2158,77 @@ async def get_match_bet_totals(match_id: str):
         "away_total": totals.get(away_team, 0),
     }
 
+
+@api_router.get("/match/{match_id}/my-bets")
+async def get_my_match_bets(match_id: str, current_user: User = Depends(get_current_user)):
+    """Get current user's bets for a specific match"""
+    bets = await db.bets.find(
+        {"match_id": match_id, "user_id": current_user.user_id, "status": {"$ne": "cancelled"}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return bets
+
+@api_router.get("/match/{match_id}/exposure")
+async def get_match_exposure(match_id: str, current_user: User = Depends(get_current_user)):
+    """Calculate user's net exposure (profit/loss) per team for a match"""
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0, "home_team": 1, "away_team": 1})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    home_team = match.get("home_team", "")
+    away_team = match.get("away_team", "")
+    
+    bets = await db.bets.find(
+        {"match_id": match_id, "user_id": current_user.user_id, "status": {"$ne": "cancelled"}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Calculate net position for each team winning scenario
+    home_wins_pnl = 0.0  # P&L if home team wins
+    away_wins_pnl = 0.0  # P&L if away team wins
+    
+    for bet in bets:
+        stake = bet.get("stake", 0)
+        odds = bet.get("odds", 0)
+        bet_type = bet.get("bet_type", "").lower()
+        selected = bet.get("selected_team", "")
+        
+        if bet_type == "back":
+            profit = stake * (odds - 1)
+            if selected == home_team:
+                home_wins_pnl += profit     # Win profit if home wins
+                away_wins_pnl -= stake      # Lose stake if away wins
+            elif selected == away_team:
+                away_wins_pnl += profit     # Win profit if away wins
+                home_wins_pnl -= stake      # Lose stake if home wins
+        elif bet_type == "lay":
+            liability = stake * (odds - 1)
+            if selected == home_team:
+                home_wins_pnl -= liability  # Pay liability if home wins
+                away_wins_pnl += stake      # Keep stake if away wins
+            elif selected == away_team:
+                away_wins_pnl -= liability  # Pay liability if away wins
+                home_wins_pnl += stake      # Keep stake if home wins
+    
+    return {
+        "match_id": match_id,
+        "home_team": home_team,
+        "away_team": away_team,
+        "home_exposure": round(home_wins_pnl, 2),
+        "away_exposure": round(away_wins_pnl, 2),
+        "total_bets": len(bets)
+    }
+
+@api_router.get("/transactions/recharge-history")
+async def get_recharge_history(current_user: User = Depends(get_current_user)):
+    """Get recharge/deposit history for current user"""
+    transactions = await db.transactions.find(
+        {"user_id": current_user.user_id, "type": {"$in": ["deposit", "recharge"]}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return transactions
+
+
 # ==================== MATCH DETAIL ENDPOINT ====================
 @api_router.get("/match/{match_id}")
 async def get_match_detail(match_id: str):
@@ -2083,11 +2270,15 @@ async def get_match_detail(match_id: str):
         "venue": match.get("venue", ""),
         "format": match.get("format", "t20"),
         
-        # Odds data
-        "odds": {
+        # Odds data - include full order book if available
+        "odds": match.get("odds") if match.get("odds") and match["odds"].get("home_back_levels") else {
             "home": match.get("home_odds"),
             "away": match.get("away_odds"),
             "draw": match.get("odds_draw"),
+            "home_back": match.get("home_odds"),
+            "home_lay": match.get("home_odds", 0) + 0.02 if match.get("home_odds") else None,
+            "away_back": match.get("away_odds"),
+            "away_lay": match.get("away_odds", 0) + 0.02 if match.get("away_odds") else None,
         },
         
         # Feature flags
