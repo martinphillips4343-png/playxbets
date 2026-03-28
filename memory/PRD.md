@@ -21,21 +21,17 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Real-time WebSocket status indicator
 
 ### Betfair-Style Match Betting Page (2026-03-28)
-- **3-Level Order Book**: 3 Back columns + 3 Lay columns with odds + liquidity per cell
-  - Back: sorted descending (3rd → 2nd → Best), Lay: sorted ascending (Best → 2nd → 3rd)
-  - Desktop: all 6 columns visible, Mobile: only best Back/Lay shown
-- **User Exposure Panel**: Per-team profit/loss calculated from all user bets
-  - Back: profit = (odds-1)*stake, loss = -stake
-  - Lay: profit = +stake, liability = -(odds-1)*stake
-  - Green = profit, Red = loss, updates after each bet
+- **Single Back/Lay**: 1 Back + 1 Lay column per team (clean, no header labels)
+- **Bookmaker sections**: Removed completely
+- **User Exposure Panel**: Per-team profit/loss from all user bets (green/red)
 - **Matched Bets Tab**: ODDS | MATCHED BET tabs, shows Team | Odds | Stake
-- **Bookmaker Sections**: Indian rate format (decimal odds → (odds-1)*100)
-  - Min/Max limits displayed, multiple bookmakers from Odds API
-- **Bet Slip**: Click odds → add selection → enter stake → see profit/loss → place bet
+- **Session/Tied Colors**: Bright red (#dc2626) for No, Bright blue (#2563eb) for Yes
+- **Session SUSPENDED**: Completed overs auto-show SUSPENDED
+- **Bet Slip**: Click odds -> enter stake -> see profit/loss -> place bet
 - **Real-time**: WebSocket + fallback polling, odds flash green/red on change
-- **Colors**: Back=Blue(#1a56db), Lay=Dark Red(#991b1b), Profit=Green, Loss=Red
+- **Match Odds Colors**: Back=Blue(#1a56db), Lay=Dark Red(#991b1b)
 - **Dynamic States**: BALL RUNNING / SUSPENDED cycle for live matches
-- **8 Market Sections**: Match Odds, Bookmaker(s), Session, Over Runs, Fall of Wickets, Team Total, Partnership, Special, Tied Match
+- **Backend 10s Polling**: All schedulers (odds, cricket, live check) run every 10 seconds
 
 ### Multi-Bookmaker Order Book
 - Backend aggregates ALL bookmakers from Odds API (not just first)
