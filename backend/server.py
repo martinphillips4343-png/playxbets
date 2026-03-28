@@ -1050,8 +1050,8 @@ async def check_live_matches_and_poll_async():
             odds_team_pairs = set()
             odds_completed_pairs = set()
             try:
-                # Check scores endpoints for completion status
-                for sport_key in ["cricket_psl", "cricket_ipl"]:
+                # Check scores endpoints for completion status — cover ALL global cricket leagues
+                for sport_key in ["cricket_ipl", "cricket_psl", "cricket_big_bash", "cricket_test_match", "cricket_one_day_internationals", "cricket_t20_internationals", "cricket_the_hundred", "cricket_caribbean_premier_league"]:
                     try:
                         scores_url = f"{ODDS_API_BASE}/sports/{sport_key}/scores"
                         scores_params = {"apiKey": ODDS_API_KEY, "daysFrom": 1}
@@ -1307,26 +1307,26 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Live match polling - check every 10 SECONDS for real-time updates
+    # Live match polling - check every 30 SECONDS for real-time updates
     scheduler.add_job(
         run_live_check,
-        IntervalTrigger(seconds=10),
+        IntervalTrigger(seconds=30),
         id='live_match_polling',
         replace_existing=True
     )
     
-    # Cricket data - frequent polling every 10 seconds for live data
+    # Cricket data - poll every 30 seconds for live data
     scheduler.add_job(
         run_cricket_poll,
-        IntervalTrigger(seconds=10),
+        IntervalTrigger(seconds=30),
         id='fetch_cricket_job',
         replace_existing=True
     )
     
-    # Odds fetch - every 10 seconds for live odds updates
+    # Odds fetch - every 30 seconds for live odds updates
     scheduler.add_job(
         run_scheduled_odds_fetch,
-        IntervalTrigger(seconds=10),
+        IntervalTrigger(seconds=30),
         id='fetch_odds_interval',
         replace_existing=True
     )
@@ -1335,8 +1335,9 @@ def start_scheduler():
     logger.info("Scheduler started:")
     logger.info("  - Initial fetch: 5 seconds after startup")
     logger.info("  - Football/Soccer Daily: 00:00:01 AM IST (18:30:01 UTC)")
-    logger.info("  - Live Match Polling: Every 20 SECONDS (real-time updates)")
-    logger.info("  - Cricket: Every 1 minute (for live score sync)")
+    logger.info("  - Live Match Polling: Every 30 SECONDS")
+    logger.info("  - Cricket: Every 30 SECONDS")
+    logger.info("  - Odds: Every 30 SECONDS")
 
 
 # ==================== AUTH ROUTES ====================

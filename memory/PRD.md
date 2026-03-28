@@ -31,7 +31,7 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - **Real-time**: WebSocket + fallback polling, odds flash green/red on change
 - **Match Odds Colors**: Back=Blue(#1a56db), Lay=Dark Red(#991b1b)
 - **Dynamic States**: BALL RUNNING / SUSPENDED cycle for live matches
-- **Backend 10s Polling**: All schedulers (odds, cricket, live check) run every 10 seconds
+- **Backend 30s Polling**: All schedulers (odds, cricket, live check) run every 30 seconds
 
 ### Datetime Fix (2026-03-28)
 - Added `ensure_utc()` helper to normalize all datetime values (naive/aware/string) to UTC
