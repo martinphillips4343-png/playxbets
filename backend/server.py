@@ -996,13 +996,39 @@ async def check_live_matches_and_poll_async():
         current_time = datetime.now(timezone.utc)
         
         # Auto-mark scheduled matches as "live" if their commence_time has passed
-        await db.matches.update_many(
-            {
-                "status": "scheduled",
-                "commence_time": {"$lt": current_time}
-            },
-            {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time}}
-        )
+        scheduled_matches = await db.matches.find({"status": "scheduled"}, {"_id": 0, "match_id": 1, "commence_time": 1, "home_team": 1, "away_team": 1}).to_list(500)
+        for sm in scheduled_matches:
+            ct_val = sm.get("commence_time")
+            if not ct_val:
+                continue
+            try:
+                if isinstance(ct_val, str):
+                    ct = datetime.fromisoformat(ct_val.replace("Z", "+00:00"))
+                elif isinstance(ct_val, datetime):
+                    ct = ct_val if ct_val.tzinfo else ct_val.replace(tzinfo=timezone.utc)
+                else:
+                    continue
+                
+                if ct <= current_time:
+                    await db.matches.update_one(
+                        {"match_id": sm["match_id"]},
+                        {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time.isoformat()}}
+                    )
+                    logger.info(f"Auto-promoted to LIVE: {sm.get('home_team')} vs {sm.get('away_team')} (commence={ct_val})")
+            except Exception as e:
+                logger.warning(f"Error auto-promoting match: {e}")
+        
+        # Also auto-cleanup: mark minor domestic league matches as completed to remove them
+        MINOR_LEAGUES_PATTERNS = ["plunket shield", "sheffield shield", "ranji trophy", "vijay hazare", "syed mushtaq ali", "county championship", "ford trophy", "marsh cup"]
+        minor_matches = await db.matches.find({"status": {"$in": ["live", "scheduled"]}}, {"_id": 0, "match_id": 1, "league": 1}).to_list(500)
+        for mm in minor_matches:
+            league = (mm.get("league") or "").lower()
+            if any(pattern in league for pattern in MINOR_LEAGUES_PATTERNS):
+                await db.matches.update_one(
+                    {"match_id": mm["match_id"]},
+                    {"$set": {"status": "completed"}}
+                )
+                logger.info(f"Auto-removed minor league match: {league}")
         
         # ==================== AUTO-DETECT COMPLETED MATCHES ====================
         # Check all "live" matches against the Odds API and cricScore to detect completions
@@ -1678,6 +1704,11 @@ async def get_all_cricket_matches_api():
         live_transformed = await service.transform_for_frontend(data.get("live", []))
         upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
         
+        # Filter out minor domestic leagues
+        MINOR_LEAGUES = ["plunket shield", "sheffield shield", "ranji trophy", "vijay hazare", "syed mushtaq ali", "county championship", "ford trophy", "marsh cup", "duleep trophy"]
+        live_transformed = [m for m in live_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
+        upcoming_transformed = [m for m in upcoming_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
+        
         return {
             "success": True,
             "live_count": len(live_transformed),
@@ -1708,6 +1739,11 @@ async def admin_fetch_cricket_matches(current_user: User = Depends(get_current_a
         data = await service.get_all_matches()
         live_transformed = await service.transform_for_frontend(data.get("live", []))
         upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
+        
+        # Filter out minor domestic leagues
+        MINOR_LEAGUES = ["plunket shield", "sheffield shield", "ranji trophy", "vijay hazare", "syed mushtaq ali", "county championship", "ford trophy", "marsh cup", "duleep trophy"]
+        live_transformed = [m for m in live_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
+        upcoming_transformed = [m for m in upcoming_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
         
         all_matches = live_transformed + upcoming_transformed
         
@@ -1754,6 +1790,11 @@ async def smart_cricket_poll():
         
         live_transformed = await service.transform_for_frontend(data.get("live", []))
         upcoming_transformed = await service.transform_for_frontend(data.get("upcoming", []))
+        
+        # Filter out minor domestic leagues
+        MINOR_LEAGUES = ["plunket shield", "sheffield shield", "ranji trophy", "vijay hazare", "syed mushtaq ali", "county championship", "ford trophy", "marsh cup", "duleep trophy"]
+        live_transformed = [m for m in live_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
+        upcoming_transformed = [m for m in upcoming_transformed if not any(p in (m.get("league","") or "").lower() for p in MINOR_LEAGUES)]
         
         now = datetime.now(timezone.utc)
         
@@ -1890,11 +1931,24 @@ async def get_matches(sport: Optional[str] = None):
     if sport:
         query["sport"] = sport
     
+    # Blacklist minor domestic leagues - only show major cricket
+    MINOR_LEAGUES = [
+        "plunket shield", "sheffield shield", "ranji trophy", 
+        "vijay hazare", "syed mushtaq ali", "county championship",
+        "bob willis trophy", "marsh cup", "ford trophy",
+        "duleep trophy", "irani trophy", "deodhar trophy"
+    ]
+    
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(1000)
     
     filtered_matches = []
     for m in matches:
         status = m.get("status", "").lower() if isinstance(m.get("status"), str) else ""
+        
+        # Filter out minor domestic leagues
+        league = (m.get("league") or m.get("series") or "").lower()
+        if any(minor in league for minor in MINOR_LEAGUES):
+            continue
         
         # Check matchEnded flag (from CricketData API)
         match_ended = m.get("matchEnded", False)

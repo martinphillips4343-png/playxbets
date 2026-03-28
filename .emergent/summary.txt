@@ -1,28 +1,29 @@
-<analysis>**original_problem_statement**: The user is building a premium, dark-themed sports betting application named PlayXBets featuring a dense, tabular betting exchange UI. The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API). Recent requirements included making the UI dynamic with BALL RUNNING/SUSPENDED states, calculating profit/loss strictly on the bet slip rather than showing raw API liquidity on the odds cells, and revamping the layout for tied matches and responsive mobile views. 
+<analysis>**original_problem_statement**: 
+The user is building a premium, dark-themed sports betting application named PlayXBets featuring a dense, tabular betting exchange UI. Recent requirements focused on implementing a Betfair-style UI, showing real-time odds updates (10-second polling), adding user history pages (Recharge, Bet, Withdrawal), fixing live match auto-completion, and strictly showing only major REAL live matches (filtering out minor leagues and demo matches).
 
 **User's preferred language**: English (INSTRUCT next agent to respond in English only)
 
 **what currently exists?** 
-A full-stack React + FastAPI + MongoDB Atlas app. The backend leverages WebSockets and APScheduler to push real-time match and odds updates to the frontend. The system successfully merges Odds API data with CricketData API. The frontend features a fully responsive UI, functional live score tracking, dynamic odds flashing, and auto-completion of finished matches. The database runs on live MongoDB Atlas.
+A full-stack React + FastAPI + MongoDB Atlas app. The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API) polling every 10 seconds. The Match UI has been refined to show a single Back/Lay column per team, removing bookmaker sections per user request. Session/Tied markets feature bright blue/red color coding with suspended state handling. The backend successfully manages user wallets, bet history, and transactions. 
 
 **Last working item**:
-- Last item agent was working: Debugging an Odds Mismatch bug for live matches. The user reported that the application's odds for Peshawar Zalmi vs Rawalpindiz significantly differed from competitor screenshots. The agent discovered that while the Odds API returns accurate odds (Peshawar: 2.90, Rawalpindiz: 1.36), the database stored inaccurate/stale/swapped odds (2.35 and 1.58).
+- Last item agent was working: Debugging a critical issue where major live matches (specifically an ongoing SRH vs RCB IPL match) are missing from the database/API, while the user demanded that only real, major live matches be shown. The agent successfully filtered out minor leagues (Plunket Shield, etc.) but found that the SRH vs RCB match data coming from the Odds API was not persisting in the DB ().
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? backend testing agent / manual testing by curl to verify the merged odds match the raw Odds API response.
+- Which testing method agent to use? backend testing agent / manual testing by curl (to verify the match exists in the DB and  response).
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-Issue 1: Odds Data Mismatch & Swapping during API Merge (P0)
-   - Attempted fixes: Investigated  around line 525 . Confirmed the bug exists by checking raw API return vs DB state.
+Issue 1: Major Live Matches (Odds API) Missing from Database (P0)
+   - Attempted fixes: The agent fixed string vs datetime comparison bugs for  auto-promotion and added a filter to remove minor leagues. However, when checking the database directly for the SRH vs RCB match (which is present in the Odds API), it returned 0 entries.
    - Next debug checklist: 
-     - Check  method .
-     - Inspect the fuzzy/exact team name matching logic between Odds API and CricketData API. 
-     - Determine if the home/away assignment is getting swapped or if stale cached odds are overwriting fresh ones.
-   - Why fix this issue and what will be achieved with the fix? Accurate odds are the core foundation of a betting exchange; showing wrong or swapped odds creates a massive functional failure.
+     - Check , specifically the  logic (around lines 780-830).
+     - Determine why Odds API-only events are failing to insert or upsert into . 
+     - Ensure the recently added  minor-league filter isn't accidentally deleting or preventing the insertion of valid major matches merged from the Odds API.
+   - Why fix this issue and what will be achieved with the fix? The user specifically complained that demo matches are showing while actual live major matches are stuck as scheduled or missing. Fixing this is critical to the app's core functionality.
    - Status: IN PROGRESS
    - Is recurring issue? N
-   - Should Test frontend/backend/both after fix? Both (verify JSON payload in backend, visual check on frontend).
+   - Should Test frontend/backend/both after fix? Both (curl backend to ensure match is in JSON payload, check frontend to ensure it renders in the Live tab).
    - Blocked on other issue: None.
 
 **In progress Task List**: 
@@ -34,65 +35,62 @@ Upcoming Tasks:
 - (P1) User/Admin Panel Clean Separation (Distinct dashboards, menus, access control).
 - (P2) Admin manual match entry UI (Building the frontend form to hit the existing  endpoint).
 - (P2) Implement Cashout functionality for live bets.
-- (P2) Admin dashboard widget for viewing API quota/usage stats from the cricket service.
 
 Future Tasks:
-- User withdrawal request system.
+- User withdrawal request approval/processing system.
 - User support ticket system.
-- Code Architecture Refactor: Break down  (>2100 lines) into modular routers (, , ).
+- Code Architecture Refactor: Break down  (>2500 lines) into modular routers (, , ).
 
 **Completed work in this session**
-- UI Styling Updates: Back (Blue) / Lay (Dark Red) colors correctly implemented. Tied Match section redesigned and moved (DONE).
-- Migration to Live DB: Migrated from local MongoDB to MongoDB Atlas with TLS dependencies added (DONE).
-- Date & Time Bugs: Fixed missing naive datetimes missing timezone info causing UI mismatch (DONE).
-- React Dependency Fix: Safely downgraded React to  and  to  to resolve  build conflict (DONE).
-- Dynamic Live Features: Implemented BALL RUNNING, SUSPENDED states, and green/red flash animations for odds (DONE).
-- Auto-Match Completion: Backend now auto-removes completed matches based on  status (DONE).
-- UI Cleanup: Removed API liquidity volumes from odds cells. Built logic in Bet Slip to correctly calculate Stake, Profit, and Loss/Liability (DONE).
+- P0 Odds Mismatch Bug: Fixed reversed match logic, improved fuzzy matching (e.g., Bangalore vs Bengaluru), and cleaned up duplicate DB entries (DONE).
+- Completed Matches Bug: Fixed logic so decided matches auto-complete and drop from the Live tab. Handled string vs datetime  comparisons (DONE).
+- History Pages: Added  and linked to the User Dashboard (DONE).
+- Match UI Refinements: Altered layout to 1 Back / 1 Lay column, removed bookmaker sections, updated Session Market colors to bright blue/red, and implemented SUSPENDED state (DONE).
+- Backend Scheduler: Updated polling frequency to 10 seconds for real-time live data updates (DONE).
 
 **Earlier issues found/mentioned but not fixed**
 None.
 
 **Known issue recurrence from previous fork**
-- Issue recurrence in previous fork: Timezone serialization bugs (Datetime objects without  offset breaking frontend mapping). Was resolved in this session.
-- Recurrence count: 1
-- Status: RESOLVED
-Note: When adding or returning new models, ensure all dates include standard UTC timezone handling.
+- Issue recurrence in previous fork:  data type inconsistencies.
+- Recurrence count: 2
+- Status: RESOLVED (but keep in mind)
+Note: Odds API entries often store  as an ISO string, while CricketData creates Python  objects. Queries using MongoDB  fail silently when comparing strings to datetimes. Always ensure  is parsed into a timezone-aware UTC datetime object before inserting into the DB.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-React 18.2.0, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, Pydantic, UTC to IST timezone handling, CSS keyframe animations.
+React 18.2.0, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, UTC to IST timezone handling.
 
 **key DB schema**
 - : {match_id, status, commence_time, home_team, away_team, odds, score, ...}
 - : {bet_id, user_id, match_id, stake, odds, bet_type, status}
+- : {withdrawal_id, user_id, amount, status}
 
 **changes in tech stack**
--  and  downgraded to  for  compatibility.
--  pinned to .
-- Upgraded  to  and  to  to support MongoDB Atlas.
+- None in this session.
 
 **All files of reference** 
--  (Contains bugged  logic).
--  (Major UI overhauls including Profit/Loss bet slip and dynamic UI indicators).
--  (Rewritten to be responsive with removed unneeded tables).
--  (Contains the  and  animation frames).
-- 
+-  (Contains the  and  filtering logic causing the current P0 bug).
+-  (Major UI overhauls including 1-level odds and Session row color updates).
+-  (Color updates).
+-  (Newly created).
 
 **Areas that need refactoring**: 
--  is critically large and continues to grow. Desperately needs to be broken down into  and .
+-  is critically large (>2500 lines).
 
 **key api endpoints**
 -  (Fetches active/live matches)
 -  (Fetches exact match data)
--  and  (Real-time updates)
--  (Added for retrieving active bets summary on frontend).
+-  
+- 
+-  and  
 
 **Critical Info for New Agent** 
-- **React Dependencies:** DO NOT upgrade React back to v19 or blindly update packages. The UI requires React 18 for date picker components.
-- **Odds Merging Bug:** The current P0 issue lies strictly in backend mismatching. Team names returned by Odds API sometimes slightly differ from CricketData API (e.g., Rawalpindi Pindiz vs Rawalpindiz). This requires checking how strings are matched in .
+- **API Quotas:** Polling is now set to 10 seconds (). This will burn through the Odds API quota extremely fast. 
+- **UI Context:** The user initially asked for a full 3-level Betfair depth chart, but later in the session asked to revert it to a simple 1 Back / 1 Lay column layout and remove the bookmaker section. Stick to the simplified layout.
+- **Match Filtering:** The user is highly agitated about demo matches (minor leagues like Plunket Shield) showing up. Ensure the filter in  remains intact, but verify it isn't destroying valid IPL/PSL matches.
 
 **documents and test reports created in this job** 
 - 
@@ -102,17 +100,18 @@ React 18.2.0, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APSchedu
 - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. User asked to fix React build dependency issue. -> (COMPLETED)
-2. User provided another React version conflict issue. -> (COMPLETED)
-3. User wanted live UI dynamic features (BALL RUNNING, SUSPENDED, Odds flashing). -> (COMPLETED)
-4. User asked to auto-remove completed matches & make homepage responsive. -> (COMPLETED)
-5. User asked to modify bet logic to calculate Profit/Loss rather than show liquidity + clean up homepage tabs. -> (COMPLETED)
-6. User requested Tied Match to be redesigned and moved under Session markets. -> (COMPLETED)
-7. User reported that the live match Odds heavily mismatch real competitor screenshots. -> (IN PROGRESS - Debugging started).
+1. User asked to proceed with proposed plan. -> (COMPLETED)
+2. User reported that a completed match (Peshawar) was still showing as LIVE. -> (COMPLETED)
+3. User provided screenshots to build a 3-level Betfair UI, add user exposure, and create History pages. -> (COMPLETED)
+4. User asked to keep existing colors, fix missing matches, and verify Recharge/Bet/Withdrawal history exists. -> (COMPLETED)
+5. User asked to proceed with the build. -> (COMPLETED)
+6. User changed mind: Requested Match Odds to be simplified to 1 column, Bookmakers to be completely removed, Session colors to be bright blue/red, and data to poll every 10 seconds. -> (COMPLETED)
+7. User reported that minor demo matches are showing, and a major live match (SRH vs RCB) is incorrectly showing as Scheduled. Demanded a permanent fix. -> (IN PROGRESS - Agent filtered minor leagues but is struggling to make the SRH vs RCB match appear in the DB).
+8. User sent a follow-up reiterating to remove demo matches and add the real live match ASAP. -> (IN PROGRESS).
 
 **Project Health Check:**
-- Broken: The odds merging logic () is mismatching odds to teams.
-- Mocked: None. All mock data was previously removed.
+- Broken: Major live matches from the Odds API are failing to insert/persist in the database.
+- Mocked: None.
 
 **3rd Party Integrations** 
 - The Odds API (Match odds) — requires User API Key (Paid key active).
@@ -120,14 +119,14 @@ React 18.2.0, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APSchedu
 - MongoDB Atlas (Cloud Database) - standard user credentials mapped in .
 
 **Testing status**
-- Testing agent used after significant changes: YES (Iterative test reports 10, 11, 12, 13).
+- Testing agent used after significant changes: YES (Iterations 14, 15, 16).
 - Troubleshoot agent used after agent stuck in loop: NO.
 - Test files created: 
-- Known regressions: Odds mapping logic broke during updates/merges.
+- Known regressions: DB insertion for Odds-API-only matches broke after updating the merge and cleanup logic.
 
 **Credentials to test flow:**
 - Admin: , 
 - User: , 
 
 **What agent forgot to execute**
-None. The agent successfully addressed user feedback until the very final message, which is currently in-progress.</analysis>
+The agent was in the middle of diagnosing why the SRH vs RCB match was missing from the database when the context window/execution ended. The fix for displaying real live matches is pending.</analysis>
