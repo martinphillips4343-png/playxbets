@@ -23,7 +23,7 @@ export default function AdminLayout({ user, onLogout }) {
     { path: "/admin/bettors", label: "Manage Bettors", icon: Users },
     { path: "/admin/games", label: "Manage Games", icon: Trophy },
     { path: "/admin/bets", label: "Bets Placed", icon: CheckCircle },
-    { path: "/admin/outcomes", label: "Declare Outcomes", icon: CheckCircle },
+    { path: "/admin/outcomes", label: "Bet Settlement", icon: CheckCircle },
     { path: "/admin/deposits", label: "Deposits", icon: DollarSign },
     { path: "/admin/withdrawals", label: "Withdrawals", icon: ArrowDownCircle },
     { path: "/admin/tickets", label: "Support Ticket", icon: MessageSquare },

@@ -1,0 +1,80 @@
+{
+  "summary": "Tested PlayXBets bet settlement and datetime fix. All 12 backend tests passed. Frontend verified: Admin Bet Settlement page loads correctly with pending settlements and declare winner buttons. Datetime comparison errors no longer occurring after backend restart.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "CricketData API", "issue": "Rate limited - 'Blocked for 15 minutes' (expected, not a bug)"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bet_settlement_datetime.py",
+    "/app/test_reports/pytest/bet_settlement_datetime_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_bet_settlement_datetime.py"
+  ],
+  "success_rate": {
+    "backend": "100% - 12/12 tests passed",
+    "frontend": "100% - Bet Settlement page verified"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - using existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bet settlement and datetime fix verified. Key findings: (1) ensure_utc() helper correctly normalizes datetime values, (2) No datetime comparison errors after backend restart, (3) Bet Settlement page shows 2 matches with unsettled bets, (4) Lay bet liability calculation correct: stake*(odds-1), (5) Back bet deducts full stake, (6) CricketData API rate-limited but Odds API working fine with 7 cricket events.",
+  "features_tested": {
+    "matches_with_odds": {
+      "status": "PASS",
+      "details": "GET /api/matches returns 27 matches, several with real odds from Odds API (e.g., KKR vs MI: 2.66/1.6)"
+    },
+    "no_minor_leagues": {
+      "status": "PASS",
+      "details": "No Plunket Shield, Sheffield Shield, or Ranji Trophy matches in response"
+    },
+    "admin_pending_settlements": {
+      "status": "PASS",
+      "details": "GET /api/admin/settlement/pending returns matches with unsettled bets (requires auth)"
+    },
+    "bet_settlement_endpoint": {
+      "status": "PASS",
+      "details": "PUT /api/admin/matches/{match_id}/outcome?winner=TeamName works correctly"
+    },
+    "lay_bet_liability": {
+      "status": "PASS",
+      "details": "POST /api/bets correctly calculates lay bet liability as stake*(odds-1)"
+    },
+    "back_bet_deduction": {
+      "status": "PASS",
+      "details": "POST /api/bets correctly deducts full stake for back bets"
+    },
+    "datetime_fix": {
+      "status": "PASS",
+      "details": "No 'can't compare offset-naive and offset-aware datetimes' errors after backend restart"
+    },
+    "admin_bet_settlement_page": {
+      "status": "PASS",
+      "details": "Page loads with 'Matches with Unsettled Bets' section and 'All Active Matches' section"
+    },
+    "sidebar_renamed": {
+      "status": "PASS",
+      "details": "Admin sidebar shows 'Bet Settlement' link (renamed from 'Declare Outcomes')"
+    }
+  },
+  "mocked_apis": {
+    "note": "No mocked APIs - all endpoints use real data"
+  },
+  "screenshots_taken": [
+    ".screenshots/homepage_bet_settlement_test.png - Homepage with 26 matches",
+    ".screenshots/admin_bet_settlement_page.png - Admin Bet Settlement page with pending settlements"
+  ]
+}

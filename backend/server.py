@@ -50,6 +50,23 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ==================== UTILITY: Datetime Normalization ====================
+def ensure_utc(val) -> Optional[datetime]:
+    """Convert any datetime/string value to timezone-aware UTC datetime.
+    Returns None if conversion fails."""
+    if val is None:
+        return None
+    try:
+        if isinstance(val, datetime):
+            return val.replace(tzinfo=timezone.utc) if val.tzinfo is None else val
+        if isinstance(val, str):
+            cleaned = val.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(cleaned)
+            return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+    except Exception:
+        return None
+    return None
+
 # ==================== WEBSOCKET MANAGER ====================
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -863,7 +880,7 @@ class OddsService:
                             "home_odds": final_home_odds,
                             "away_odds": final_away_odds,
                             "odds_updated_at": datetime.now(timezone.utc),
-                            "commence_time": commence_dt
+                            "commence_time": commence_dt if commence_dt.tzinfo else commence_dt.replace(tzinfo=timezone.utc)
                         }}
                     )
                     merged_count += 1
@@ -876,7 +893,7 @@ class OddsService:
                         "league": event.get("sport_title", "Cricket"),
                         "home_team": home_team,
                         "away_team": away_team,
-                        "commence_time": commence_dt,
+                        "commence_time": commence_dt if commence_dt.tzinfo else commence_dt.replace(tzinfo=timezone.utc),
                         "odds": odds_data,
                         "home_odds": home_odds,
                         "away_odds": away_odds,
@@ -979,9 +996,13 @@ async def scheduled_odds_fetch_async():
         
         # Also clean up old completed matches (older than 24 hours)
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+        # Handle both datetime and string commence_time in DB
         result = await db.matches.delete_many({
             "status": {"$in": ["completed", "ended", "finished"]},
-            "commence_time": {"$lt": cutoff_time.isoformat()}
+            "$or": [
+                {"commence_time": {"$lt": cutoff_time}},
+                {"commence_time": {"$lt": cutoff_time.isoformat()}}
+            ]
         })
         logger.info(f"Cleaned up {result.deleted_count} old completed matches")
         
@@ -998,25 +1019,15 @@ async def check_live_matches_and_poll_async():
         # Auto-mark scheduled matches as "live" if their commence_time has passed
         scheduled_matches = await db.matches.find({"status": "scheduled"}, {"_id": 0, "match_id": 1, "commence_time": 1, "home_team": 1, "away_team": 1}).to_list(500)
         for sm in scheduled_matches:
-            ct_val = sm.get("commence_time")
-            if not ct_val:
+            ct = ensure_utc(sm.get("commence_time"))
+            if not ct:
                 continue
-            try:
-                if isinstance(ct_val, str):
-                    ct = datetime.fromisoformat(ct_val.replace("Z", "+00:00"))
-                elif isinstance(ct_val, datetime):
-                    ct = ct_val if ct_val.tzinfo else ct_val.replace(tzinfo=timezone.utc)
-                else:
-                    continue
-                
-                if ct <= current_time:
-                    await db.matches.update_one(
-                        {"match_id": sm["match_id"]},
-                        {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time.isoformat()}}
-                    )
-                    logger.info(f"Auto-promoted to LIVE: {sm.get('home_team')} vs {sm.get('away_team')} (commence={ct_val})")
-            except Exception as e:
-                logger.warning(f"Error auto-promoting match: {e}")
+            if ct <= current_time:
+                await db.matches.update_one(
+                    {"match_id": sm["match_id"]},
+                    {"$set": {"status": "live", "matchStarted": True, "updated_at": current_time}}
+                )
+                logger.info(f"Auto-promoted to LIVE: {sm.get('home_team')} vs {sm.get('away_team')} (commence={ct.isoformat()})")
         
         # Also auto-cleanup: mark minor domestic league matches as completed to remove them
         MINOR_LEAGUES_PATTERNS = ["plunket shield", "sheffield shield", "ranji trophy", "vijay hazare", "syed mushtaq ali", "county championship", "ford trophy", "marsh cup"]
@@ -1139,23 +1150,14 @@ async def check_live_matches_and_poll_async():
                 
                 # Method 4: Time-based completion (handle both datetime and string)
                 if not should_complete and commence:
-                    try:
-                        if isinstance(commence, str):
-                            commence_dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                        elif isinstance(commence, datetime):
-                            commence_dt = commence if commence.tzinfo else commence.replace(tzinfo=timezone.utc)
-                        else:
-                            commence_dt = None
-                        
-                        if commence_dt:
-                            hours_since_start = (current_time - commence_dt).total_seconds() / 3600
-                            # T20: ~3.5 hours, Other formats: ~5 hours
-                            threshold = 3.5
-                            if hours_since_start > threshold:
-                                should_complete = True
-                                completion_reason = f"Live for {hours_since_start:.1f} hours (>{threshold}h threshold)"
-                    except Exception:
-                        pass
+                    commence_dt = ensure_utc(commence)
+                    if commence_dt:
+                        hours_since_start = (current_time - commence_dt).total_seconds() / 3600
+                        # T20: ~3.5 hours, Other formats: ~5 hours
+                        threshold = 3.5
+                        if hours_since_start > threshold:
+                            should_complete = True
+                            completion_reason = f"Live for {hours_since_start:.1f} hours (>{threshold}h threshold)"
                 
                 # Method 5: Extreme odds detection (one team at < 1.05 odds = match decided)
                 if not should_complete:
@@ -1534,21 +1536,48 @@ async def reply_ticket(ticket_id: str, reply: TicketReply, current_user: User = 
 
 @api_router.put("/admin/matches/{match_id}/outcome")
 async def declare_outcome(match_id: str, winner: str, current_user: User = Depends(get_current_admin)):
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
     await db.matches.update_one(
         {"match_id": match_id},
-        {"$set": {"winner": winner, "status": "completed"}}
+        {"$set": {"winner": winner, "status": "completed", "matchEnded": True}}
     )
     
-    # Settle bets
+    # Settle all pending bets for this match
+    settled = await settle_match_bets(match_id, winner)
+    
+    return {"success": True, **settled}
+
+
+async def settle_match_bets(match_id: str, winner: str) -> dict:
+    """Settle all pending bets for a completed match.
+    Back bets win when selected_team == winner.
+    Lay bets win when selected_team != winner."""
     bets = await db.bets.find({"match_id": match_id, "status": "pending"}, {"_id": 0}).to_list(1000)
     
+    won_count = 0
+    lost_count = 0
+    total_payout = 0.0
+    
     for bet in bets:
-        if bet["selected_team"] == winner:
-            # User won
+        bet_type = bet.get("bet_type", "back")
+        selected = bet["selected_team"]
+        
+        # Determine win condition based on bet type
+        if bet_type == "lay":
+            is_winner = selected != winner  # Lay wins when selected team LOSES
+        else:
+            is_winner = selected == winner  # Back wins when selected team WINS
+        
+        if is_winner:
+            # Credit winnings to user wallet
             wallet = await db.wallets.find_one({"user_id": bet["user_id"]}, {"_id": 0})
             if wallet:
                 balance_before = wallet["balance"]
-                balance_after = balance_before + bet["potential_win"]
+                payout = bet["potential_win"]
+                balance_after = round(balance_before + payout, 2)
                 
                 await db.wallets.update_one(
                     {"user_id": bet["user_id"]},
@@ -1558,26 +1587,58 @@ async def declare_outcome(match_id: str, winner: str, current_user: User = Depen
                 transaction = Transaction(
                     user_id=bet["user_id"],
                     type=TransactionType.WINNING,
-                    amount=bet["potential_win"],
+                    amount=payout,
                     balance_before=balance_before,
                     balance_after=balance_after,
-                    note=f"Won bet on {match_id}"
+                    note=f"Won {bet_type} bet on {match_id} - {selected}"
                 )
-                
                 await db.transactions.insert_one(transaction.model_dump())
+                total_payout += payout
             
             await db.bets.update_one(
                 {"bet_id": bet["bet_id"]},
                 {"$set": {"status": "won", "settled_at": datetime.now(timezone.utc)}}
             )
+            won_count += 1
         else:
-            # User lost
+            # Bet lost - stake already deducted at placement
             await db.bets.update_one(
                 {"bet_id": bet["bet_id"]},
                 {"$set": {"status": "lost", "settled_at": datetime.now(timezone.utc)}}
             )
+            lost_count += 1
     
-    return {"success": True}
+    logger.info(f"Settled {len(bets)} bets for match {match_id}: {won_count} won, {lost_count} lost, total payout={total_payout}")
+    return {"total_bets": len(bets), "won": won_count, "lost": lost_count, "total_payout": total_payout}
+
+
+@api_router.get("/admin/settlement/pending")
+async def get_pending_settlements(current_user: User = Depends(get_current_admin)):
+    """Get matches with unsettled bets (completed but no winner declared)"""
+    # Matches that are completed/live with pending bets
+    pending_bet_matches = await db.bets.distinct("match_id", {"status": "pending"})
+    
+    matches = []
+    for mid in pending_bet_matches:
+        match = await db.matches.find_one({"match_id": mid}, {"_id": 0})
+        if match:
+            bet_count = await db.bets.count_documents({"match_id": mid, "status": "pending"})
+            total_stake = 0
+            bets = await db.bets.find({"match_id": mid, "status": "pending"}, {"_id": 0, "stake": 1}).to_list(1000)
+            total_stake = sum(b.get("stake", 0) for b in bets)
+            matches.append({
+                "match_id": mid,
+                "home_team": match.get("home_team"),
+                "away_team": match.get("away_team"),
+                "status": match.get("status"),
+                "league": match.get("league"),
+                "winner": match.get("winner"),
+                "pending_bets": bet_count,
+                "total_stake": round(total_stake, 2)
+            })
+    
+    return {"matches": matches, "total": len(matches)}
+
 
 # ==================== ADMIN CRICKET MATCHES ====================
 @api_router.post("/admin/cricket/matches")
@@ -1841,12 +1902,16 @@ async def smart_cricket_poll():
         # AUTO CLEANUP: Mark matches that were "live" but no longer in API response as "completed"
         if api_match_ids:
             stale_cutoff = now - timedelta(minutes=30)
+            # Handle both datetime and string updated_at in DB
             result = await db.matches.update_many(
                 {
                     "sport": "cricket",
                     "status": "live",
                     "match_id": {"$nin": list(api_match_ids)},
-                    "updated_at": {"$lt": stale_cutoff.isoformat()}
+                    "$or": [
+                        {"updated_at": {"$lt": stale_cutoff}},
+                        {"updated_at": {"$lt": stale_cutoff.isoformat()}}
+                    ]
                 },
                 {"$set": {"status": "completed", "matchEnded": True}}
             )
@@ -1917,7 +1982,10 @@ async def get_matches(sport: Optional[str] = None):
     await db.matches.update_many(
         {
             "status": "live",
-            "updated_at": {"$lt": stale_live_cutoff.isoformat()}
+            "$or": [
+                {"updated_at": {"$lt": stale_live_cutoff}},
+                {"updated_at": {"$lt": stale_live_cutoff.isoformat()}}
+            ]
         },
         {"$set": {"status": "completed"}}
     )
@@ -1969,20 +2037,9 @@ async def get_matches(sport: Optional[str] = None):
         commence_time = m.get("commence_time")
         if commence_time:
             try:
-                # Handle both datetime objects and strings
-                if isinstance(commence_time, datetime):
-                    ct = commence_time
-                elif isinstance(commence_time, str):
-                    if "T" in commence_time:
-                        ct = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
-                    else:
-                        ct = datetime.fromisoformat(commence_time)
-                else:
+                ct = ensure_utc(commence_time)
+                if not ct:
                     continue
-                
-                # Make timezone aware if needed
-                if ct.tzinfo is None:
-                    ct = ct.replace(tzinfo=timezone.utc)
                 
                 # Include if match is upcoming OR recently started (within 6 hours)
                 # Recently started matches may not yet be marked as "live" by external API
@@ -2379,11 +2436,22 @@ async def get_match_detail(match_id: str):
 @api_router.post("/bets", response_model=Bet)
 async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_current_user)):
     wallet = await db.wallets.find_one({"user_id": current_user.user_id}, {"_id": 0})
-    if not wallet or wallet["balance"] < bet_input.stake:
+    
+    # Calculate the amount to deduct from wallet
+    if bet_input.bet_type == "lay":
+        # Lay bet: liability = stake * (odds - 1)
+        deduction = round(bet_input.stake * (bet_input.odds - 1), 2)
+        potential_win = round(bet_input.stake + deduction, 2)  # Get liability back + earn backer's stake
+    else:
+        # Back bet: deduct full stake
+        deduction = bet_input.stake
+        potential_win = round(bet_input.stake * bet_input.odds, 2)  # Total return including stake
+    
+    if not wallet or wallet["balance"] < deduction:
         raise HTTPException(status_code=400, detail="Insufficient balance")
     
     balance_before = wallet["balance"]
-    balance_after = balance_before - bet_input.stake
+    balance_after = round(balance_before - deduction, 2)
     
     await db.wallets.update_one(
         {"user_id": current_user.user_id},
@@ -2393,10 +2461,10 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
     transaction = Transaction(
         user_id=current_user.user_id,
         type=TransactionType.BET,
-        amount=bet_input.stake,
+        amount=deduction,
         balance_before=balance_before,
         balance_after=balance_after,
-        note=f"Bet on {bet_input.match_id}"
+        note=f"{'Lay' if bet_input.bet_type == 'lay' else 'Back'} bet on {bet_input.match_id}"
     )
     
     await db.transactions.insert_one(transaction.model_dump())
@@ -2407,7 +2475,7 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
         selected_team=bet_input.selected_team,
         odds=bet_input.odds,
         stake=bet_input.stake,
-        potential_win=bet_input.stake * bet_input.odds,
+        potential_win=potential_win,
         bet_type=bet_input.bet_type,
         market_type=bet_input.market_type
     )

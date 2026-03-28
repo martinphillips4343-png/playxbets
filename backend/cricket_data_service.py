@@ -153,17 +153,23 @@ class QuotaManager:
                     reset_time = doc.get("reset_time")
                     if isinstance(reset_time, str):
                         reset_time = datetime.fromisoformat(reset_time.replace("Z", "+00:00"))
+                    elif isinstance(reset_time, datetime) and reset_time.tzinfo is None:
+                        reset_time = reset_time.replace(tzinfo=timezone.utc)
                     
                     now = datetime.now(timezone.utc)
                     if reset_time and now >= reset_time:
                         await self._reset_quota()
                         return await self.get_status()
                     
+                    last_req = doc.get("last_request_time")
+                    if isinstance(last_req, datetime) and last_req.tzinfo is None:
+                        last_req = last_req.replace(tzinfo=timezone.utc)
+                    
                     self._quota_status = QuotaStatus(
                         requests_made=doc.get("requests_made", 0),
                         quota_limit=doc.get("quota_limit", DAILY_QUOTA_LIMIT),
                         reset_time=reset_time or (now + timedelta(days=1)),
-                        last_request_time=doc.get("last_request_time"),
+                        last_request_time=last_req,
                         is_quota_exceeded=doc.get("is_quota_exceeded", False)
                     )
                     return self._quota_status
