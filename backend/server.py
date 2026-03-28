@@ -1190,18 +1190,17 @@ def start_scheduler():
         replace_existing=True
     )
 
-    # SINGLE orchestrator — runs every 10 seconds, decides internally what to poll
+    # Orchestrator tick every 30s — actual API calls gated by coordinator intervals (60s live, 10min upcoming)
     scheduler.add_job(
         run_smart_orchestrator,
-        IntervalTrigger(seconds=10),
+        IntervalTrigger(seconds=30),
         id='smart_orchestrator',
         replace_existing=True
     )
 
     scheduler.start()
-    logger.info("Scheduler started — Smart Orchestrator every 10s")
-    logger.info("  Live matches: odds 12s, cricket 10s, completion 10s")
-    logger.info("  Upcoming: odds 5min, cricket 5min")
+    logger.info("Scheduler started — Smart Orchestrator every 30s")
+    logger.info("  Live: 60s per API call | Upcoming: 10min per API call")
 
 
 # ==================== AUTH ROUTES ====================
