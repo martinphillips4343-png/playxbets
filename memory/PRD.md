@@ -56,6 +56,14 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Post-merge cleanup: removes Odds-API-created duplicate entries
 - All 8 Odds API matches correctly merging into CricketData entries
 
+### Auto-Completion Enhancement (2026-03-28)
+- Fixed string datetime parsing bug: commence_time stored as string was never triggering time-based completion
+- Added Odds API /scores endpoint check for completed=True flag
+- Lowered T20 time threshold from 5h to 3.5h for faster detection
+- Added extreme odds detection: odds < 1.03 with opponent > 10 triggers auto-completion
+- Fixed "Not in Odds API" check to only apply to Odds-API-created matches (not CricketData multi-day matches)
+- Improved cricScore matching with proper fuzzy team name matching
+
 ## Upcoming Tasks
 1. **(P1) Bet Settlement Logic** - When match completes, winning bettors get stake x odds
 2. **(P1) User/Admin Panel Clean Separation** - Distinct dashboards and menus

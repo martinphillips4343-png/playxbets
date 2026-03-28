@@ -894,7 +894,26 @@ async def check_live_matches_and_poll_async():
         
         if our_live_matches:
             # Fetch current Odds API events to compare
+            odds_team_pairs = set()
+            odds_completed_pairs = set()
             try:
+                # Check scores endpoints for completion status
+                for sport_key in ["cricket_psl", "cricket_ipl"]:
+                    try:
+                        scores_url = f"{ODDS_API_BASE}/sports/{sport_key}/scores"
+                        scores_params = {"apiKey": ODDS_API_KEY, "daysFrom": 1}
+                        scores_resp = await asyncio.get_event_loop().run_in_executor(
+                            None, lambda url=scores_url, p=scores_params: requests.get(url, params=p, timeout=10)
+                        )
+                        if scores_resp.status_code == 200:
+                            for ev in scores_resp.json():
+                                h = ev.get("home_team", "").lower().strip()
+                                a = ev.get("away_team", "").lower().strip()
+                                if ev.get("completed"):
+                                    odds_completed_pairs.add((h, a))
+                    except Exception:
+                        pass
+                
                 odds_url = f"{ODDS_API_BASE}/sports/cricket/odds"
                 odds_params = {
                     "apiKey": ODDS_API_KEY,
@@ -906,14 +925,13 @@ async def check_live_matches_and_poll_async():
                     None, lambda: requests.get(odds_url, params=odds_params, timeout=15)
                 )
                 odds_events = odds_resp.json() if odds_resp.status_code == 200 else []
-                odds_team_pairs = set()
                 for ev in odds_events:
                     h = ev.get("home_team", "").lower().strip()
                     a = ev.get("away_team", "").lower().strip()
                     odds_team_pairs.add((h, a))
             except Exception as e:
                 logger.error(f"Odds API check failed: {e}")
-                odds_team_pairs = None  # Don't use for detection if failed
+                odds_team_pairs = None
             
             # Fetch cricScore for completion detection
             try:
@@ -937,47 +955,75 @@ async def check_live_matches_and_poll_async():
                 should_complete = False
                 completion_reason = ""
                 
-                # Method 1: Match not in Odds API anymore = completed
-                if odds_team_pairs is not None:
-                    in_odds = (home, away) in odds_team_pairs or (away, home) in odds_team_pairs
-                    if not in_odds:
-                        # Double check with fuzzy matching
-                        home_words = set(w for w in home.split() if len(w) > 2)
-                        found = False
+                # Method 1: Odds API /scores says completed=True
+                if odds_completed_pairs:
+                    for (ch, ca) in odds_completed_pairs:
+                        if OddsService.teams_match(home, ch) and OddsService.teams_match(away, ca):
+                            should_complete = True
+                            completion_reason = "Odds API scores: completed"
+                            break
+                        if OddsService.teams_match(home, ca) and OddsService.teams_match(away, ch):
+                            should_complete = True
+                            completion_reason = "Odds API scores: completed (reversed)"
+                            break
+                
+                # Method 2: Match not in Odds API anymore = only for Odds-API-created matches
+                if not should_complete and odds_team_pairs is not None:
+                    mid = our_match.get("match_id", "")
+                    is_odds_api_match = isinstance(mid, str) and len(mid) > 20 and "-" not in mid
+                    if is_odds_api_match:
+                        in_odds = False
                         for (h, a) in odds_team_pairs:
-                            h_words = set(w for w in h.split() if len(w) > 2)
-                            a_words = set(w for w in a.split() if len(w) > 2)
-                            if home_words & h_words and home_words & a_words:
-                                found = True
+                            if OddsService.teams_match(home, h) and OddsService.teams_match(away, a):
+                                in_odds = True
                                 break
-                            if home_words & a_words:
-                                found = True
+                            if OddsService.teams_match(home, a) and OddsService.teams_match(away, h):
+                                in_odds = True
                                 break
-                        if not found:
+                        if not in_odds:
                             should_complete = True
                             completion_reason = "Not in Odds API"
                 
-                # Method 2: cricScore shows non-live status
-                for (t1, t2), ms in cricscore_statuses.items():
-                    home_words = [w for w in home.split() if len(w) > 2]
-                    if any(w in t1 for w in home_words) and any(w in t2 for w in home_words):
-                        pass  # same logic
-                    t1_match = any(w in t1 for w in home_words) or any(w in t2 for w in [w for w in away.split() if len(w) > 2])
-                    t2_match = any(w in t2 for w in home_words) or any(w in t1 for w in [w for w in away.split() if len(w) > 2])
-                    if t1_match or t2_match:
-                        if ms in ("result", "complete", "abandoned", "no result"):
-                            should_complete = True
-                            completion_reason = f"cricScore status: {ms}"
-                            break
+                # Method 3: cricScore shows non-live status
+                if not should_complete:
+                    for (t1, t2), ms in cricscore_statuses.items():
+                        t1_match = OddsService.teams_match(home, t1) or OddsService.teams_match(away, t1)
+                        t2_match = OddsService.teams_match(away, t2) or OddsService.teams_match(home, t2)
+                        if t1_match and t2_match:
+                            if ms in ("result", "complete", "abandoned", "no result"):
+                                should_complete = True
+                                completion_reason = f"cricScore status: {ms}"
+                                break
                 
-                # Method 3: T20 match live for > 5 hours = likely completed
-                if commence and isinstance(commence, datetime):
-                    if commence.tzinfo is None:
-                        commence = commence.replace(tzinfo=timezone.utc)
-                    hours_since_start = (current_time - commence).total_seconds() / 3600
-                    if hours_since_start > 5:
-                        should_complete = True
-                        completion_reason = f"Live for {hours_since_start:.1f} hours"
+                # Method 4: Time-based completion (handle both datetime and string)
+                if not should_complete and commence:
+                    try:
+                        if isinstance(commence, str):
+                            commence_dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                        elif isinstance(commence, datetime):
+                            commence_dt = commence if commence.tzinfo else commence.replace(tzinfo=timezone.utc)
+                        else:
+                            commence_dt = None
+                        
+                        if commence_dt:
+                            hours_since_start = (current_time - commence_dt).total_seconds() / 3600
+                            # T20: ~3.5 hours, Other formats: ~5 hours
+                            threshold = 3.5
+                            if hours_since_start > threshold:
+                                should_complete = True
+                                completion_reason = f"Live for {hours_since_start:.1f} hours (>{threshold}h threshold)"
+                    except Exception:
+                        pass
+                
+                # Method 5: Extreme odds detection (one team at < 1.05 odds = match decided)
+                if not should_complete:
+                    match_odds = our_match.get("odds") or {}
+                    home_back = match_odds.get("home_back") or our_match.get("home_odds")
+                    away_back = match_odds.get("away_back") or our_match.get("away_odds")
+                    if home_back and away_back:
+                        if (home_back <= 1.03 and away_back >= 10) or (away_back <= 1.03 and home_back >= 10):
+                            should_complete = True
+                            completion_reason = f"Extreme odds: {home_back}/{away_back} - match decided"
                 
                 if should_complete:
                     logger.info(f"Auto-completing match: {our_match.get('home_team')} vs {our_match.get('away_team')} - Reason: {completion_reason}")
