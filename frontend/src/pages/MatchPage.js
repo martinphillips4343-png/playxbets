@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "@/App";
 import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
-import TiedMatchMarket, { hasTieMarket, getTieMarketData, getMockTieMarketData } from "@/components/TiedMatchMarket";
+import TiedMatchMarket from "@/components/TiedMatchMarket";
 import { formatIndianDateTime } from "@/utils/dateFormat";
 import { useMatchUpdates } from "@/hooks/useWebSocket";
 import {
@@ -214,36 +214,6 @@ const SessionColumnHeaders = () => (
 );
 
 // ==================== TIED MATCH SECTION (CONDITIONAL) ====================
-const TiedMatchSection = ({ match, onSelectOdds }) => {
-  // Get tie market data from match (checks multiple sources)
-  const tieMarketData = useMemo(() => {
-    // First check if match has real tie market data
-    const realData = getTieMarketData(match);
-    if (realData) return realData;
-    
-    // Fallback: Only show mock data if match explicitly supports tie market
-    // This ensures TIED_MATCH only shows for matches that support it
-    if (match?.hasTieMarket === true || match?.features?.hasTieMarket === true) {
-      return getMockTieMarketData();
-    }
-    
-    // For cricket T20/ODI matches, tie is possible - show market with mock data
-    // This is a temporary fallback until API integration is complete
-    if (match?.sport === "cricket" && (match?.format === "t20" || match?.format === "odi")) {
-      return getMockTieMarketData();
-    }
-    
-    return null;
-  }, [match]);
-
-  // Don't render if no tie market data
-  if (!tieMarketData) {
-    return null;
-  }
-
-  return <TiedMatchMarket marketData={tieMarketData} onSelectOdds={onSelectOdds} />;
-};
-
 // ==================== MAIN COMPONENT ====================
 export default function MatchPage({ user, onShowAuth, onLogout }) {
   const { matchId } = useParams();
@@ -1140,6 +1110,16 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
+            {/* ==================== TIED MATCH (CRICKET - Below Session Markets) ==================== */}
+            {isCricket && (
+              <TiedMatchMarket
+                match={match}
+                onSelectOdds={addToBetSlip}
+                ballRunning={isLive && ballRunning}
+                matchSuspended={isLive && matchSuspended}
+              />
+            )}
+
             {/* ==================== OVER RUNS (CRICKET) ==================== */}
             {isCricket && (
               <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="over-runs-section">
@@ -1260,8 +1240,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               </div>
             )}
 
-            {/* ==================== TIED_MATCH (DYNAMIC - CRICKET) ==================== */}
-            {isCricket && <TiedMatchSection match={match} onSelectOdds={addToBetSlip} />}
           </div>
 
           {/* ==================== BET SLIP SIDEBAR (DESKTOP) ==================== */}

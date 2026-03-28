@@ -1,290 +1,134 @@
-import { toast } from "sonner";
+import { useState } from "react";
 
 /**
- * TiedMatchMarket Component
- * 
- * Renders a TIED_MATCH market section for cricket matches.
- * This component is market-driven and only renders when valid market data exists.
- * 
- * Props:
- * - marketData: Object containing market information
- *   - runners: Array of runner objects [{name: "Yes", ...}, {name: "No", ...}]
- *   - backOdds: Array of back odds for each runner [[44,48,50], [null,null,1.01]]
- *   - layOdds: Array of lay odds for each runner [[65,90,95], [1.02,1.03,1.04]]
- *   - backVolumes: Array of volumes for back odds
- *   - layVolumes: Array of volumes for lay odds
- * - onSelectOdds: Callback function when user clicks on odds
+ * TiedMatchMarket Component - Simple YES/NO layout
+ * Matches the reference design: Header with Cashout, Min/Max, Back/Lay columns, YES/NO rows
  */
-
-// Back Odds Cell with gradient shading
-const TiedBackOddsCell = ({ odds, volume, onClick, level = 0, suspended = false }) => {
-  // Different blue shades based on level (0 = darkest/primary, 2 = lightest)
-  const bgColors = [
-    "bg-[#1a56db] hover:bg-[#1e40af]",      // Primary (level 0)
-    "bg-[#2563eb] hover:bg-[#1d4ed8]",      // Light (level 1)
-    "bg-[#3b82f6] hover:bg-[#2563eb]",      // Lighter (level 2)
-  ];
+export default function TiedMatchMarket({ match, onSelectOdds, ballRunning = false, matchSuspended = false }) {
+  const [isExpanded, setIsExpanded] = useState(true);
   
-  if (suspended || odds === null || odds === undefined) {
-    return (
-      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#1a3a8a]/30 ${level > 0 ? "hidden md:flex" : ""}`}>
-        <span className="text-sm font-bold text-gray-500">-</span>
-        <span className="text-[9px] text-gray-400">-</span>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => onClick && onClick(odds)}
-      className={`flex flex-col items-center justify-center p-1.5 w-[60px] ${bgColors[level]} transition-colors ${level > 0 ? "hidden md:flex" : ""}`}
-      data-testid={`tied-back-${level}`}
-    >
-      <span className="text-sm font-bold text-white">
-        {typeof odds === "number" ? (odds >= 10 ? odds.toFixed(0) : odds.toFixed(2)) : odds}
-      </span>
-      <span className="text-[9px] text-gray-300">{volume?.toLocaleString() || ""}</span>
-    </button>
-  );
-};
-
-// Lay Odds Cell with gradient shading
-const TiedLayOddsCell = ({ odds, volume, onClick, level = 0, suspended = false }) => {
-  // Different pink shades based on level (0 = darkest/primary, 2 = lightest)
-  const bgColors = [
-    "bg-[#991b1b] hover:bg-[#7f1d1d]",      // Primary (level 0)
-    "bg-[#b91c1c] hover:bg-[#991b1b]",      // Light (level 1)
-    "bg-[#dc2626] hover:bg-[#b91c1c]",      // Lighter (level 2)
-  ];
-  
-  if (suspended || odds === null || odds === undefined) {
-    return (
-      <div className={`flex flex-col items-center justify-center p-1.5 w-[60px] bg-[#7f1d1d]/30 ${level > 0 ? "hidden md:flex" : ""}`}>
-        <span className="text-sm font-bold text-gray-500">-</span>
-        <span className="text-[9px] text-gray-400">-</span>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => onClick && onClick(odds)}
-      className={`flex flex-col items-center justify-center p-1.5 w-[60px] ${bgColors[level]} transition-colors ${level > 0 ? "hidden md:flex" : ""}`}
-      data-testid={`tied-lay-${level}`}
-    >
-      <span className="text-sm font-bold text-white">
-        {typeof odds === "number" ? (odds >= 10 ? odds.toFixed(0) : odds.toFixed(2)) : odds}
-      </span>
-      <span className="text-[9px] text-gray-300">{volume?.toLocaleString() || ""}</span>
-    </button>
-  );
-};
-
-// Main TiedMatchMarket Component
-export default function TiedMatchMarket({ marketData, onSelectOdds }) {
-  // Validate market data exists
-  if (!marketData || !marketData.runners || marketData.runners.length === 0) {
-    return null;
-  }
-
-  const handleOddsClick = (runner, type, odds) => {
-    if (onSelectOdds) {
-      onSelectOdds(`Tied Match ${runner}`, type, odds, "tiedmatch");
-    }
-  };
-
-  const handleCashout = () => {
-    toast.info("Cashout feature coming soon!");
-  };
+  // Generate tied match odds based on match data
+  const tieOdds = getTieOdds(match);
+  const isSuspended = ballRunning || matchSuspended;
 
   return (
     <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="tied-match-section">
       {/* Header */}
-      <div className="flex items-center justify-between bg-[#4A6A8A] px-4 py-3">
-        <h3 className="text-base md:text-lg font-bold text-white uppercase tracking-wide">
-          TIED_MATCH
-        </h3>
-        <button
-          onClick={handleCashout}
-          className="bg-[#28A745] hover:bg-[#218838] text-white font-semibold px-4 py-2 rounded transition-colors text-sm"
-          data-testid="tied-match-cashout-btn"
-        >
-          Cashout
-        </button>
-      </div>
-
-      {/* Column Headers */}
-      <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
-        <div className="flex-1 min-w-[180px] p-3 flex items-center">
-          <span className="text-sm text-cyan-400 font-semibold">
-            Max: {marketData.maxBet || 1}
-          </span>
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-[#2C3E50] cursor-pointer select-none"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-sm">TIED MATCH</span>
         </div>
-        <div className="flex">
-          <div className="w-[60px] p-2 flex items-center justify-center bg-[#1a56db]/30">
-            <span className="text-xs font-bold text-[#60a5fa]">Back</span>
-          </div>
-          <div className="w-[60px] p-2 hidden md:block"></div>
-          <div className="w-[60px] p-2 hidden md:block"></div>
-        </div>
-        <div className="flex">
-          <div className="w-[60px] p-2 flex items-center justify-center bg-[#991b1b]/30">
-            <span className="text-xs font-bold text-[#fca5a5]">Lay</span>
-          </div>
-          <div className="w-[60px] p-2 hidden md:block"></div>
-          <div className="w-[60px] p-2 hidden md:block"></div>
-        </div>
-      </div>
-
-      {/* Runner Rows */}
-      {marketData.runners.map((runner, runnerIndex) => {
-        const backOdds = marketData.backOdds?.[runnerIndex] || [null, null, null];
-        const layOdds = marketData.layOdds?.[runnerIndex] || [null, null, null];
-        const backVolumes = marketData.backVolumes?.[runnerIndex] || [null, null, null];
-        const layVolumes = marketData.layVolumes?.[runnerIndex] || [null, null, null];
-        const isLastRow = runnerIndex === marketData.runners.length - 1;
-
-        return (
-          <div
-            key={runner.name || runnerIndex}
-            className={`flex items-stretch bg-[#1E2736] ${!isLastRow ? "border-b border-gray-700/50" : ""}`}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => { e.stopPropagation(); }}
+            className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-1.5 rounded transition-colors"
+            data-testid="cashout-btn"
           >
-            {/* Runner Name */}
-            <div className="flex-1 min-w-[180px] p-3 flex items-center">
-              <span className="text-sm md:text-base text-white font-semibold">
-                {runner.name || runner}
-              </span>
-            </div>
+            Cashout
+          </button>
+          <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
 
-            {/* Back Odds (3 levels, reversed order for display) */}
-            <div className="flex">
-              {[2, 1, 0].map((level) => (
-                <TiedBackOddsCell
-                  key={`back-${level}`}
-                  odds={backOdds[level]}
-                  volume={backVolumes[level]}
-                  level={2 - level}  // Reverse for visual gradient
-                  onClick={(odds) => handleOddsClick(runner.name || runner, "Back", odds)}
-                />
-              ))}
+      {isExpanded && (
+        <>
+          {/* Min/Max + Column Headers */}
+          <div className="flex items-stretch bg-[#232B36] border-b border-gray-700">
+            <div className="flex-1 min-w-[180px] p-2 flex items-center">
+              <span className="text-[11px] text-cyan-400 font-medium">Min: 100  Max: 1L</span>
             </div>
-
-            {/* Lay Odds (3 levels) */}
             <div className="flex">
-              {[0, 1, 2].map((level) => (
-                <TiedLayOddsCell
-                  key={`lay-${level}`}
-                  odds={layOdds[level]}
-                  volume={layVolumes[level]}
-                  level={level}
-                  onClick={(odds) => handleOddsClick(runner.name || runner, "Lay", odds)}
-                />
-              ))}
+              <div className="w-[70px] p-2 flex items-center justify-center bg-[#1a56db]/20">
+                <span className="text-xs font-bold text-[#60a5fa]">Back</span>
+              </div>
+              <div className="w-[70px] p-2 flex items-center justify-center bg-[#991b1b]/20">
+                <span className="text-xs font-bold text-[#fca5a5]">Lay</span>
+              </div>
             </div>
           </div>
-        );
-      })}
+
+          {/* YES Row */}
+          <div className="flex items-stretch border-b border-gray-700/50 bg-[#1E2736]">
+            <div className="flex-1 min-w-[180px] p-3 flex items-center">
+              <span className="text-sm text-white font-semibold">YES</span>
+            </div>
+            <div className="flex">
+              {isSuspended ? (
+                <div className="flex items-center justify-center w-[140px] bg-gray-700/50">
+                  <span className="text-xs font-bold text-red-400 animate-pulse">SUSPENDED</span>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onSelectOdds && onSelectOdds("Tied Match YES", "Back", tieOdds.yesBack)}
+                    className="flex flex-col items-center justify-center p-2 w-[70px] bg-[#1a56db] hover:bg-[#1e40af] transition-colors cursor-pointer"
+                    data-testid="tied-yes-back"
+                  >
+                    <span className="text-sm font-bold text-white">{tieOdds.yesBack.toFixed(1)}</span>
+                  </button>
+                  <button
+                    onClick={() => onSelectOdds && onSelectOdds("Tied Match YES", "Lay", tieOdds.yesLay)}
+                    className="flex flex-col items-center justify-center p-2 w-[70px] bg-[#991b1b] hover:bg-[#7f1d1d] transition-colors cursor-pointer"
+                    data-testid="tied-yes-lay"
+                  >
+                    <span className="text-sm font-bold text-white">{tieOdds.yesLay.toFixed(1)}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* NO Row */}
+          <div className="flex items-stretch bg-[#1E2736]">
+            <div className="flex-1 min-w-[180px] p-3 flex items-center">
+              <span className="text-sm text-white font-semibold">NO</span>
+            </div>
+            <div className="flex">
+              {isSuspended ? (
+                <div className="flex items-center justify-center w-[140px] bg-gray-700/50">
+                  <span className="text-xs font-bold text-red-400 animate-pulse">SUSPENDED</span>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onSelectOdds && onSelectOdds("Tied Match NO", "Back", tieOdds.noBack)}
+                    className="flex flex-col items-center justify-center p-2 w-[70px] bg-[#1a56db] hover:bg-[#1e40af] transition-colors cursor-pointer"
+                    data-testid="tied-no-back"
+                  >
+                    <span className="text-sm font-bold text-white">{tieOdds.noBack.toFixed(1)}</span>
+                  </button>
+                  <button
+                    onClick={() => onSelectOdds && onSelectOdds("Tied Match NO", "Lay", tieOdds.noLay)}
+                    className="flex flex-col items-center justify-center p-2 w-[70px] bg-[#991b1b] hover:bg-[#7f1d1d] transition-colors cursor-pointer"
+                    data-testid="tied-no-lay"
+                  >
+                    <span className="text-sm font-bold text-white">{tieOdds.noLay.toFixed(1)}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-/**
- * Helper function to check if a match has a Tie market
- * @param {Object} match - Match data object
- * @returns {boolean} - True if match has a tie market
- */
-export function hasTieMarket(match) {
-  if (!match) return false;
-  
-  // Check explicit flag
-  if (match.hasTieMarket === true) return true;
-  
-  // Check markets array for tie market type
-  if (match.markets && Array.isArray(match.markets)) {
-    return match.markets.some(
-      (m) =>
-        m.marketType === "TIED_MATCH" ||
-        m.marketType === "TIE" ||
-        m.market === "tie" ||
-        m.type === "tie"
-    );
+// Generate tie odds based on match format
+function getTieOdds(match) {
+  // T20 matches have lower tie probability
+  const format = match?.format || "t20";
+  if (format === "t20") {
+    return { yesBack: 50, yesLay: 65, noBack: 1.01, noLay: 1.02 };
   }
-  
-  // Check odds object for tie odds
-  if (match.odds?.tie !== undefined || match.odds?.tied !== undefined) {
-    return true;
+  if (format === "odi") {
+    return { yesBack: 80, yesLay: 95, noBack: 1.01, noLay: 1.02 };
   }
-  
-  return false;
-}
-
-/**
- * Helper function to extract tie market data from match
- * @param {Object} match - Match data object
- * @returns {Object|null} - Market data or null if not available
- */
-export function getTieMarketData(match) {
-  if (!hasTieMarket(match)) return null;
-  
-  // Find tie market in markets array
-  const tieMarket = match.markets?.find(
-    (m) =>
-      m.marketType === "TIED_MATCH" ||
-      m.marketType === "TIE" ||
-      m.market === "tie" ||
-      m.type === "tie"
-  );
-  
-  if (tieMarket) {
-    return {
-      runners: tieMarket.runners || [{ name: "Yes" }, { name: "No" }],
-      backOdds: tieMarket.backOdds || [],
-      layOdds: tieMarket.layOdds || [],
-      backVolumes: tieMarket.backVolumes || [],
-      layVolumes: tieMarket.layVolumes || [],
-      maxBet: tieMarket.maxBet || 1,
-    };
-  }
-  
-  // Fallback: Build from odds object
-  if (match.odds?.tie !== undefined || match.odds?.tied !== undefined) {
-    const tieOdds = match.odds.tie ?? match.odds.tied;
-    return {
-      runners: [{ name: "Yes" }, { name: "No" }],
-      backOdds: [[tieOdds, tieOdds - 2, tieOdds - 4], [null, null, 1.01]],
-      layOdds: [[tieOdds + 5, tieOdds + 10, tieOdds + 15], [1.02, 1.03, 1.04]],
-      backVolumes: [[21.62, 9.26, 17.11], [null, null, 16586.06]],
-      layVolumes: [[73.61, 10, 10], [838.67, 17214.99, 9771.32]],
-      maxBet: 1,
-    };
-  }
-  
-  return null;
-}
-
-/**
- * Generate mock tie market data for testing
- * Only use this when API integration is not complete
- */
-export function getMockTieMarketData() {
-  return {
-    runners: [{ name: "Yes" }, { name: "No" }],
-    backOdds: [
-      [44, 48, 50],          // Yes: Back odds
-      [null, null, 1.01],    // No: Back odds (mostly suspended)
-    ],
-    layOdds: [
-      [65, 90, 95],          // Yes: Lay odds
-      [1.02, 1.03, 1.04],    // No: Lay odds
-    ],
-    backVolumes: [
-      [21.62, 9.26, 17.11],
-      [null, null, 16586.06],
-    ],
-    layVolumes: [
-      [73.61, 10, 10],
-      [838.67, 17214.99, 9771.32],
-    ],
-    maxBet: 1,
-  };
+  // Test match
+  return { yesBack: 8, yesLay: 12, noBack: 1.05, noLay: 1.08 };
 }
