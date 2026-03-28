@@ -6,7 +6,7 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 ## Tech Stack
 - **Frontend**: React 18.2.0 + Tailwind CSS + Shadcn/UI + Lucide React icons
 - **Backend**: FastAPI + MongoDB Atlas
-- **Real-time**: WebSockets (FastAPI) + APScheduler
+- **Real-time**: WebSockets (FastAPI) + APScheduler + In-Memory TTL Cache
 - **APIs**: CricketData API (Paid), The Odds API (Paid)
 
 ## Completed Features
@@ -17,68 +17,77 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 
 ### Homepage
 - Cricket-only with Live/Upcoming/Date filters
-- Clean match list, responsive mobile card layout
-- Real-time WebSocket status indicator
+- Matches show real odds (blue/red) or "Odds N/A" when unavailable
+- WebSocket "Real-time" green badge indicator
 
 ### Betfair-Style Match Betting Page
-- **Single Back/Lay**: 1 Back + 1 Lay column per team (clean, no header labels)
-- **Bookmaker sections**: Removed completely
-- **User Exposure Panel**: Per-team profit/loss from all user bets (green/red)
-- **Matched Bets Tab**: ODDS | MATCHED BET tabs, shows Team | Odds | Stake
-- **Session/Tied Colors**: Bright red (#dc2626) for No, Bright blue (#2563eb) for Yes
-- **Session SUSPENDED**: Completed overs auto-show SUSPENDED
-- **Bet Slip**: Click odds -> enter stake -> see profit/loss -> place bet
-- **Real-time**: WebSocket + fallback polling, odds flash green/red on change
-- **Match Odds Colors**: Back=Blue(#1a56db), Lay=Dark Red(#991b1b)
-- **Dynamic States**: BALL RUNNING / SUSPENDED cycle for live matches
-- **Backend 30s Polling**: All schedulers (odds, cricket, live check) run every 30 seconds
-
-### Datetime Fix (2026-03-28)
-- Added `ensure_utc()` helper to normalize all datetime values (naive/aware/string) to UTC
-- Fixed all scheduled→live auto-promotion that was broken by offset-naive vs offset-aware comparison
-- Fixed MongoDB queries that compared strings with datetime fields using `$or` pattern
-- Fixed CricketData service quota tracking timezone comparison
+- Single Back/Lay per team (no bookmaker sections)
+- User Exposure Panel, Matched Bets Tab
+- Session/Tied bright blue/red colors with SUSPENDED state
+- Bet Slip with profit/loss preview
+- Real-time odds flash green/red on change
 
 ### Bet Settlement Logic (2026-03-28)
-- **Back bets**: Deduct full stake, win when selected team wins, payout = stake × odds
-- **Lay bets**: Deduct liability (stake × (odds-1)), win when selected team LOSES, payout = liability + stake
-- **Admin Settlement Panel**: `/admin/outcomes` page shows matches with unsettled bets, pending bet counts, total stakes
-- **Settlement API**: `PUT /api/admin/matches/{match_id}/outcome?winner=TeamName` settles all pending bets
-- **Pending Settlements API**: `GET /api/admin/settlement/pending` shows matches needing settlement
+- Back bets: win when team wins, payout = stake × odds
+- Lay bets: deduct liability (stake × (odds-1)), win when team LOSES
+- Admin Bet Settlement Panel with pending bets view
+
+### Real-Time Optimization (2026-03-28) — 9-Point System
+1. **API Sync Validation**: `/api/admin/sync-report` cross-references CricketData + Odds API (total/synced/unsynced/errors/missing_odds/duplicates/time_mismatches)
+2. **Smart Orchestrator**: Single 10s scheduler replaces 3 separate jobs. Adaptive polling: live=10-12s, upcoming=5min. SmartPollCoordinator prevents duplicate polls with per-source dedup
+3. **In-Memory TTL Cache**: `sync_engine.TTLCache` with match_ttl=8s, odds_ttl=15s. Delta detection — only pushes changed data
+4. **Complete Match Coverage**: ALL cricket matches shown globally (no minor league filtering). Matches without odds show "Odds N/A"
+5. **Data Merging**: Hashmap-based fast lookup by match_id + normalized team names. Handles partial data and delayed odds
+6. **Frontend Optimization**: WebSocket-first, polling-fallback. Timestamp-based dedup prevents stale overwrites. State diffing prevents unnecessary re-renders
+7. **Backend Stability**: `api_call_with_retry()` — max 3 attempts with backoff + timeout. No duplicate API calls or infinite loops
+8. **Zero Side Effects**: Betting, UI/UX, auth all untouched
+9. **Monitoring**: `/api/monitoring/stats` — API latency, WS events, sync success rate, cache stats, coordinator status, errors
 
 ### Odds Merge System
-- Reversed match detection (swapped home/away between APIs)
-- Fuzzy team name matching (Bangalore/Bengaluru, Rawalpindi/Rawalpindiz)
+- Reversed match detection, fuzzy team name matching
 - Canonical comparison, post-merge duplicate cleanup
 
 ### Auto Match Management
-- Auto-mark scheduled → live when commence_time passes
-- Auto-detect completed matches via: Odds API /scores, time-based (3.5h T20), extreme odds (<1.03), cricScore status
-- Minor league filtering (Plunket Shield, Sheffield Shield, Ranji Trophy, etc.)
+- Auto-promote scheduled → live when commence_time passes
+- Auto-detect completed matches (Odds API scores, time-based, extreme odds, cricScore)
+- Completion detection covers 8 global cricket sport keys
 
 ### User History Pages
-- **Betting History**: /user/history
-- **Recharge History**: /user/recharges
-- **Withdrawal History**: /user/withdrawals
+- Betting History, Recharge History, Withdrawal History
+
+## Architecture
+```
+/app/backend/
+├── server.py              # Main FastAPI app (~2500 lines)
+├── sync_engine.py         # NEW: TTLCache, PerformanceMonitor, SmartPollCoordinator, SyncValidator
+├── cricket_data_service.py # CricketData API integration
+├── requirements.txt
+└── .env
+
+/app/frontend/src/
+├── hooks/useWebSocket.js  # OPTIMIZED: Dedup, delta updates, WS-first/polling-fallback
+├── pages/PublicHomepage.js # Updated: Odds N/A badge
+├── pages/MatchPage.js     # Optimized poll intervals
+└── pages/admin/DeclareOutcomes.js # Bet Settlement
+```
+
+## Key API Endpoints
+- `GET /api/matches` — All active matches (no filtering)
+- `GET /api/match/{id}` — Single match data
+- `GET /api/monitoring/stats` — Performance monitoring (public)
+- `GET /api/admin/sync-report` — API sync validation (admin)
+- `GET /api/admin/settlement/pending` — Unsettled matches (admin)
+- `PUT /api/admin/matches/{id}/outcome?winner=Team` — Declare winner + settle bets
 
 ## Upcoming Tasks
-1. **(P1)** User/Admin Panel Clean Separation — Distinct dashboards, menus, access control
-2. **(P2)** Admin Manual Match Entry UI — Frontend form for `/api/admin/cricket/seed`
+1. **(P1)** User/Admin Panel Clean Separation
+2. **(P2)** Admin Manual Match Entry UI
 3. **(P2)** Cashout Functionality for live bets
 
 ## Future/Backlog
-- User withdrawal request approval system
-- User support ticket system
-- Code Refactor: Break server.py (~2550 lines) into modular routers (/routes, /models, /services)
-
-## Key Files
-- `/app/backend/server.py` - Main backend (monolithic ~2550 lines)
-- `/app/backend/cricket_data_service.py` - Cricket API integration
-- `/app/frontend/src/pages/MatchPage.js` - Betfair-style exchange UI
-- `/app/frontend/src/pages/PublicHomepage.js` - Homepage
-- `/app/frontend/src/pages/admin/DeclareOutcomes.js` - Bet Settlement admin page
-- `/app/frontend/src/pages/user/RechargeHistory.js` - Recharge history
-- `/app/frontend/src/layouts/AdminLayout.js` - Admin sidebar
+- User withdrawal approval system
+- Support ticket system
+- Code refactor: Break server.py into /routes, /models, /services
 
 ## 3rd Party Integrations
 - The Odds API (Paid) - Match odds + scores
