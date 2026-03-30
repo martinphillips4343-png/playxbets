@@ -79,6 +79,18 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - `GET /api/admin/settlement/pending` — Unsettled matches (admin)
 - `PUT /api/admin/matches/{id}/outcome?winner=Team` — Declare winner + settle bets
 
+### Dynamic Odds Spread (2026-03-28)
+- Formula: `spread = max(0.01, round(back_odds / 20, 2))`
+- At ~1x: spread=0.05 (e.g., 1.03→1.08), at ~10x: spread=0.50, at ~20x: spread=1.00
+- Applied at serving time to all endpoints: `/matches`, `/matches/live`, `/match/{id}`
+- 3-level order book lay levels also use dynamic spread
+
+### Enhanced Betting History & Statement Download (2026-03-28)
+- **Admin**: `/api/admin/bets` with filters (period: day/week/month, status: won/lost/pending), summary stats (total bets, stake, won, lost, pending, payout)
+- **User**: `/api/bets/history` with same filters + P&L summary (total_stake, total_won, total_lost, net_pnl)
+- **CSV Download**: `/api/admin/statements/download?period=day|week|month` and `/api/statements/download?period=day|week|month`
+- Frontend pages: Summary cards, period/status filters, download buttons for Day/Week/Month
+
 ## Upcoming Tasks
 1. **(P1)** User/Admin Panel Clean Separation
 2. **(P2)** Admin Manual Match Entry UI
