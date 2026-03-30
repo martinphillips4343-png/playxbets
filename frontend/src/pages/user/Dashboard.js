@@ -52,7 +52,8 @@ export default function UserDashboard() {
   const fetchBets = async () => {
     try {
       const response = await api.get("/bets/history");
-      setBets(response.data);
+      const data = response.data;
+      setBets(Array.isArray(data) ? data : data.bets || []);
     } catch (error) {
       console.error(error);
     }
