@@ -232,13 +232,13 @@ class SmartPollCoordinator:
         self._retry_counts: Dict[str, int] = {}
         self._lock = asyncio.Lock()
 
-    # Minimum intervals in seconds — tuned to reduce API quota usage
+    # Minimum intervals in seconds — fast polling for live experience
     INTERVALS = {
-        "odds_live": 60,        # Live matches odds: 1 call per 60s
-        "odds_upcoming": 600,   # Upcoming matches odds: 1 call per 10 min
-        "cricket_live": 60,     # Live cricket data: 1 call per 60s
-        "cricket_upcoming": 600,# Upcoming cricket data: 1 call per 10 min
-        "live_check": 60,       # Auto-promotion/completion: 1 check per 60s
+        "odds_live": 3,         # Live matches odds: 1 call per 3s
+        "odds_upcoming": 60,    # Upcoming matches odds: 1 call per 60s
+        "cricket_live": 3,      # Live cricket data: 1 call per 3s
+        "cricket_upcoming": 60, # Upcoming cricket data: 1 call per 60s
+        "live_check": 3,        # Auto-promotion/completion: 1 check per 3s
     }
     MAX_RETRIES = 3
 
@@ -389,6 +389,6 @@ class SyncValidator:
 
 # Module-level singletons
 monitor = PerformanceMonitor()
-cache = TTLCache(match_ttl_sec=8.0, odds_ttl_sec=15.0)
+cache = TTLCache(match_ttl_sec=3.0, odds_ttl_sec=5.0)
 coordinator = SmartPollCoordinator()
 sync_validator = SyncValidator()

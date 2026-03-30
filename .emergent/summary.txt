@@ -1,132 +1,123 @@
 <analysis>**original_problem_statement**: 
-The user is building a premium, dark-themed sports betting application named PlayXBets featuring a dense, tabular betting exchange UI. Recent requirements focused on implementing a Betfair-style UI, showing real-time odds updates (10-second polling), adding user history pages (Recharge, Bet, Withdrawal), fixing live match auto-completion, and strictly showing only major REAL live matches (filtering out minor leagues and demo matches).
+The user is building a premium sports betting application named PlayXBets featuring a tabular betting exchange UI. Recent goals focused on fixing core bugs preventing live matches from displaying correctly, implementing bet settlement logic, aggressively optimizing API usage (CricketData + Odds API) to prevent quota exhaustion via a custom caching/sync engine, implementing a dynamic odds spread formula, adding betting history/statement CSV downloads, and applying a light theme to the application layouts.
 
 **User's preferred language**: English (INSTRUCT next agent to respond in English only)
 
 **what currently exists?** 
-A full-stack React + FastAPI + MongoDB Atlas app. The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API) polling every 10 seconds. The Match UI has been refined to show a single Back/Lay column per team, removing bookmaker sections per user request. Session/Tied markets feature bright blue/red color coding with suspended state handling. The backend successfully manages user wallets, bet history, and transactions. 
+A full-stack React + FastAPI + MongoDB app. The backend now features a robust  that coordinates API polling, WebSockets, and caching to heavily reduce 3rd-party API calls. The app calculates a dynamic odds spread (). Admin features include a Bet Settlement panel and a Betting History view with CSV statement downloads. The frontend uses a clean light theme for its sidebars and coordinates seamlessly between WebSocket real-time updates and fallback polling.
 
 **Last working item**:
-- Last item agent was working: Debugging a critical issue where major live matches (specifically an ongoing SRH vs RCB IPL match) are missing from the database/API, while the user demanded that only real, major live matches be shown. The agent successfully filtered out minor leagues (Plunket Shield, etc.) but found that the SRH vs RCB match data coming from the Odds API was not persisting in the DB ().
+- Last item agent was working: Implementing a TEMPORARY TEST MODE to speed up API polling specifically for testing live updates. The user requested changing live match polling to 2-3 seconds and upcoming match polling to 60 seconds, while strictly keeping duplicate API call protection active. The agent was fetching  and  to make these numerical changes when the session ended.
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? backend testing agent / manual testing by curl (to verify the match exists in the DB and  response).
+- Which testing method agent to use? backend manual testing by python/logs (Verify intervals are changed, supervisor restarted, and logs show fast polling without duplicate API bursts).
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-Issue 1: Major Live Matches (Odds API) Missing from Database (P0)
-   - Attempted fixes: The agent fixed string vs datetime comparison bugs for  auto-promotion and added a filter to remove minor leagues. However, when checking the database directly for the SRH vs RCB match (which is present in the Odds API), it returned 0 entries.
+Issue 1: Temporarily Increase API Polling Speed (TEST MODE) (P0)
+   - Attempted fixes: The agent started reading  and  to locate the interval configurations but made no edits yet.
    - Next debug checklist: 
-     - Check , specifically the  logic (around lines 780-830).
-     - Determine why Odds API-only events are failing to insert or upsert into . 
-     - Ensure the recently added  minor-league filter isn't accidentally deleting or preventing the insertion of valid major matches merged from the Odds API.
-   - Why fix this issue and what will be achieved with the fix? The user specifically complained that demo matches are showing while actual live major matches are stuck as scheduled or missing. Fixing this is critical to the app's core functionality.
+     - Update  dict in  (: 3, : 60, etc.).
+     - Update the APScheduler trigger interval for  in  to match the fast cycle (e.g., ).
+   - Why fix this issue and what will be achieved with the fix? The user explicitly requested this to safely test live frontend updates. It must be a targeted fix that does not alter business logic or remove the caching locks.
    - Status: IN PROGRESS
    - Is recurring issue? N
-   - Should Test frontend/backend/both after fix? Both (curl backend to ensure match is in JSON payload, check frontend to ensure it renders in the Live tab).
-   - Blocked on other issue: None.
+   - Should Test frontend/backend/both after fix? Backend (check supervisor logs to ensure API isn't being hammered uncontrollably due to the lowered intervals).
 
 **In progress Task List**: 
 None active apart from the issue listed above.
 
 **Upcoming and Future Tasks**
 Upcoming Tasks:
-- (P1) Admin/User bet settlement logic (Winner gets stake × odds payout upon match completion).
-- (P1) User/Admin Panel Clean Separation (Distinct dashboards, menus, access control).
 - (P2) Admin manual match entry UI (Building the frontend form to hit the existing  endpoint).
 - (P2) Implement Cashout functionality for live bets.
 
 Future Tasks:
 - User withdrawal request approval/processing system.
 - User support ticket system.
-- Code Architecture Refactor: Break down  (>2500 lines) into modular routers (, , ).
+- Code Architecture Refactor: Break down  (>2700 lines) into modular routers (, , ).
 
 **Completed work in this session**
-- P0 Odds Mismatch Bug: Fixed reversed match logic, improved fuzzy matching (e.g., Bangalore vs Bengaluru), and cleaned up duplicate DB entries (DONE).
-- Completed Matches Bug: Fixed logic so decided matches auto-complete and drop from the Live tab. Handled string vs datetime  comparisons (DONE).
-- History Pages: Added  and linked to the User Dashboard (DONE).
-- Match UI Refinements: Altered layout to 1 Back / 1 Lay column, removed bookmaker sections, updated Session Market colors to bright blue/red, and implemented SUSPENDED state (DONE).
-- Backend Scheduler: Updated polling frequency to 10 seconds for real-time live data updates (DONE).
+- P0 Datetime Bug: Fixed offset-naive vs aware datetimes allowing scheduled matches to auto-promote to live (DONE).
+- Bet Settlement Logic: Admin can declare outcomes; winning bets pay out , lay bets deduct  liability (DONE).
+- Real-Time API Optimization: Created  to heavily reduce API calls, prioritize WebSockets, and handle 401 Quota limits smoothly (DONE).
+- Dynamic Odds Spread: Implemented formula  applied dynamically via backend post-processing (DONE).
+- Betting History & Statements: Upgraded admin and user bet history endpoints with Date/Status filters and CSV download buttons (DONE).
+- Dashboard Bug Fix: Fixed  caused by new API response structure (DONE).
+- UI Light Theme: Converted Admin and User sidebars from dark blue to clean white/light gray (DONE).
 
 **Earlier issues found/mentioned but not fixed**
 None.
 
 **Known issue recurrence from previous fork**
-- Issue recurrence in previous fork:  data type inconsistencies.
-- Recurrence count: 2
-- Status: RESOLVED (but keep in mind)
-Note: Odds API entries often store  as an ISO string, while CricketData creates Python  objects. Queries using MongoDB  fail silently when comparing strings to datetimes. Always ensure  is parsed into a timezone-aware UTC datetime object before inserting into the DB.
+- Issue recurrence in previous fork: Odds API Quota limits (401 errors) / Rate limiting.
+- Recurrence count: 3
+- Status: RESOLVED (Mitigated by , but high risk of recurring during the upcoming TEST MODE implementation if not careful).
+Note: When implementing the 2-3 second polling for the test mode, ensure the  cache locks remain perfectly intact, or the user's Odds API key will be exhausted instantly.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-React 18.2.0, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, UTC to IST timezone handling.
+React 18, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, Thread-safe Caching ().
 
 **key DB schema**
-- : {match_id, status, commence_time, home_team, away_team, odds, score, ...}
-- : {bet_id, user_id, match_id, stake, odds, bet_type, status}
-- : {withdrawal_id, user_id, amount, status}
+- : {match_id, status, commence_time, home_team, away_team, odds, ...}
+- : {bet_id, user_id, match_id, stake, odds, bet_type, status, settled_at}
 
 **changes in tech stack**
-- None in this session.
+- Introduced custom in-memory caching and request coordination via  to protect 3rd-party API quotas.
 
 **All files of reference** 
--  (Contains the  and  filtering logic causing the current P0 bug).
--  (Major UI overhauls including 1-level odds and Session row color updates).
--  (Color updates).
--  (Newly created).
+-  (Target for current TEST MODE interval changes).
+-  (Target for APScheduler interval changes).
+-  &  (Recently updated to light theme).
+-  &  (Contains the new CSV statement logic).
 
 **Areas that need refactoring**: 
--  is critically large (>2500 lines).
+-  is critically large (>2700 lines) and desperately needs modularization into standard FastAPI routers.
 
 **key api endpoints**
--  (Fetches active/live matches)
--  (Fetches exact match data)
--  
-- 
--  and  
+-  &  (New: Validates API synchronization)
+-  (Now returns all matches, dynamically applies odds spread)
+-  &  (Updated: Returns )
+-  (Bet settlement)
 
 **Critical Info for New Agent** 
-- **API Quotas:** Polling is now set to 10 seconds (). This will burn through the Odds API quota extremely fast. 
-- **UI Context:** The user initially asked for a full 3-level Betfair depth chart, but later in the session asked to revert it to a simple 1 Back / 1 Lay column layout and remove the bookmaker section. Stick to the simplified layout.
-- **Match Filtering:** The user is highly agitated about demo matches (minor leagues like Plunket Shield) showing up. Ensure the filter in  remains intact, but verify it isn't destroying valid IPL/PSL matches.
+- **STRICT INSTRUCTION FOR CURRENT TASK**: The user wants a **TEST MODE** with 2-3s polling for live matches. Change the numbers in  and , but **DO NOT** remove the duplicate call protection (, timestamp checks). Make these interval values easy to revert later.
+- Do not refactor architecture or modify the UI for the current polling task. Keep it to localized variable changes.
 
 **documents and test reports created in this job** 
 - 
-- 
-- 
-- 
-- 
+-  (Bet Settlement)
+-  (Real-Time Sync Engine)
+-  (Dynamic Spread & Betting History)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. User asked to proceed with proposed plan. -> (COMPLETED)
-2. User reported that a completed match (Peshawar) was still showing as LIVE. -> (COMPLETED)
-3. User provided screenshots to build a 3-level Betfair UI, add user exposure, and create History pages. -> (COMPLETED)
-4. User asked to keep existing colors, fix missing matches, and verify Recharge/Bet/Withdrawal history exists. -> (COMPLETED)
-5. User asked to proceed with the build. -> (COMPLETED)
-6. User changed mind: Requested Match Odds to be simplified to 1 column, Bookmakers to be completely removed, Session colors to be bright blue/red, and data to poll every 10 seconds. -> (COMPLETED)
-7. User reported that minor demo matches are showing, and a major live match (SRH vs RCB) is incorrectly showing as Scheduled. Demanded a permanent fix. -> (IN PROGRESS - Agent filtered minor leagues but is struggling to make the SRH vs RCB match appear in the DB).
-8. User sent a follow-up reiterating to remove demo matches and add the real live match ASAP. -> (IN PROGRESS).
+1. User asked for dynamic odds spread (10X difference rule) and Admin statement downloads. -> (COMPLETED)
+2. User asked where to find the statement admin page. -> (COMPLETED - Clarified by agent).
+3. User provided an image showing a frontend crash . -> (COMPLETED - Fixed API response handling).
+4. User requested to change the theme to a light color. -> (COMPLETED - Implemented light sidebars).
+5. User explicitly requested a targeted backend fix: temporarily increase API update speed for testing (Live: 2-3s, Upcoming: 60s) while strictly maintaining duplicate call protection. -> (IN PROGRESS - Agent was modifying code when session ended).
 
 **Project Health Check:**
-- Broken: Major live matches from the Odds API are failing to insert/persist in the database.
+- Broken: None currently.
 - Mocked: None.
 
 **3rd Party Integrations** 
-- The Odds API (Match odds) — requires User API Key (Paid key active).
-- CricketData API (Match data) — requires User API Key (Paid key active).
+- The Odds API (Match odds) — requires User API Key.
+- CricketData API (Match data) — requires User API Key.
 - MongoDB Atlas (Cloud Database) - standard user credentials mapped in .
 
 **Testing status**
-- Testing agent used after significant changes: YES (Iterations 14, 15, 16).
+- Testing agent used after significant changes: YES (Iterations 17, 18, 19).
 - Troubleshoot agent used after agent stuck in loop: NO.
 - Test files created: 
-- Known regressions: DB insertion for Odds-API-only matches broke after updating the merge and cleanup logic.
+- Known regressions: None, but watch API quotas closely.
 
 **Credentials to test flow:**
 - Admin: , 
 - User: , 
 
 **What agent forgot to execute**
-The agent was in the middle of diagnosing why the SRH vs RCB match was missing from the database when the context window/execution ended. The fix for displaying real live matches is pending.</analysis>
+The agent ran out of context while viewing the files to update the polling interval numbers to the requested TEST MODE speeds. The text replacement in  and  needs to be completed.</analysis>
