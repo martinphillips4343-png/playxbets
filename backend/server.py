@@ -507,10 +507,12 @@ class OddsService:
         return False
     
     @staticmethod
-    def calculate_lay_odds(back_odds: float, spread: float = 0.02) -> float:
-        """Calculate lay odds from back odds with spread"""
+    def calculate_lay_odds(back_odds: float) -> float:
+        """Calculate lay odds with dynamic spread based on odds magnitude.
+        Spread scales: 1x→0.05, 10x→0.50, 20x→1.00 (spread = back / 20)"""
         if back_odds is None:
             return None
+        spread = max(0.01, round(back_odds / 20, 2))
         return round(back_odds + spread, 2)
     
     @staticmethod
@@ -611,9 +613,9 @@ class OddsService:
                 while len(away_back_sorted) < 3:
                     away_back_sorted.append(round(away_back_sorted[-1] - 0.02, 2))
                 
-                # Lay: best back + spread
-                home_lay_sorted = [round(p + 0.04 + i * 0.02, 2) for i, p in enumerate(home_back_sorted)]
-                away_lay_sorted = [round(p + 0.04 + i * 0.02, 2) for i, p in enumerate(away_back_sorted)]
+                # Lay: dynamic spread — spread = back / 20 (scales with odds magnitude)
+                home_lay_sorted = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2) for i, p in enumerate(home_back_sorted)]
+                away_lay_sorted = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2) for i, p in enumerate(away_back_sorted)]
                 
                 # Generate realistic liquidity amounts
                 import random
@@ -641,12 +643,17 @@ class OddsService:
                         elif OddsService.teams_match(o.get("name", ""), away_team):
                             bk_a = p
                     if bk_h and bk_a:
+                        # Dynamic bookmaker lay spread: scaled with odds magnitude
+                        bk_h_rate = round((bk_h - 1) * 100)
+                        bk_a_rate = round((bk_a - 1) * 100)
+                        bk_h_spread = max(3, round(bk_h_rate / 20))
+                        bk_a_spread = max(3, round(bk_a_rate / 20))
                         bookmaker_odds.append({
                             "name": f"Bookmaker{' ' + str(bk_idx + 1) if bk_idx > 0 else ''}",
-                            "home_back": round((bk_h - 1) * 100),
-                            "home_lay": round((bk_h - 1) * 100 + random.randint(5, 15)),
-                            "away_back": round((bk_a - 1) * 100),
-                            "away_lay": round((bk_a - 1) * 100 + random.randint(2, 8)),
+                            "home_back": bk_h_rate,
+                            "home_lay": bk_h_rate + bk_h_spread,
+                            "away_back": bk_a_rate,
+                            "away_lay": bk_a_rate + bk_a_spread,
                             "home_size": random.choice([125000, 250000, 375000, 500000]),
                             "away_size": random.choice([500000, 1000000, 1500000]),
                             "min_bet": 100,
@@ -662,7 +669,7 @@ class OddsService:
                 except:
                     commence_dt = datetime.now(timezone.utc)
                 
-                # Calculate lay odds (spread of 0.02)
+                # Calculate lay odds (dynamic spread: spread = back / 20)
                 home_lay = OddsService.calculate_lay_odds(home_odds)
                 away_lay = OddsService.calculate_lay_odds(away_odds)
                 
@@ -1380,10 +1387,179 @@ async def run_cron_now(current_user: User = Depends(get_current_admin)):
     matches = await OddsService.manual_refresh()
     return {"success": True, "matches_fetched": len(matches)}
 
-@api_router.get("/admin/bets", response_model=List[Bet])
-async def get_all_bets(current_user: User = Depends(get_current_admin)):
-    bets = await db.bets.find({}, {"_id": 0}).sort("placed_at", -1).to_list(1000)
-    return [Bet(**b) for b in bets]
+@api_router.get("/admin/bets")
+async def get_all_bets(
+    status: Optional[str] = None,
+    user_id: Optional[str] = None,
+    match_id: Optional[str] = None,
+    period: Optional[str] = None,  # day, week, month
+    current_user: User = Depends(get_current_admin)
+):
+    """Enhanced betting history with filters."""
+    query = {}
+    if status:
+        query["status"] = status
+    if user_id:
+        query["user_id"] = user_id
+    if match_id:
+        query["match_id"] = match_id
+    if period:
+        now = datetime.now(timezone.utc)
+        if period == "day":
+            query["placed_at"] = {"$gte": (now - timedelta(days=1)).isoformat()}
+        elif period == "week":
+            query["placed_at"] = {"$gte": (now - timedelta(weeks=1)).isoformat()}
+        elif period == "month":
+            query["placed_at"] = {"$gte": (now - timedelta(days=30)).isoformat()}
+
+    bets = await db.bets.find(query, {"_id": 0}).sort("placed_at", -1).to_list(5000)
+
+    # Enrich with user info and match names
+    user_cache = {}
+    match_cache = {}
+    for b in bets:
+        uid = b.get("user_id", "")
+        if uid not in user_cache:
+            u = await db.users.find_one({"user_id": uid}, {"_id": 0, "username": 1, "email": 1})
+            user_cache[uid] = u or {}
+        b["username"] = user_cache[uid].get("username", uid[:8])
+
+        mid = b.get("match_id", "")
+        if mid not in match_cache:
+            m = await db.matches.find_one({"match_id": mid}, {"_id": 0, "home_team": 1, "away_team": 1})
+            match_cache[mid] = m or {}
+        mc = match_cache[mid]
+        b["match_name"] = f"{mc.get('home_team', '?')} vs {mc.get('away_team', '?')}" if mc else mid[:12]
+
+    # Summary stats
+    total_stake = sum(b.get("stake", 0) for b in bets)
+    total_payout = sum(b.get("potential_win", 0) for b in bets if b.get("status") == "won")
+    return {
+        "bets": bets,
+        "summary": {
+            "total_bets": len(bets),
+            "total_stake": round(total_stake, 2),
+            "total_payout": round(total_payout, 2),
+            "won": sum(1 for b in bets if b.get("status") == "won"),
+            "lost": sum(1 for b in bets if b.get("status") == "lost"),
+            "pending": sum(1 for b in bets if b.get("status") == "pending"),
+        }
+    }
+
+
+from fastapi.responses import StreamingResponse
+import io
+import csv
+
+@api_router.get("/admin/statements/download")
+async def admin_statement_download(
+    period: str = "day",
+    current_user: User = Depends(get_current_admin)
+):
+    """Download platform-level betting statement as CSV (day/week/month)."""
+    now = datetime.now(timezone.utc)
+    if period == "week":
+        start = now - timedelta(weeks=1)
+    elif period == "month":
+        start = now - timedelta(days=30)
+    else:
+        start = now - timedelta(days=1)
+
+    bets = await db.bets.find(
+        {"placed_at": {"$gte": start.isoformat()}},
+        {"_id": 0}
+    ).sort("placed_at", -1).to_list(10000)
+
+    # Enrich
+    user_cache = {}
+    match_cache = {}
+    for b in bets:
+        uid = b.get("user_id", "")
+        if uid not in user_cache:
+            u = await db.users.find_one({"user_id": uid}, {"_id": 0, "username": 1})
+            user_cache[uid] = (u or {}).get("username", uid[:8])
+        b["username"] = user_cache[uid]
+        mid = b.get("match_id", "")
+        if mid not in match_cache:
+            m = await db.matches.find_one({"match_id": mid}, {"_id": 0, "home_team": 1, "away_team": 1})
+            match_cache[mid] = f"{(m or {}).get('home_team','?')} vs {(m or {}).get('away_team','?')}" if m else mid[:12]
+        b["match_name"] = match_cache[mid]
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "User", "Match", "Type", "Team", "Odds", "Stake", "Potential Win", "Status"])
+    for b in bets:
+        writer.writerow([
+            b.get("placed_at", "")[:19],
+            b.get("username", ""),
+            b.get("match_name", ""),
+            b.get("bet_type", "back"),
+            b.get("selected_team", ""),
+            b.get("odds", ""),
+            b.get("stake", ""),
+            b.get("potential_win", ""),
+            b.get("status", ""),
+        ])
+
+    output.seek(0)
+    filename = f"playxbets_statement_{period}_{now.strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/statements/download")
+async def user_statement_download(
+    period: str = "day",
+    current_user: User = Depends(get_current_user)
+):
+    """Download user's own betting statement as CSV (day/week/month)."""
+    now = datetime.now(timezone.utc)
+    if period == "week":
+        start = now - timedelta(weeks=1)
+    elif period == "month":
+        start = now - timedelta(days=30)
+    else:
+        start = now - timedelta(days=1)
+
+    bets = await db.bets.find(
+        {"user_id": current_user.user_id, "placed_at": {"$gte": start.isoformat()}},
+        {"_id": 0}
+    ).sort("placed_at", -1).to_list(5000)
+
+    # Enrich with match names
+    match_cache = {}
+    for b in bets:
+        mid = b.get("match_id", "")
+        if mid not in match_cache:
+            m = await db.matches.find_one({"match_id": mid}, {"_id": 0, "home_team": 1, "away_team": 1})
+            match_cache[mid] = f"{(m or {}).get('home_team','?')} vs {(m or {}).get('away_team','?')}" if m else mid[:12]
+        b["match_name"] = match_cache[mid]
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Match", "Type", "Team", "Odds", "Stake", "Potential Win", "Status"])
+    for b in bets:
+        writer.writerow([
+            b.get("placed_at", "")[:19],
+            b.get("match_name", ""),
+            b.get("bet_type", "back"),
+            b.get("selected_team", ""),
+            b.get("odds", ""),
+            b.get("stake", ""),
+            b.get("potential_win", ""),
+            b.get("status", ""),
+        ])
+
+    output.seek(0)
+    filename = f"my_statement_{period}_{now.strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @api_router.get("/admin/tickets", response_model=List[SupportTicket])
 async def get_all_tickets(current_user: User = Depends(get_current_admin)):
@@ -1911,6 +2087,24 @@ async def get_matches(sport: Optional[str] = None):
                 logger.warning(f"Could not parse commence_time for match: {e}")
                 continue
     
+    # Post-process: apply dynamic spread formula to all matches when serving
+    for m in filtered_matches:
+        odds = m.get("odds")
+        if odds and isinstance(odds, dict):
+            hb = odds.get("home_back")
+            ab = odds.get("away_back")
+            if hb:
+                odds["home_lay"] = OddsService.calculate_lay_odds(hb)
+            if ab:
+                odds["away_lay"] = OddsService.calculate_lay_odds(ab)
+            # Also recalculate lay levels if present
+            for key in ("home_lay_levels", "away_lay_levels"):
+                back_key = key.replace("lay", "back")
+                back_levels = odds.get(back_key, [])
+                if back_levels:
+                    odds[key] = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2)
+                                 for i, p in enumerate(back_levels)]
+
     return [Match(**m) for m in filtered_matches]
 
 
@@ -1935,11 +2129,19 @@ async def get_live_matches_only(sport: Optional[str] = None):
     
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(100)
     
-    # Filter out any that shouldn't be live
+    # Filter and apply dynamic spread
     live_matches = []
     for m in matches:
         if m.get("matchEnded"):
             continue
+        odds = m.get("odds")
+        if odds and isinstance(odds, dict):
+            hb = odds.get("home_back")
+            ab = odds.get("away_back")
+            if hb:
+                odds["home_lay"] = OddsService.calculate_lay_odds(hb)
+            if ab:
+                odds["away_lay"] = OddsService.calculate_lay_odds(ab)
         live_matches.append(m)
     
     return {
@@ -2228,6 +2430,30 @@ async def get_match_detail(match_id: str):
             return dt.replace('Z', '+00:00')
         return str(dt)
     
+    # Calculate odds with dynamic spread BEFORE building response
+    odds_obj = match.get("odds") if match.get("odds") and match["odds"].get("home_back_levels") else {
+        "home": match.get("home_odds"),
+        "away": match.get("away_odds"),
+        "draw": match.get("odds_draw"),
+        "home_back": match.get("home_odds"),
+        "home_lay": OddsService.calculate_lay_odds(match.get("home_odds")),
+        "away_back": match.get("away_odds"),
+        "away_lay": OddsService.calculate_lay_odds(match.get("away_odds")),
+    }
+    if odds_obj and isinstance(odds_obj, dict):
+        hb = odds_obj.get("home_back")
+        ab = odds_obj.get("away_back")
+        if hb:
+            odds_obj["home_lay"] = OddsService.calculate_lay_odds(hb)
+        if ab:
+            odds_obj["away_lay"] = OddsService.calculate_lay_odds(ab)
+        for key in ("home_lay_levels", "away_lay_levels"):
+            back_key = key.replace("lay", "back")
+            back_levels = odds_obj.get(back_key, [])
+            if back_levels:
+                odds_obj[key] = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2)
+                                 for i, p in enumerate(back_levels)]
+
     # Build detailed response
     response = {
         "match_id": match.get("match_id"),
@@ -2240,16 +2466,7 @@ async def get_match_detail(match_id: str):
         "venue": match.get("venue", ""),
         "format": match.get("format", "t20"),
         
-        # Odds data - include full order book if available
-        "odds": match.get("odds") if match.get("odds") and match["odds"].get("home_back_levels") else {
-            "home": match.get("home_odds"),
-            "away": match.get("away_odds"),
-            "draw": match.get("odds_draw"),
-            "home_back": match.get("home_odds"),
-            "home_lay": match.get("home_odds", 0) + 0.02 if match.get("home_odds") else None,
-            "away_back": match.get("away_odds"),
-            "away_lay": match.get("away_odds", 0) + 0.02 if match.get("away_odds") else None,
-        },
+        "odds": odds_obj,
         
         # Feature flags
         "features": {
@@ -2335,10 +2552,49 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
     
     return bet
 
-@api_router.get("/bets/history", response_model=List[Bet])
-async def get_bet_history(current_user: User = Depends(get_current_user)):
-    bets = await db.bets.find({"user_id": current_user.user_id}, {"_id": 0}).sort("placed_at", -1).to_list(1000)
-    return [Bet(**b) for b in bets]
+@api_router.get("/bets/history")
+async def get_bet_history(
+    status: Optional[str] = None,
+    period: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """User's betting history with filters."""
+    query = {"user_id": current_user.user_id}
+    if status:
+        query["status"] = status
+    if period:
+        now = datetime.now(timezone.utc)
+        if period == "day":
+            query["placed_at"] = {"$gte": (now - timedelta(days=1)).isoformat()}
+        elif period == "week":
+            query["placed_at"] = {"$gte": (now - timedelta(weeks=1)).isoformat()}
+        elif period == "month":
+            query["placed_at"] = {"$gte": (now - timedelta(days=30)).isoformat()}
+
+    bets = await db.bets.find(query, {"_id": 0}).sort("placed_at", -1).to_list(5000)
+
+    # Enrich with match names
+    match_cache = {}
+    for b in bets:
+        mid = b.get("match_id", "")
+        if mid not in match_cache:
+            m = await db.matches.find_one({"match_id": mid}, {"_id": 0, "home_team": 1, "away_team": 1})
+            match_cache[mid] = f"{(m or {}).get('home_team','?')} vs {(m or {}).get('away_team','?')}" if m else mid[:12]
+        b["match_name"] = match_cache[mid]
+
+    total_stake = sum(b.get("stake", 0) for b in bets)
+    total_won = sum(b.get("potential_win", 0) for b in bets if b.get("status") == "won")
+    total_lost = sum(b.get("stake", 0) for b in bets if b.get("status") == "lost")
+    return {
+        "bets": bets,
+        "summary": {
+            "total_bets": len(bets),
+            "total_stake": round(total_stake, 2),
+            "total_won": round(total_won, 2),
+            "total_lost": round(total_lost, 2),
+            "net_pnl": round(total_won - total_lost, 2),
+        }
+    }
 
 @api_router.get("/wallet")
 async def get_wallet(current_user: User = Depends(get_current_user)):

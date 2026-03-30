@@ -1,0 +1,92 @@
+{
+  "summary": "Tested PlayXBets dynamic odds spread formula and enhanced betting history features. All 24 backend tests passed. Frontend UI verified for admin and user betting history pages with filters, summary cards, and CSV download buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dynamic_odds_and_statements.py",
+    "/app/test_reports/pytest/dynamic_odds_statements_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_dynamic_odds_and_statements.py"
+  ],
+  "success_rate": {
+    "backend": "100% - 24/24 tests passed",
+    "frontend": "100% - All UI features verified"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - using existing 20 bets in database",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All dynamic odds spread and statement features verified working. Key findings: (1) Dynamic spread formula working correctly: spread = max(0.01, round(back/20, 2)). Example: back=1.85 → lay=1.94 (spread 0.09), back=2.18 → lay=2.29 (spread 0.11). (2) GET /api/matches applies dynamic spread at serving time. (3) GET /api/match/{match_id} also applies dynamic spread. (4) Admin betting history at /admin/bets returns bets array + summary with total_bets, total_stake, won, lost, pending. (5) Admin filters work: period=day|week|month, status=won|lost|pending. (6) Admin CSV download at /admin/statements/download?period=day|week|month returns proper CSV with headers. (7) User betting history at /bets/history returns bets + P&L summary with total_stake, total_won, total_lost, net_pnl. (8) User CSV download at /statements/download?period=day|week|month works. (9) Frontend routes: Admin bets at /admin/bets, User history at /user/history.",
+  "features_tested": {
+    "dynamic_odds_spread": {
+      "status": "PASS",
+      "details": "Formula spread = max(0.01, round(back/20, 2)) verified. Example: back=1.85 → lay=1.94, back=2.18 → lay=2.29"
+    },
+    "matches_endpoint_spread": {
+      "status": "PASS",
+      "details": "GET /api/matches returns odds with dynamic spread applied at serving time"
+    },
+    "match_detail_spread": {
+      "status": "PASS",
+      "details": "GET /api/match/{match_id} returns odds with dynamic spread applied"
+    },
+    "admin_bets_endpoint": {
+      "status": "PASS",
+      "details": "GET /api/admin/bets returns {bets:[], summary:{total_bets, total_stake, total_payout, won, lost, pending}}"
+    },
+    "admin_bets_filters": {
+      "status": "PASS",
+      "details": "Filters work: period=day|week|month, status=won|lost|pending, combined filters"
+    },
+    "admin_statement_download": {
+      "status": "PASS",
+      "details": "GET /api/admin/statements/download?period=day|week|month returns CSV with proper headers"
+    },
+    "user_bets_history": {
+      "status": "PASS",
+      "details": "GET /api/bets/history returns {bets:[], summary:{total_stake, total_won, total_lost, net_pnl}}"
+    },
+    "user_statement_download": {
+      "status": "PASS",
+      "details": "GET /api/statements/download?period=day|week|month returns user's CSV statement"
+    },
+    "admin_ui_betting_history": {
+      "status": "PASS",
+      "details": "Admin Bets Placed page loads with summary cards (20 bets, 30080 stake, 9 won, 2 lost, 9 pending), filters, download buttons"
+    },
+    "user_ui_bet_history": {
+      "status": "PASS",
+      "details": "User Bet History page loads with P&L summary (37525.7 won, 1300 lost, +36225.7 net P&L), filters, download buttons"
+    },
+    "homepage_odds_display": {
+      "status": "PASS",
+      "details": "Homepage shows matches with dynamic odds (e.g., 1.85/2.18, 2.16/1.83, 2.15/1.9)"
+    },
+    "match_detail_odds_display": {
+      "status": "PASS",
+      "details": "Match detail page shows back/lay odds with dynamic spread (blue=back, red=lay)"
+    }
+  },
+  "mocked_apis": {
+    "note": "No mocked APIs - all endpoints use real data from MongoDB"
+  },
+  "screenshots_taken": [
+    ".screenshots/homepage_odds_display.png - Homepage with matches showing dynamic odds",
+    ".screenshots/match_detail_odds.png - Match detail with back=1.85/lay=1.94 and back=2.18/lay=2.29",
+    ".screenshots/admin_bets_placed.png - Admin betting history with 20 bets, summary cards, filters",
+    ".screenshots/user_bet_history_correct.png - User bet history with P&L summary +36,225.7"
+  ]
+}
