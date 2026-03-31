@@ -234,9 +234,9 @@ class SmartPollCoordinator:
 
     # Minimum intervals in seconds
     INTERVALS = {
-        "odds_live": 3,           # Live matches odds: every 3s
+        "odds_live": 2,           # Live matches odds: every 2s
         "odds_upcoming": 120,     # Upcoming matches odds: every 2 min
-        "cricket_live": 3,        # Live cricket data: every 3s
+        "cricket_live": 2,        # Live cricket data: every 2s
         "cricket_upcoming": 120,  # Upcoming cricket data: every 2 min
         "live_check": 30,         # Completion check: every 30s (not needed as fast)
     }
