@@ -1117,17 +1117,17 @@ def start_scheduler():
         replace_existing=True
     )
 
-    # Orchestrator tick every 2s — actual API calls gated by coordinator intervals (2s live, 60s upcoming)
+    # Orchestrator tick every 1s — actual API calls gated by coordinator intervals
     scheduler.add_job(
         run_smart_orchestrator,
-        IntervalTrigger(seconds=2),
+        IntervalTrigger(seconds=1),
         id='smart_orchestrator',
         replace_existing=True
     )
 
     scheduler.start()
-    logger.info("Scheduler started — Smart Orchestrator every 2s")
-    logger.info("  Live: 2s per API call | Upcoming: 60s per API call")
+    logger.info("Scheduler started — Smart Orchestrator every 1s")
+    logger.info("  Live: 1s per API call | Upcoming: 60s per API call")
 
 
 # ==================== AUTH ROUTES ====================
