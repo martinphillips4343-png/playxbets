@@ -720,6 +720,62 @@ class OddsService:
                     )
                     merged_count += 1
                     logger.info(f"Merged odds for: {db_home} vs {db_away} - Home Back: {corrected_odds_data.get('home_back')}, Away Back: {corrected_odds_data.get('away_back')} (reversed={is_reversed})")
+                    
+                    # Propagate odds to ALL duplicate matches with same teams (handles CricketData + OddsAPI dupes)
+                    dupe_query = {
+                        "_id": {"$ne": existing_match["_id"]},
+                        "status": {"$nin": ["completed", "ended", "finished"]},
+                        "$or": [
+                            {"home_team": {"$regex": home_normalized, "$options": "i"},
+                             "away_team": {"$regex": away_normalized, "$options": "i"}},
+                            {"home_team": {"$regex": away_normalized, "$options": "i"},
+                             "away_team": {"$regex": home_normalized, "$options": "i"}},
+                            {"home_team": {"$regex": home_first, "$options": "i"},
+                             "away_team": {"$regex": away_first, "$options": "i"}},
+                            {"home_team": {"$regex": away_first, "$options": "i"},
+                             "away_team": {"$regex": home_first, "$options": "i"}},
+                        ]
+                    }
+                    dupes = await db.matches.find(dupe_query).to_list(length=10)
+                    for dupe in dupes:
+                        dupe_home = dupe.get("home_team", "")
+                        dupe_away = dupe.get("away_team", "")
+                        # Check if teams are reversed in the dupe
+                        dupe_reversed = (
+                            OddsService.teams_match(home_team, dupe_away) and
+                            OddsService.teams_match(away_team, dupe_home) and
+                            not (OddsService.teams_match(home_team, dupe_home) and OddsService.teams_match(away_team, dupe_away))
+                        )
+                        if dupe_reversed:
+                            dupe_odds = odds_engine.build_odds_object(
+                                match_id=dupe.get("match_id", ""),
+                                raw_home=away_odds,
+                                raw_away=home_odds,
+                                bookmaker_name=bookmaker_name or "PlayXBets"
+                            )
+                            dupe_h = away_odds
+                            dupe_a = home_odds
+                        else:
+                            dupe_odds = odds_engine.build_odds_object(
+                                match_id=dupe.get("match_id", ""),
+                                raw_home=home_odds,
+                                raw_away=away_odds,
+                                bookmaker_name=bookmaker_name or "PlayXBets"
+                            )
+                            dupe_h = home_odds
+                            dupe_a = away_odds
+                        
+                        await db.matches.update_one(
+                            {"_id": dupe["_id"]},
+                            {"$set": {
+                                "odds": dupe_odds,
+                                "home_odds": dupe_h,
+                                "away_odds": dupe_a,
+                                "odds_updated_at": datetime.now(timezone.utc),
+                                "updated_at": datetime.now(timezone.utc),
+                            }}
+                        )
+                        logger.info(f"Propagated odds to dupe: {dupe_home} vs {dupe_away} (reversed={dupe_reversed})")
                 else:
                     # Create new match from Odds API
                     # Parse commence time
@@ -2242,7 +2298,7 @@ async def get_session_markets(match_id: str):
     away_team = match.get("away_team", "")
     match_format = match.get("format", "t20")
     
-    # Parse current score data
+    # Parse current score data — use the LATEST/ONGOING innings, not the first
     current_runs = 0
     current_overs = 0.0
     current_wickets = 0
@@ -2251,19 +2307,20 @@ async def get_session_markets(match_id: str):
     
     score_data = match.get("score", [])
     if score_data:
-        first_innings = score_data[0] if score_data else None
-        if first_innings:
-            if isinstance(first_innings, str):
+        # Use the LAST innings entry (most recent/ongoing)
+        active_innings = score_data[-1] if score_data else None
+        if active_innings:
+            if isinstance(active_innings, str):
                 import re
-                m = re.match(r"(\d+)/(\d+)\s*\((\d+\.?\d*)\)", first_innings)
+                m = re.match(r"(\d+)/(\d+)\s*\((\d+\.?\d*)\)", active_innings)
                 if m:
                     current_runs = int(m.group(1))
                     current_wickets = int(m.group(2))
                     current_overs = float(m.group(3))
-            elif isinstance(first_innings, dict):
-                current_runs = int(first_innings.get("r", 0) or 0)
-                current_wickets = int(first_innings.get("w", 0) or 0)
-                current_overs = float(first_innings.get("o", 0) or 0)
+            elif isinstance(active_innings, dict):
+                current_runs = int(active_innings.get("r", 0) or 0)
+                current_wickets = int(active_innings.get("w", 0) or 0)
+                current_overs = float(active_innings.get("o", 0) or 0)
     
     # Update score state in engine for event detection
     odds_engine.update_score(
