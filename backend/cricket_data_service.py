@@ -28,7 +28,7 @@ CRICKET_API_KEY = os.getenv("CRICKETDATA_API_KEY", "")
 CRICKET_API_BASE = "https://api.cricapi.com/v1"
 
 # Quota limits
-DAILY_QUOTA_LIMIT = 100
+DAILY_QUOTA_LIMIT = 2000
 QUOTA_WARNING_THRESHOLD = 0.9  # 90% = 90 requests
 
 # Cache TTL in seconds - OPTIMIZED FOR REAL-TIME LIVE UPDATES

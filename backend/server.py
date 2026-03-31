@@ -33,9 +33,9 @@ from odds_engine import odds_engine
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "60578767146aaef0fa7b9992066f62f8")
+ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
-CRICKET_API_KEY = os.getenv("CRICKETDATA_API_KEY", "a185dd9f-67a3-47cf-8ab7-a1294b716031")
+CRICKET_API_KEY = os.getenv("CRICKETDATA_API_KEY")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']

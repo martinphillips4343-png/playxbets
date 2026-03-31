@@ -28,76 +28,68 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Real-time odds flash green/red on change
 
 ### Bet Settlement Logic (2026-03-28)
-- Back bets: win when team wins, payout = stake × odds
-- Lay bets: deduct liability (stake × (odds-1)), win when team LOSES
+- Back bets: win when team wins, payout = stake * odds
+- Lay bets: deduct liability (stake * (odds-1)), win when team LOSES
 - Admin Bet Settlement Panel with pending bets view
 
-### Real-Time Optimization (2026-03-28, updated 2026-03-31) — Simplified
-1. **API Sync**: `/api/admin/sync-report` cross-references CricketData + Odds API
-2. **Smart Orchestrator**: 3s tick. Live polling: odds=3s, cricket=3s. Upcoming: 120s. Completion check: 30s. SmartPollCoordinator prevents duplicate polls
-3. **In-Memory TTL Cache**: `sync_engine.TTLCache` match_ttl=3s, odds_ttl=5s. Delta detection
-4. **Completion Detection**: Only 2 reliable signals — Odds API /scores + time-based (>5h). Removed false-positive-prone Methods (Odds API presence check, cricScore, extreme odds)
-5. **Score Enrichment**: Odds API /scores endpoint feeds live score data alongside odds updates
-6. **No Aggressive Cleanup**: Removed stale-live-cutoff and matchEnded checks from GET /api/matches that killed live matches prematurely
-4. **Complete Match Coverage**: ALL cricket matches shown globally (no minor league filtering). Matches without odds show "Odds N/A"
-5. **Data Merging**: Hashmap-based fast lookup by match_id + normalized team names. Handles partial data and delayed odds
-6. **Frontend Optimization**: WebSocket-first, polling-fallback. Timestamp-based dedup prevents stale overwrites. State diffing prevents unnecessary re-renders
-7. **Backend Stability**: `api_call_with_retry()` — max 3 attempts with backoff + timeout. No duplicate API calls or infinite loops
-8. **Zero Side Effects**: Betting, UI/UX, auth all untouched
-9. **Monitoring**: `/api/monitoring/stats` — API latency, WS events, sync success rate, cache stats, coordinator status, errors
+### Bookmaker Odds Engine (2026-03-31)
+1. **Margin Application**: Raw API odds converted to probability, 7% margin added (5-10% range), converted back. Total probability always > 1.0 = house always profits
+2. **Exposure Tracking**: In-memory per-match tracking of back/lay totals on both sides
+3. **Dynamic Odds Adjustment**: More money on one side -> reduce that side odds, increase opposite. Auto-balance book
+4. **No Arbitrage**: Safety checks ensure users can never profit from both sides simultaneously
+5. **Session Markets from Backend**: Over runs, fours, sixes, wickets markets calculated server-side with proper YES/NO odds + margin
+6. **Event-Driven Market Suspension**: Markets suspend only on 4/6/wicket events (not timed cycles). Auto-resume after 5 seconds
+7. **New API Endpoints**: `/match/{id}/session-markets`, `/match/{id}/bookmaker-odds`, `/match/{id}/market-status`, `/admin/match/{id}/house-profit`
 
-### Odds Merge System
-- Reversed match detection, fuzzy team name matching
-- Canonical comparison, post-merge duplicate cleanup
+### API Connection (2026-03-31)
+- Odds API quota reset and keys properly loaded from .env (no hardcoded fallbacks)
+- CricketData API quota reset to 2000 (was incorrectly limited to 100)
+- Both APIs live and syncing every 2-3 seconds for live matches
 
-### Auto Match Management
-- Auto-promote scheduled → live when commence_time passes
-- Auto-detect completed matches (Odds API scores, time-based, extreme odds, cricScore)
-- Completion detection covers 8 global cricket sport keys
+### Real-Time Optimization
+1. **API Sync**: SmartPollCoordinator prevents duplicate polls
+2. **Smart Orchestrator**: 3s tick. Live polling: odds=3s, cricket=3s. Upcoming: 60s
+3. **In-Memory TTL Cache**: match_ttl=3s, odds_ttl=5s. Delta detection
+4. **Completion Detection**: Odds API /scores + time-based (>5h)
+5. **Score Enrichment**: Odds API /scores endpoint feeds live score data
 
-### User History Pages
-- Betting History, Recharge History, Withdrawal History
+### Dynamic Odds Spread
+- Formula: margin-based with exposure adjustment
+- Lay spread: max(0.02, back / 15) - wider than before for house edge
+- 3-level order book lay levels with dynamic spread
+
+### Enhanced Betting History & Statement Download (2026-03-28)
+- Admin/User filters, P&L summary, CSV download
 
 ## Architecture
 ```
 /app/backend/
-├── server.py              # Main FastAPI app (~2500 lines)
-├── sync_engine.py         # NEW: TTLCache, PerformanceMonitor, SmartPollCoordinator, SyncValidator
-├── cricket_data_service.py # CricketData API integration
+├── server.py              # Main FastAPI app (~2700 lines)
+├── odds_engine.py         # BookmakerOddsEngine: margin, exposure, dynamic odds, session markets
+├── sync_engine.py         # TTLCache, PerformanceMonitor, SmartPollCoordinator
+├── cricket_data_service.py # CricketData API integration (quota: 2000/day)
 ├── requirements.txt
 └── .env
 
 /app/frontend/src/
-├── hooks/useWebSocket.js  # OPTIMIZED: Dedup, delta updates, WS-first/polling-fallback
-├── pages/PublicHomepage.js # Updated: Odds N/A badge
-├── pages/MatchPage.js     # Optimized poll intervals
-└── pages/admin/DeclareOutcomes.js # Bet Settlement
+├── hooks/useWebSocket.js
+├── pages/PublicHomepage.js
+├── pages/MatchPage.js     # Session markets from backend, event-driven suspend
+└── pages/admin/DeclareOutcomes.js
 ```
 
 ## Key API Endpoints
-- `GET /api/matches` — All active matches (no filtering)
-- `GET /api/match/{id}` — Single match data
-- `GET /api/monitoring/stats` — Performance monitoring (public)
-- `GET /api/admin/sync-report` — API sync validation (admin)
-- `GET /api/admin/settlement/pending` — Unsettled matches (admin)
-- `PUT /api/admin/matches/{id}/outcome?winner=Team` — Declare winner + settle bets
-
-### Dynamic Odds Spread (2026-03-28)
-- Formula: `spread = max(0.01, round(back_odds / 20, 2))`
-- At ~1x: spread=0.05 (e.g., 1.03→1.08), at ~10x: spread=0.50, at ~20x: spread=1.00
-- Applied at serving time to all endpoints: `/matches`, `/matches/live`, `/match/{id}`
-- 3-level order book lay levels also use dynamic spread
-
-### Enhanced Betting History & Statement Download (2026-03-28)
-- **Admin**: `/api/admin/bets` with filters (period: day/week/month, status: won/lost/pending), summary stats (total bets, stake, won, lost, pending, payout)
-- **User**: `/api/bets/history` with same filters + P&L summary (total_stake, total_won, total_lost, net_pnl)
-- **CSV Download**: `/api/admin/statements/download?period=day|week|month` and `/api/statements/download?period=day|week|month`
-- Frontend pages: Summary cards, period/status filters, download buttons for Day/Week/Month
+- `GET /api/matches` — All active matches with margin-applied odds
+- `GET /api/match/{id}` — Single match with margin-applied odds
+- `GET /api/match/{id}/session-markets` — Backend-calculated session markets (over runs, fours, sixes, wickets)
+- `GET /api/match/{id}/bookmaker-odds` — Real-time adjusted odds with exposure data
+- `GET /api/match/{id}/market-status` — Market suspension status (event-driven)
+- `GET /api/admin/match/{id}/house-profit` — House profit projection per outcome (admin)
+- `GET /api/monitoring/stats` — Performance monitoring
 
 ## Upcoming Tasks
-1. **(P1)** User/Admin Panel Clean Separation
-2. **(P2)** Admin Manual Match Entry UI
-3. **(P2)** Cashout Functionality for live bets
+1. **(P2)** Admin Manual Match Entry UI
+2. **(P2)** Cashout Functionality for live bets
 
 ## Future/Backlog
 - User withdrawal approval system
@@ -105,6 +97,6 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Code refactor: Break server.py into /routes, /models, /services
 
 ## 3rd Party Integrations
-- The Odds API (Paid) - Match odds + scores
-- CricketData API (Paid) - Match data + live scores
+- The Odds API (Paid) - Match odds + scores - Key in .env
+- CricketData API (Paid) - Match data + live scores - Key in .env, quota 2000/day
 - MongoDB Atlas - Cloud database
