@@ -26,6 +26,9 @@ load_dotenv(ROOT_DIR / '.env')
 # Sync engine — centralized cache, monitoring, coordination
 from sync_engine import monitor, cache, coordinator, sync_validator
 
+# Bookmaker odds engine — margin, exposure, dynamic adjustment, session markets
+from odds_engine import odds_engine
+
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
@@ -509,12 +512,10 @@ class OddsService:
     
     @staticmethod
     def calculate_lay_odds(back_odds: float) -> float:
-        """Calculate lay odds with dynamic spread based on odds magnitude.
-        Spread scales: 1x→0.05, 10x→0.50, 20x→1.00 (spread = back / 20)"""
+        """Calculate lay odds using the bookmaker odds engine."""
         if back_odds is None:
             return None
-        spread = max(0.01, round(back_odds / 20, 2))
-        return round(back_odds + spread, 2)
+        return odds_engine._calculate_lay(back_odds)
     
     @staticmethod
     async def fetch_and_merge_odds():
@@ -599,103 +600,24 @@ class OddsService:
                 if not home_prices or not away_prices:
                     continue
                 
-                # Best odds (used for primary display)
+                # Best raw odds from API (used as input to bookmaker engine)
                 home_odds = max(home_prices)
                 away_odds = max(away_prices)
                 
-                # Build 3-level order book
-                # Back: sorted descending (best = highest price first)
-                home_back_sorted = sorted(set(home_prices), reverse=True)[:3]
-                away_back_sorted = sorted(set(away_prices), reverse=True)[:3]
+                # Determine match_id for this event (will be resolved later)
+                event_match_id = event.get("id", "")
                 
-                # Pad to 3 levels if needed
-                while len(home_back_sorted) < 3:
-                    home_back_sorted.append(round(home_back_sorted[-1] - 0.02, 2))
-                while len(away_back_sorted) < 3:
-                    away_back_sorted.append(round(away_back_sorted[-1] - 0.02, 2))
+                # Use BookmakerOddsEngine to build margin-applied odds object
+                odds_data = odds_engine.build_odds_object(
+                    match_id=event_match_id,
+                    raw_home=home_odds,
+                    raw_away=away_odds,
+                    bookmaker_name=bookmaker_name or "PlayXBets"
+                )
                 
-                # Lay: dynamic spread — spread = back / 20 (scales with odds magnitude)
-                home_lay_sorted = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2) for i, p in enumerate(home_back_sorted)]
-                away_lay_sorted = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2) for i, p in enumerate(away_back_sorted)]
-                
-                # Generate realistic liquidity amounts
-                import random
-                def gen_liquidity():
-                    return round(random.uniform(100, 25000), 2)
-                
-                home_back_sizes = [gen_liquidity() for _ in range(3)]
-                home_lay_sizes = [gen_liquidity() for _ in range(3)]
-                away_back_sizes = [gen_liquidity() for _ in range(3)]
-                away_lay_sizes = [gen_liquidity() for _ in range(3)]
-                
-                # Bookmaker section: Indian rate format = (decimal - 1) * 100
-                bookmaker_odds = []
-                bk_list = event.get("bookmakers", [])
-                for bk_idx, bk in enumerate(bk_list[:2]):
-                    bk_mkt = bk.get("markets", [{}])[0]
-                    bk_outcomes = bk_mkt.get("outcomes", [])
-                    bk_h, bk_a = None, None
-                    for o in bk_outcomes:
-                        p = o.get("price")
-                        if p is None:
-                            continue
-                        if OddsService.teams_match(o.get("name", ""), home_team):
-                            bk_h = p
-                        elif OddsService.teams_match(o.get("name", ""), away_team):
-                            bk_a = p
-                    if bk_h and bk_a:
-                        # Dynamic bookmaker lay spread: scaled with odds magnitude
-                        bk_h_rate = round((bk_h - 1) * 100)
-                        bk_a_rate = round((bk_a - 1) * 100)
-                        bk_h_spread = max(3, round(bk_h_rate / 20))
-                        bk_a_spread = max(3, round(bk_a_rate / 20))
-                        bookmaker_odds.append({
-                            "name": f"Bookmaker{' ' + str(bk_idx + 1) if bk_idx > 0 else ''}",
-                            "home_back": bk_h_rate,
-                            "home_lay": bk_h_rate + bk_h_spread,
-                            "away_back": bk_a_rate,
-                            "away_lay": bk_a_rate + bk_a_spread,
-                            "home_size": random.choice([125000, 250000, 375000, 500000]),
-                            "away_size": random.choice([500000, 1000000, 1500000]),
-                            "min_bet": 100,
-                            "max_bet": "15L" if bk_idx == 0 else "5L",
-                        })
-                
-                # Parse commence time properly
-                try:
-                    if commence_time:
-                        commence_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
-                    else:
-                        commence_dt = datetime.now(timezone.utc)
-                except:
-                    commence_dt = datetime.now(timezone.utc)
-                
-                # Calculate lay odds (dynamic spread: spread = back / 20)
-                home_lay = OddsService.calculate_lay_odds(home_odds)
-                away_lay = OddsService.calculate_lay_odds(away_odds)
-                
-                # Build odds object with full order book
-                odds_data = {
-                    "home": home_odds,
-                    "away": away_odds,
-                    "home_back": home_odds,
-                    "home_lay": home_lay,
-                    "away_back": away_odds,
-                    "away_lay": away_lay,
-                    # 3-level order book
-                    "home_back_levels": home_back_sorted,
-                    "home_lay_levels": home_lay_sorted,
-                    "away_back_levels": away_back_sorted,
-                    "away_lay_levels": away_lay_sorted,
-                    "home_back_sizes": home_back_sizes,
-                    "home_lay_sizes": home_lay_sizes,
-                    "away_back_sizes": away_back_sizes,
-                    "away_lay_sizes": away_lay_sizes,
-                    # Bookmaker section data
-                    "bookmakers": bookmaker_odds,
-                    "bookmaker": bookmaker_name,
-                    "last_update": datetime.now(timezone.utc).isoformat()
-                }
+                # Store raw API odds for reference
+                odds_data["raw_home"] = home_odds
+                odds_data["raw_away"] = away_odds
                 
                 # Try to find existing match in DB by team names
                 home_normalized = OddsService.normalize_team_name(home_team)
@@ -758,68 +680,31 @@ class OddsService:
                             is_reversed = True
                     
                     if is_reversed:
-                        # Swap odds to align with the DB record's team order
+                        # Rebuild odds with swapped teams using the engine
+                        corrected_odds_data = odds_engine.build_odds_object(
+                            match_id=existing_match.get("match_id", event_match_id),
+                            raw_home=away_odds,  # Swap: API away = DB home
+                            raw_away=home_odds,  # Swap: API home = DB away
+                            bookmaker_name=bookmaker_name or "PlayXBets"
+                        )
+                        corrected_odds_data["raw_home"] = away_odds
+                        corrected_odds_data["raw_away"] = home_odds
                         final_home_odds = away_odds
                         final_away_odds = home_odds
-                        final_home_lay = away_lay
-                        final_away_lay = home_lay
-                        # Swap order book levels too
-                        final_home_back_levels = away_back_sorted
-                        final_home_lay_levels = away_lay_sorted
-                        final_away_back_levels = home_back_sorted
-                        final_away_lay_levels = home_lay_sorted
-                        final_home_back_sizes = away_back_sizes
-                        final_home_lay_sizes = away_lay_sizes
-                        final_away_back_sizes = home_back_sizes
-                        final_away_lay_sizes = home_lay_sizes
-                        # Swap bookmaker odds too
-                        final_bookmakers = []
-                        for bk in bookmaker_odds:
-                            final_bookmakers.append({
-                                **bk,
-                                "home_back": bk["away_back"],
-                                "home_lay": bk["away_lay"],
-                                "away_back": bk["home_back"],
-                                "away_lay": bk["home_lay"],
-                                "home_size": bk["away_size"],
-                                "away_size": bk["home_size"],
-                            })
                         logger.info(f"REVERSED match detected: OddsAPI [{home_team} vs {away_team}] -> DB [{db_home} vs {db_away}]. Swapping odds.")
                     else:
+                        corrected_odds_data = odds_data
                         final_home_odds = home_odds
                         final_away_odds = away_odds
-                        final_home_lay = home_lay
-                        final_away_lay = away_lay
-                        final_home_back_levels = home_back_sorted
-                        final_home_lay_levels = home_lay_sorted
-                        final_away_back_levels = away_back_sorted
-                        final_away_lay_levels = away_lay_sorted
-                        final_home_back_sizes = home_back_sizes
-                        final_home_lay_sizes = home_lay_sizes
-                        final_away_back_sizes = away_back_sizes
-                        final_away_lay_sizes = away_lay_sizes
-                        final_bookmakers = bookmaker_odds
                     
-                    # Build corrected odds data with full order book
-                    corrected_odds_data = {
-                        "home": final_home_odds,
-                        "away": final_away_odds,
-                        "home_back": final_home_odds,
-                        "home_lay": final_home_lay,
-                        "away_back": final_away_odds,
-                        "away_lay": final_away_lay,
-                        "home_back_levels": final_home_back_levels,
-                        "home_lay_levels": final_home_lay_levels,
-                        "away_back_levels": final_away_back_levels,
-                        "away_lay_levels": final_away_lay_levels,
-                        "home_back_sizes": final_home_back_sizes,
-                        "home_lay_sizes": final_home_lay_sizes,
-                        "away_back_sizes": final_away_back_sizes,
-                        "away_lay_sizes": final_away_lay_sizes,
-                        "bookmakers": final_bookmakers,
-                        "bookmaker": bookmaker_name,
-                        "last_update": datetime.now(timezone.utc).isoformat()
-                    }
+                    # Parse commence time properly
+                    try:
+                        if commence_time:
+                            commence_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+                        else:
+                            commence_dt = datetime.now(timezone.utc)
+                    except:
+                        commence_dt = datetime.now(timezone.utc)
                     
                     # Update existing match with correctly aligned odds
                     await db.matches.update_one(
@@ -834,9 +719,18 @@ class OddsService:
                         }}
                     )
                     merged_count += 1
-                    logger.info(f"Merged odds for: {db_home} vs {db_away} - Home Back: {final_home_odds}, Away Back: {final_away_odds} (reversed={is_reversed})")
+                    logger.info(f"Merged odds for: {db_home} vs {db_away} - Home Back: {corrected_odds_data.get('home_back')}, Away Back: {corrected_odds_data.get('away_back')} (reversed={is_reversed})")
                 else:
                     # Create new match from Odds API
+                    # Parse commence time
+                    try:
+                        if commence_time:
+                            commence_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+                        else:
+                            commence_dt = datetime.now(timezone.utc)
+                    except:
+                        commence_dt = datetime.now(timezone.utc)
+                    
                     match_data = {
                         "match_id": event["id"],
                         "sport": "cricket",
@@ -2043,23 +1937,12 @@ async def get_matches(sport: Optional[str] = None):
                 logger.warning(f"Could not parse commence_time for match: {e}")
                 continue
     
-    # Post-process: apply dynamic spread formula to all matches when serving
+    # Post-process: apply bookmaker margin + exposure adjustment to all matches when serving
     for m in filtered_matches:
         odds = m.get("odds")
         if odds and isinstance(odds, dict):
-            hb = odds.get("home_back")
-            ab = odds.get("away_back")
-            if hb:
-                odds["home_lay"] = OddsService.calculate_lay_odds(hb)
-            if ab:
-                odds["away_lay"] = OddsService.calculate_lay_odds(ab)
-            # Also recalculate lay levels if present
-            for key in ("home_lay_levels", "away_lay_levels"):
-                back_key = key.replace("lay", "back")
-                back_levels = odds.get(back_key, [])
-                if back_levels:
-                    odds[key] = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2)
-                                 for i, p in enumerate(back_levels)]
+            match_id = m.get("match_id", "")
+            odds_engine.reapply_odds_for_serving(match_id, odds)
 
     return [Match(**m) for m in filtered_matches]
 
@@ -2085,19 +1968,15 @@ async def get_live_matches_only(sport: Optional[str] = None):
     
     matches = await db.matches.find(query, {"_id": 0}).sort("commence_time", 1).to_list(100)
     
-    # Filter and apply dynamic spread
+    # Filter and apply bookmaker margin + exposure adjustment
     live_matches = []
     for m in matches:
         if m.get("matchEnded"):
             continue
         odds = m.get("odds")
         if odds and isinstance(odds, dict):
-            hb = odds.get("home_back")
-            ab = odds.get("away_back")
-            if hb:
-                odds["home_lay"] = OddsService.calculate_lay_odds(hb)
-            if ab:
-                odds["away_lay"] = OddsService.calculate_lay_odds(ab)
+            match_id = m.get("match_id", "")
+            odds_engine.reapply_odds_for_serving(match_id, odds)
         live_matches.append(m)
     
     return {
@@ -2347,6 +2226,162 @@ async def get_match_exposure(match_id: str, current_user: User = Depends(get_cur
         "total_bets": len(bets)
     }
 
+# ==================== SESSION MARKETS ENDPOINT ====================
+@api_router.get("/match/{match_id}/session-markets")
+async def get_session_markets(match_id: str):
+    """
+    Get dynamically calculated session markets for a match.
+    Returns over runs, fours, sixes, and wicket markets with proper YES/NO odds.
+    All odds have bookmaker margin applied.
+    """
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    home_team = match.get("home_team", "")
+    away_team = match.get("away_team", "")
+    match_format = match.get("format", "t20")
+    
+    # Parse current score data
+    current_runs = 0
+    current_overs = 0.0
+    current_wickets = 0
+    current_fours = 0
+    current_sixes = 0
+    
+    score_data = match.get("score", [])
+    if score_data:
+        first_innings = score_data[0] if score_data else None
+        if first_innings:
+            if isinstance(first_innings, str):
+                import re
+                m = re.match(r"(\d+)/(\d+)\s*\((\d+\.?\d*)\)", first_innings)
+                if m:
+                    current_runs = int(m.group(1))
+                    current_wickets = int(m.group(2))
+                    current_overs = float(m.group(3))
+            elif isinstance(first_innings, dict):
+                current_runs = int(first_innings.get("r", 0) or 0)
+                current_wickets = int(first_innings.get("w", 0) or 0)
+                current_overs = float(first_innings.get("o", 0) or 0)
+    
+    # Update score state in engine for event detection
+    odds_engine.update_score(
+        match_id=match_id,
+        runs=current_runs,
+        wickets=current_wickets,
+        overs=current_overs,
+        fours=current_fours,
+        sixes=current_sixes
+    )
+    
+    # Generate session markets
+    markets = odds_engine.generate_session_markets(
+        match_id=match_id,
+        home_team=home_team,
+        away_team=away_team,
+        match_format=match_format,
+        current_runs=current_runs,
+        current_overs=current_overs,
+        current_wickets=current_wickets,
+        current_fours=current_fours,
+        current_sixes=current_sixes
+    )
+    
+    # Get market status
+    market_status = odds_engine.get_market_status(match_id)
+    
+    return {
+        "match_id": match_id,
+        "markets": markets,
+        "market_status": market_status,
+        "score": {
+            "runs": current_runs,
+            "wickets": current_wickets,
+            "overs": current_overs,
+        },
+        "is_live": match.get("status") == "live"
+    }
+
+# ==================== MARKET STATUS ENDPOINT ====================
+@api_router.get("/match/{match_id}/market-status")
+async def get_market_status(match_id: str):
+    """
+    Get current market suspension status for a match.
+    Returns whether markets are suspended due to 4/6/wicket events.
+    """
+    status = odds_engine.get_market_status(match_id)
+    return {
+        "match_id": match_id,
+        **status
+    }
+
+# ==================== HOUSE PROFIT ENDPOINT (ADMIN) ====================
+@api_router.get("/admin/match/{match_id}/house-profit")
+async def get_house_profit(match_id: str, current_user: User = Depends(get_current_admin)):
+    """
+    Admin endpoint: Get house profit projections for each outcome.
+    Shows whether the book is balanced.
+    """
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    odds = match.get("odds", {})
+    home_back = odds.get("home_back") or match.get("home_odds", 2.0)
+    away_back = odds.get("away_back") or match.get("away_odds", 2.0)
+    
+    profit_data = odds_engine.calculate_house_profit(match_id, home_back, away_back)
+    exposure_data = odds_engine.get_exposure(match_id)
+    
+    return {
+        "match_id": match_id,
+        "home_team": match.get("home_team", ""),
+        "away_team": match.get("away_team", ""),
+        "profit": profit_data,
+        "exposure": exposure_data,
+        "odds": {
+            "home_back": home_back,
+            "away_back": away_back,
+        }
+    }
+
+# ==================== BOOKMAKER ODDS ENDPOINT ====================
+@api_router.get("/match/{match_id}/bookmaker-odds")
+async def get_bookmaker_odds(match_id: str):
+    """
+    Get current bookmaker odds with margin and exposure adjustment applied.
+    Returns the full odds object recalculated in real-time.
+    """
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    odds = match.get("odds", {})
+    raw_home = odds.get("raw_home") or odds.get("home_back") or match.get("home_odds")
+    raw_away = odds.get("raw_away") or odds.get("away_back") or match.get("away_odds")
+    
+    if not raw_home or not raw_away:
+        return {"match_id": match_id, "odds": None, "message": "No odds available"}
+    
+    # Get margin-applied + exposure-adjusted odds
+    hb, hl, ab, al = odds_engine.get_adjusted_odds(match_id, raw_home, raw_away)
+    
+    return {
+        "match_id": match_id,
+        "home_team": match.get("home_team", ""),
+        "away_team": match.get("away_team", ""),
+        "raw_odds": {"home": raw_home, "away": raw_away},
+        "adjusted_odds": {
+            "home_back": hb,
+            "home_lay": hl,
+            "away_back": ab,
+            "away_lay": al,
+        },
+        "margin_applied": True,
+        "exposure": odds_engine.get_exposure(match_id),
+    }
+
 @api_router.get("/transactions/recharge-history")
 async def get_recharge_history(current_user: User = Depends(get_current_user)):
     """Get recharge/deposit history for current user"""
@@ -2386,7 +2421,7 @@ async def get_match_detail(match_id: str):
             return dt.replace('Z', '+00:00')
         return str(dt)
     
-    # Calculate odds with dynamic spread BEFORE building response
+    # Calculate odds with bookmaker margin + exposure adjustment
     odds_obj = match.get("odds") if match.get("odds") and match["odds"].get("home_back_levels") else {
         "home": match.get("home_odds"),
         "away": match.get("away_odds"),
@@ -2397,18 +2432,7 @@ async def get_match_detail(match_id: str):
         "away_lay": OddsService.calculate_lay_odds(match.get("away_odds")),
     }
     if odds_obj and isinstance(odds_obj, dict):
-        hb = odds_obj.get("home_back")
-        ab = odds_obj.get("away_back")
-        if hb:
-            odds_obj["home_lay"] = OddsService.calculate_lay_odds(hb)
-        if ab:
-            odds_obj["away_lay"] = OddsService.calculate_lay_odds(ab)
-        for key in ("home_lay_levels", "away_lay_levels"):
-            back_key = key.replace("lay", "back")
-            back_levels = odds_obj.get(back_key, [])
-            if back_levels:
-                odds_obj[key] = [round(p + max(0.01, round(p / 20, 2)) + i * max(0.01, round(p / 40, 2)), 2)
-                                 for i, p in enumerate(back_levels)]
+        odds_engine.reapply_odds_for_serving(match_id, odds_obj)
 
     # Build detailed response
     response = {
@@ -2505,6 +2529,18 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
     )
     
     await db.bets.insert_one(bet.model_dump())
+    
+    # Record bet in odds engine for exposure tracking and dynamic odds adjustment
+    match_data = await db.matches.find_one({"match_id": bet_input.match_id}, {"_id": 0, "home_team": 1, "away_team": 1})
+    if match_data:
+        odds_engine.record_bet(
+            match_id=bet_input.match_id,
+            team=bet_input.selected_team,
+            amount=bet_input.stake,
+            bet_type=bet_input.bet_type,
+            home_team=match_data.get("home_team", ""),
+            away_team=match_data.get("away_team", "")
+        )
     
     return bet
 

@@ -179,6 +179,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
   const [liveOdds, setLiveOdds] = useState(null);
   const fallbackIntervalRef = useRef(null);
+  const [backendSessionMarkets, setBackendSessionMarkets] = useState(null);
+  const [backendMarketStatus, setBackendMarketStatus] = useState(null);
 
   // ==================== PARSE ORDER BOOK FROM MATCH DATA ====================
   const parseOrderBook = useCallback((matchData) => {
@@ -275,21 +277,52 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     } catch { /* silent */ }
   }, [user, matchId]);
 
-  // ==================== BALL RUNNING / SUSPENDED CYCLE ====================
+  // ==================== MARKET STATUS POLLING (replaces timed ball-running cycle) ====================
   useEffect(() => {
     if (!match || match.status !== "live") { setBallRunning(false); setMatchSuspended(false); return; }
-    const cycleDuration = 13000;
-    let cycleTimer;
-    const runCycle = () => {
-      setBallRunning(true); setMatchSuspended(false);
-      setTimeout(() => {
-        setBallRunning(false); setMatchSuspended(true);
-        setTimeout(() => { setMatchSuspended(false); setBallRunning(false); }, 2000);
-      }, 3000);
+    
+    const fetchMarketStatus = async () => {
+      try {
+        const r = await api.get(`/match/${matchId}/market-status`);
+        const status = r.data;
+        setBackendMarketStatus(status);
+        
+        if (status.suspended) {
+          // Market is suspended due to 4/6/wicket event
+          setBallRunning(true);
+          setMatchSuspended(false);
+        } else {
+          setBallRunning(false);
+          setMatchSuspended(false);
+        }
+      } catch {
+        // Fallback: use timed cycle if backend market status unavailable
+      }
     };
-    const initialDelay = setTimeout(() => { runCycle(); cycleTimer = setInterval(runCycle, cycleDuration); }, 8000);
-    return () => { clearTimeout(initialDelay); if (cycleTimer) clearInterval(cycleTimer); setBallRunning(false); setMatchSuspended(false); };
-  }, [match?.status, match?.match_id]);
+    
+    fetchMarketStatus();
+    const interval = setInterval(fetchMarketStatus, 2000);
+    return () => { clearInterval(interval); setBallRunning(false); setMatchSuspended(false); };
+  }, [match?.status, match?.match_id, matchId]);
+
+  // ==================== SESSION MARKETS POLLING ====================
+  useEffect(() => {
+    if (!match || match.sport !== "cricket") return;
+    
+    const fetchSessionMarkets = async () => {
+      try {
+        const r = await api.get(`/match/${matchId}/session-markets`);
+        setBackendSessionMarkets(r.data);
+      } catch {
+        // Fallback: will use frontend-generated markets
+      }
+    };
+    
+    fetchSessionMarkets();
+    const pollInterval = match.status === "live" ? 3000 : 30000;
+    const interval = setInterval(fetchSessionMarkets, pollInterval);
+    return () => clearInterval(interval);
+  }, [match?.status, match?.match_id, match?.sport, matchId]);
 
   // ==================== LIVE SCORE POLLING ====================
   useEffect(() => {
@@ -368,8 +401,25 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
   const toggleMarket = (m) => setExpandedMarkets(prev => ({ ...prev, [m]: !prev[m] }));
 
-  // ==================== SESSION MARKETS ====================
+  // ==================== SESSION MARKETS (from backend with fallback) ====================
   const getSessionMarkets = useCallback(() => {
+    // Use backend session markets if available (over_runs type)
+    if (backendSessionMarkets?.markets) {
+      return backendSessionMarkets.markets
+        .filter(m => m.type === "over_runs")
+        .map(m => ({
+          name: m.name,
+          noValue: m.no_value,
+          yesValue: m.yes_value,
+          noStake: 100,
+          yesStake: 100,
+          completed: m.completed,
+          suspended: m.suspended,
+          ballRunning: m.ball_running,
+        }));
+    }
+    
+    // Fallback: frontend calculation
     if (!match || match.sport !== "cricket") return [];
     const sessions = [];
     const overTargets = match.format === "odi" ? [10, 20, 30, 40, 50] : [6, 10, 15, 20];
@@ -391,18 +441,84 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
       sessions.push({ name: `${ov} over runs ${homeShort}(${homeShort} vs ${awayShort})adv`, noValue: proj - 2 + jitter(), yesValue: proj + jitter(), noStake: 100, yesStake: 100, completed: currentOvers > 0 && ov <= currentOvers });
     });
     return sessions;
-  }, [match, liveScoreData]);
+  }, [match, liveScoreData, backendSessionMarkets]);
 
-  const getOverRunsMarkets = () => !match || match.sport !== "cricket" ? [] : [
-    { name: "Match 1st Over Runs", noValue: 5, yesValue: 7, noStake: 100, yesStake: 100 },
-    { name: "Powerplay Runs", noValue: 42, yesValue: 45, noStake: 100, yesStake: 100 },
-    { name: "1st 6 Overs Runs", noValue: 48, yesValue: 51, noStake: 100, yesStake: 100 },
-  ];
-  const getFallOfWicketsMarkets = () => !match || match.sport !== "cricket" ? [] : [
-    { name: "Fall of 1st Wkt", noValue: 18, yesValue: 22, noStake: 100, yesStake: 100 },
-    { name: "1st 2 Wkt Runs", noValue: 35, yesValue: 40, noStake: 100, yesStake: 100 },
-  ];
+  // ==================== ADDITIONAL SESSION MARKETS (Fours, Sixes, Wickets from backend) ====================
+  const getFoursMarkets = useCallback(() => {
+    if (!backendSessionMarkets?.markets) return [];
+    return backendSessionMarkets.markets
+      .filter(m => m.type === "fours")
+      .map(m => ({
+        name: m.name,
+        noValue: m.no_value,
+        yesValue: m.yes_value,
+        noStake: 100,
+        yesStake: 100,
+        completed: m.completed,
+        suspended: m.suspended,
+        ballRunning: m.ball_running,
+      }));
+  }, [backendSessionMarkets]);
+
+  const getSixesMarkets = useCallback(() => {
+    if (!backendSessionMarkets?.markets) return [];
+    return backendSessionMarkets.markets
+      .filter(m => m.type === "sixes")
+      .map(m => ({
+        name: m.name,
+        noValue: m.no_value,
+        yesValue: m.yes_value,
+        noStake: 100,
+        yesStake: 100,
+        completed: m.completed,
+        suspended: m.suspended,
+        ballRunning: m.ball_running,
+      }));
+  }, [backendSessionMarkets]);
+
+  const getWicketsMarkets = useCallback(() => {
+    if (!backendSessionMarkets?.markets) return [];
+    return backendSessionMarkets.markets
+      .filter(m => m.type === "wickets")
+      .map(m => ({
+        name: m.name,
+        noValue: m.no_value,
+        yesValue: m.yes_value,
+        noStake: 100,
+        yesStake: 100,
+        completed: m.completed,
+        suspended: m.suspended,
+        ballRunning: m.ball_running,
+      }));
+  }, [backendSessionMarkets]);
+
+  const getOverRunsMarkets = () => {
+    // Use backend fours markets if available (renamed from "over runs" to avoid confusion with session markets)
+    const foursData = getFoursMarkets();
+    if (foursData.length > 0) return foursData;
+    
+    // Fallback static data
+    return !match || match.sport !== "cricket" ? [] : [
+      { name: "Match 1st Over Runs", noValue: 5, yesValue: 7, noStake: 100, yesStake: 100 },
+      { name: "Powerplay Runs", noValue: 42, yesValue: 45, noStake: 100, yesStake: 100 },
+      { name: "1st 6 Overs Runs", noValue: 48, yesValue: 51, noStake: 100, yesStake: 100 },
+    ];
+  };
+  const getFallOfWicketsMarkets = () => {
+    // Use backend wickets markets if available
+    const wicketsData = getWicketsMarkets();
+    if (wicketsData.length > 0) return wicketsData;
+    
+    return !match || match.sport !== "cricket" ? [] : [
+      { name: "Fall of 1st Wkt", noValue: 18, yesValue: 22, noStake: 100, yesStake: 100 },
+      { name: "1st 2 Wkt Runs", noValue: 35, yesValue: 40, noStake: 100, yesStake: 100 },
+    ];
+  };
   const getTeamTotalMarkets = () => {
+    // Use backend sixes markets if available
+    const sixesData = getSixesMarkets();
+    if (sixesData.length > 0) return sixesData;
+    
     if (!match) return [];
     const hs = match.home_team?.substring(0, 3).toUpperCase() || "HOM";
     const as2 = match.away_team?.substring(0, 3).toUpperCase() || "AWY";
@@ -703,7 +819,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                   {expandedMarkets.sessionMarkets && (
                     <>
                       <SessionColumnHeaders />
-                      {getSessionMarkets().map((s, i) => <SessionRow key={i} {...s} ballRunning={isLive && ballRunning} suspended={isLive && matchSuspended} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "session")} />)}
+                      {getSessionMarkets().map((s, i) => <SessionRow key={i} {...s} ballRunning={s.ballRunning || (isLive && ballRunning)} suspended={s.suspended || (isLive && matchSuspended)} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "session")} />)}
                     </>
                   )}
                 </div>
@@ -713,20 +829,20 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
               {isCricket && (
                 <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="over-runs-section">
-                  <MarketHeader title="Over Runs Markets" isExpanded={expandedMarkets.overRuns} onToggle={() => toggleMarket("overRuns")} />
-                  {expandedMarkets.overRuns && (<><SessionColumnHeaders />{getOverRunsMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={isLive && ballRunning} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "over")} />)}</>)}
+                  <MarketHeader title="4 Runs / Over Runs" isExpanded={expandedMarkets.overRuns} onToggle={() => toggleMarket("overRuns")} />
+                  {expandedMarkets.overRuns && (<><SessionColumnHeaders />{getOverRunsMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={m2.ballRunning || (isLive && ballRunning)} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "over")} />)}</>)}
                 </div>
               )}
               {isCricket && (
                 <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="fall-of-wickets-section">
-                  <MarketHeader title="Fall of Wickets" isExpanded={expandedMarkets.fallOfWickets} onToggle={() => toggleMarket("fallOfWickets")} />
-                  {expandedMarkets.fallOfWickets && (<><SessionColumnHeaders />{getFallOfWicketsMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={isLive && ballRunning} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "wicket")} />)}</>)}
+                  <MarketHeader title="Wicket Markets" isExpanded={expandedMarkets.fallOfWickets} onToggle={() => toggleMarket("fallOfWickets")} />
+                  {expandedMarkets.fallOfWickets && (<><SessionColumnHeaders />{getFallOfWicketsMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={m2.ballRunning || (isLive && ballRunning)} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "wicket")} />)}</>)}
                 </div>
               )}
               {isCricket && (
                 <div className="bg-[#161B22] rounded-lg overflow-hidden" data-testid="team-total-section">
-                  <MarketHeader title="Team Total Runs" isExpanded={expandedMarkets.teamTotal} onToggle={() => toggleMarket("teamTotal")} />
-                  {expandedMarkets.teamTotal && (<><SessionColumnHeaders />{getTeamTotalMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={isLive && ballRunning} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "total")} />)}</>)}
+                  <MarketHeader title="6 Runs / Sixes" isExpanded={expandedMarkets.teamTotal} onToggle={() => toggleMarket("teamTotal")} />
+                  {expandedMarkets.teamTotal && (<><SessionColumnHeaders />{getTeamTotalMarkets().map((m2, i) => <SessionRow key={i} {...m2} ballRunning={m2.ballRunning || (isLive && ballRunning)} onSelect={(n, t, v) => addToBetSlip(`${n} ${t}`, t, v, "total")} />)}</>)}
                 </div>
               )}
               {isCricket && (
