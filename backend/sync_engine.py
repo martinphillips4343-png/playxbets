@@ -232,13 +232,13 @@ class SmartPollCoordinator:
         self._retry_counts: Dict[str, int] = {}
         self._lock = asyncio.Lock()
 
-    # Minimum intervals in seconds — fast polling for live experience
+    # Minimum intervals in seconds
     INTERVALS = {
-        "odds_live": 3,         # Live matches odds: 1 call per 3s
-        "odds_upcoming": 60,    # Upcoming matches odds: 1 call per 60s
-        "cricket_live": 3,      # Live cricket data: 1 call per 3s
-        "cricket_upcoming": 60, # Upcoming cricket data: 1 call per 60s
-        "live_check": 3,        # Auto-promotion/completion: 1 check per 3s
+        "odds_live": 3,           # Live matches odds: every 3s
+        "odds_upcoming": 120,     # Upcoming matches odds: every 2 min
+        "cricket_live": 3,        # Live cricket data: every 3s
+        "cricket_upcoming": 120,  # Upcoming cricket data: every 2 min
+        "live_check": 30,         # Completion check: every 30s (not needed as fast)
     }
     MAX_RETRIES = 3
 

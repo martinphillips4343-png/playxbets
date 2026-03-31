@@ -32,10 +32,13 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Lay bets: deduct liability (stake × (odds-1)), win when team LOSES
 - Admin Bet Settlement Panel with pending bets view
 
-### Real-Time Optimization (2026-03-28, updated 2026-03-29) — 9-Point System
-1. **API Sync Validation**: `/api/admin/sync-report` cross-references CricketData + Odds API (total/synced/unsynced/errors/missing_odds/duplicates/time_mismatches)
-2. **Smart Orchestrator**: Single 3s scheduler tick. Fast polling: live=3s, upcoming=60s. SmartPollCoordinator prevents duplicate polls with per-source dedup + async locks
-3. **In-Memory TTL Cache**: `sync_engine.TTLCache` with match_ttl=3s, odds_ttl=5s. Delta detection — only pushes changed data
+### Real-Time Optimization (2026-03-28, updated 2026-03-31) — Simplified
+1. **API Sync**: `/api/admin/sync-report` cross-references CricketData + Odds API
+2. **Smart Orchestrator**: 3s tick. Live polling: odds=3s, cricket=3s. Upcoming: 120s. Completion check: 30s. SmartPollCoordinator prevents duplicate polls
+3. **In-Memory TTL Cache**: `sync_engine.TTLCache` match_ttl=3s, odds_ttl=5s. Delta detection
+4. **Completion Detection**: Only 2 reliable signals — Odds API /scores + time-based (>5h). Removed false-positive-prone Methods (Odds API presence check, cricScore, extreme odds)
+5. **Score Enrichment**: Odds API /scores endpoint feeds live score data alongside odds updates
+6. **No Aggressive Cleanup**: Removed stale-live-cutoff and matchEnded checks from GET /api/matches that killed live matches prematurely
 4. **Complete Match Coverage**: ALL cricket matches shown globally (no minor league filtering). Matches without odds show "Odds N/A"
 5. **Data Merging**: Hashmap-based fast lookup by match_id + normalized team names. Handles partial data and delayed odds
 6. **Frontend Optimization**: WebSocket-first, polling-fallback. Timestamp-based dedup prevents stale overwrites. State diffing prevents unnecessary re-renders

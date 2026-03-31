@@ -39,6 +39,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
@@ -828,6 +829,7 @@ class OddsService:
                             "home_odds": final_home_odds,
                             "away_odds": final_away_odds,
                             "odds_updated_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(timezone.utc),
                             "commence_time": commence_dt if commence_dt.tzinfo else commence_dt.replace(tzinfo=timezone.utc)
                         }}
                     )
@@ -1030,7 +1032,7 @@ async def smart_orchestrator():
         monitor.record_error("orchestrator", str(e))
 
 async def scheduled_odds_fetch_async():
-    """Fetch odds from Odds API and merge into DB."""
+    """Fetch odds from Odds API and merge into DB. Also fetch scores for live matches."""
     global last_odds_poll
     logger.info("Running scheduled odds fetch...")
     events = await OddsService.fetch_sports_data()
@@ -1039,20 +1041,47 @@ async def scheduled_odds_fetch_async():
     # Register for sync validation
     if events:
         sync_validator.register_odds_events(events)
+
+    # Enrich live matches with score data from Odds API /scores endpoint
+    try:
+        for sport_key in ["cricket_ipl", "cricket_psl"]:
+            scores_url = f"{ODDS_API_BASE}/sports/{sport_key}/scores"
+            scores_params = {"apiKey": ODDS_API_KEY, "daysFrom": 1}
+            scores_resp = await asyncio.get_event_loop().run_in_executor(
+                None, lambda url=scores_url, p=scores_params: requests.get(url, params=p, timeout=10)
+            )
+            if scores_resp.status_code == 200:
+                for ev in scores_resp.json():
+                    scores = ev.get("scores")
+                    if scores and not ev.get("completed"):
+                        h = ev.get("home_team", "").lower().strip()
+                        a = ev.get("away_team", "").lower().strip()
+                        # Find matching DB match and update score
+                        db_match = await db.matches.find_one({
+                            "status": "live",
+                            "home_team": {"$regex": h.split()[0] if h else "", "$options": "i"},
+                            "away_team": {"$regex": a.split()[0] if a else "", "$options": "i"},
+                        }, {"_id": 0, "match_id": 1})
+                        if db_match:
+                            await db.matches.update_one(
+                                {"match_id": db_match["match_id"]},
+                                {"$set": {"score": scores, "updated_at": datetime.now(timezone.utc)}}
+                            )
+    except Exception as e:
+        logger.debug(f"Score enrichment skipped: {e}")
+
     logger.info("Scheduled odds fetch completed")
 
 async def detect_completed_matches(current_time: datetime):
-    """Detect and mark completed matches using multiple signals."""
+    """Detect and mark completed matches using reliable signals only."""
     our_live_matches = await db.matches.find({"status": "live"}, {"_id": 0}).to_list(100)
     if not our_live_matches:
         return
 
-    odds_team_pairs = set()
+    # Method 1: Odds API /scores — check IPL + PSL only (2 calls max)
     odds_completed_pairs = set()
     try:
-        for sport_key in ["cricket_ipl", "cricket_psl", "cricket_big_bash", "cricket_test_match",
-                          "cricket_one_day_internationals", "cricket_t20_internationals",
-                          "cricket_the_hundred", "cricket_caribbean_premier_league"]:
+        for sport_key in ["cricket_ipl", "cricket_psl"]:
             try:
                 scores_url = f"{ODDS_API_BASE}/sports/{sport_key}/scores"
                 scores_params = {"apiKey": ODDS_API_KEY, "daysFrom": 1}
@@ -1061,37 +1090,12 @@ async def detect_completed_matches(current_time: datetime):
                 )
                 if scores_resp.status_code == 200:
                     for ev in scores_resp.json():
-                        h = ev.get("home_team", "").lower().strip()
-                        a = ev.get("away_team", "").lower().strip()
                         if ev.get("completed"):
+                            h = ev.get("home_team", "").lower().strip()
+                            a = ev.get("away_team", "").lower().strip()
                             odds_completed_pairs.add((h, a))
             except Exception:
                 pass
-
-        odds_url = f"{ODDS_API_BASE}/sports/cricket/odds"
-        odds_params = {"apiKey": ODDS_API_KEY, "regions": "us,uk", "markets": "h2h", "oddsFormat": "decimal"}
-        odds_resp = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: requests.get(odds_url, params=odds_params, timeout=15)
-        )
-        odds_events = odds_resp.json() if odds_resp.status_code == 200 else []
-        for ev in odds_events:
-            h = ev.get("home_team", "").lower().strip()
-            a = ev.get("away_team", "").lower().strip()
-            odds_team_pairs.add((h, a))
-    except Exception as e:
-        logger.error(f"Odds API check failed: {e}")
-        odds_team_pairs = None
-
-    # cricScore for completion detection
-    cricscore_statuses = {}
-    try:
-        service = get_cricket_service()
-        cricscore_data = await service._api_request("cricScore", cache_ttl=15)
-        if cricscore_data and cricscore_data.get("data"):
-            for cs in cricscore_data["data"]:
-                t1 = (cs.get("t1") or "").lower()
-                t2 = (cs.get("t2") or "").lower()
-                cricscore_statuses[(t1, t2)] = cs.get("ms", "")
     except Exception:
         pass
 
@@ -1103,7 +1107,7 @@ async def detect_completed_matches(current_time: datetime):
         should_complete = False
         completion_reason = ""
 
-        # Method 1: Odds API /scores says completed
+        # Signal 1: Odds API /scores says completed
         if odds_completed_pairs:
             for (ch, ca) in odds_completed_pairs:
                 if (OddsService.teams_match(home, ch) and OddsService.teams_match(away, ca)) or \
@@ -1112,47 +1116,14 @@ async def detect_completed_matches(current_time: datetime):
                     completion_reason = "Odds API scores: completed"
                     break
 
-        # Method 2: Odds-API-created match no longer in Odds API
-        if not should_complete and odds_team_pairs is not None:
-            mid = our_match.get("match_id", "")
-            is_odds_api_match = isinstance(mid, str) and len(mid) > 20 and "-" not in mid
-            if is_odds_api_match:
-                in_odds = any(
-                    (OddsService.teams_match(home, h) and OddsService.teams_match(away, a)) or
-                    (OddsService.teams_match(home, a) and OddsService.teams_match(away, h))
-                    for (h, a) in odds_team_pairs
-                )
-                if not in_odds:
-                    should_complete = True
-                    completion_reason = "Not in Odds API"
-
-        # Method 3: cricScore shows non-live status
-        if not should_complete:
-            for (t1, t2), ms in cricscore_statuses.items():
-                t1_match = OddsService.teams_match(home, t1) or OddsService.teams_match(away, t1)
-                t2_match = OddsService.teams_match(away, t2) or OddsService.teams_match(home, t2)
-                if t1_match and t2_match and ms in ("result", "complete", "abandoned", "no result"):
-                    should_complete = True
-                    completion_reason = f"cricScore status: {ms}"
-                    break
-
-        # Method 4: Time-based
+        # Signal 2: Time-based safety net — no cricket match runs >5 hours
         if not should_complete and commence:
             commence_dt = ensure_utc(commence)
             if commence_dt:
                 hours = (current_time - commence_dt).total_seconds() / 3600
-                if hours > 3.5:
+                if hours > 5.0:
                     should_complete = True
-                    completion_reason = f"Live for {hours:.1f}h (>3.5h)"
-
-        # Method 5: Extreme odds
-        if not should_complete:
-            odds_obj = our_match.get("odds") or {}
-            hb = odds_obj.get("home_back") or our_match.get("home_odds")
-            ab = odds_obj.get("away_back") or our_match.get("away_odds")
-            if hb and ab and ((hb <= 1.03 and ab >= 10) or (ab <= 1.03 and hb >= 10)):
-                should_complete = True
-                completion_reason = f"Extreme odds: {hb}/{ab}"
+                    completion_reason = f"Live for {hours:.1f}h (>5h)"
 
         if should_complete:
             logger.info(f"Auto-completing: {our_match.get('home_team')} vs {our_match.get('away_team')} — {completion_reason}")
@@ -1941,24 +1912,32 @@ async def smart_cricket_poll():
                 upsert=True
             )
         
-        # AUTO CLEANUP: Mark matches that were "live" but no longer in API response as "completed"
-        if api_match_ids:
-            stale_cutoff = now - timedelta(minutes=30)
-            # Handle both datetime and string updated_at in DB
-            result = await db.matches.update_many(
-                {
-                    "sport": "cricket",
-                    "status": "live",
-                    "match_id": {"$nin": list(api_match_ids)},
-                    "$or": [
-                        {"updated_at": {"$lt": stale_cutoff}},
-                        {"updated_at": {"$lt": stale_cutoff.isoformat()}}
-                    ]
-                },
-                {"$set": {"status": "completed", "matchEnded": True}}
-            )
-            if result.modified_count > 0:
-                logger.info(f"Auto-marked {result.modified_count} stale matches as completed")
+        # AUTO CLEANUP: Only mark CricketData-sourced live matches as completed
+        # when CricketData API is actually returning data (non-empty api_match_ids)
+        # AND the match is stale (not updated in 2+ hours)
+        # Skip Odds-API-sourced matches (hex IDs without dashes)
+        if api_match_ids and len(api_match_ids) >= 2:
+            stale_cutoff = now - timedelta(hours=2)
+            stale_live = await db.matches.find({
+                "sport": "cricket",
+                "status": "live",
+                "match_id": {"$nin": list(api_match_ids)},
+                "$or": [
+                    {"updated_at": {"$lt": stale_cutoff}},
+                    {"updated_at": {"$lt": stale_cutoff.isoformat()}}
+                ]
+            }, {"_id": 0, "match_id": 1, "home_team": 1, "away_team": 1}).to_list(100)
+
+            # Only complete CricketData-sourced matches (UUID with dashes)
+            cric_stale = [m for m in stale_live if "-" in m.get("match_id", "")]
+            if cric_stale:
+                cric_ids = [m["match_id"] for m in cric_stale]
+                result = await db.matches.update_many(
+                    {"match_id": {"$in": cric_ids}},
+                    {"$set": {"status": "completed", "matchEnded": True}}
+                )
+                if result.modified_count > 0:
+                    logger.info(f"Cricket cleanup: marked {result.modified_count} CricketData stale matches as completed")
         
         # Update realtime cache with live matches
         cache_changed = await realtime_cache.set_live_matches(live_transformed)
@@ -2018,21 +1997,7 @@ async def get_matches(sport: Optional[str] = None):
     """
     now = datetime.now(timezone.utc)
     
-    # First, auto-cleanup: Mark old "live" matches as completed if they've been live too long
-    # (Edge case: match stuck in "live" status)
-    stale_live_cutoff = now - timedelta(hours=12)  # No match should be live for 12+ hours
-    await db.matches.update_many(
-        {
-            "status": "live",
-            "$or": [
-                {"updated_at": {"$lt": stale_live_cutoff}},
-                {"updated_at": {"$lt": stale_live_cutoff.isoformat()}}
-            ]
-        },
-        {"$set": {"status": "completed"}}
-    )
-    
-    # Build query — show ALL matches (no minor league filtering per requirement #4)
+    # Build query — exclude completed/ended matches
     query = {
         "status": {"$nin": ["completed", "ended", "finished"]}
     }
@@ -2046,16 +2011,7 @@ async def get_matches(sport: Optional[str] = None):
     for m in matches:
         status = m.get("status", "").lower() if isinstance(m.get("status"), str) else ""
         
-        # Check matchEnded flag (from CricketData API)
-        match_ended = m.get("matchEnded", False)
-        if match_ended:
-            await db.matches.update_one(
-                {"match_id": m.get("match_id")},
-                {"$set": {"status": "completed"}}
-            )
-            continue
-        
-        # Always include LIVE matches that aren't ended
+        # Always include LIVE matches
         if status == "live":
             filtered_matches.append(m)
             continue
@@ -2076,7 +2032,7 @@ async def get_matches(sport: Optional[str] = None):
                     if ct <= now and m.get("status") == "scheduled":
                         await db.matches.update_one(
                             {"match_id": m.get("match_id")},
-                            {"$set": {"status": "live", "matchStarted": True}}
+                            {"$set": {"status": "live", "matchStarted": True, "updated_at": now}}
                         )
                         m["status"] = "live"
                         m["matchStarted"] = True
