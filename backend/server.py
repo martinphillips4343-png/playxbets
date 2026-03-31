@@ -821,37 +821,36 @@ class OddsService:
                 errors=len(events) - merged_count - created_count
             )
             
-            # Return events for sync validation
-            return events
+            # Post-merge dedup: remove duplicates where same teams exist with different match IDs
+            all_matches = await db.matches.find(
+                {"status": {"$nin": ["completed", "ended", "finished"]}},
+                {"_id": 1, "match_id": 1, "home_team": 1, "away_team": 1, "score": 1}
+            ).to_list(length=500)
             
-            # Post-merge cleanup: remove Odds-API-created duplicates where a CricketData entry exists
-            all_matches = await db.matches.find({}, {"_id": 1, "match_id": 1, "home_team": 1, "away_team": 1}).to_list(length=500)
-            cleanup_count = 0
-            
-            # Group by canonical team pair
             from collections import defaultdict
             team_groups = defaultdict(list)
             for m in all_matches:
-                pair = tuple(sorted([
-                    OddsService._canonicalize(m.get("home_team", "")),
-                    OddsService._canonicalize(m.get("away_team", ""))
-                ]))
-                mid = m.get("match_id", "")
-                is_odds_api = isinstance(mid, str) and len(mid) > 20 and "-" not in mid
-                team_groups[pair].append({"_id": m["_id"], "is_odds_api": is_odds_api, "home": m.get("home_team"), "away": m.get("away_team")})
+                ht = OddsService.normalize_team_name(m.get("home_team", ""))
+                at = OddsService.normalize_team_name(m.get("away_team", ""))
+                pair = tuple(sorted([ht, at]))
+                has_score = bool(m.get("score"))
+                team_groups[pair].append({"_id": m["_id"], "match_id": m.get("match_id", ""), "has_score": has_score, "home": m.get("home_team"), "away": m.get("away_team")})
             
+            cleanup_count = 0
             for pair, entries in team_groups.items():
-                if len(entries) > 1:
-                    has_cricketdata = any(not e["is_odds_api"] for e in entries)
-                    if has_cricketdata:
-                        for e in entries:
-                            if e["is_odds_api"]:
-                                await db.matches.delete_one({"_id": e["_id"]})
-                                cleanup_count += 1
-                                logger.info(f"Cleaned up Odds-API duplicate: {e['home']} vs {e['away']}")
+                if len(entries) <= 1:
+                    continue
+                # Keep the entry with live scores (CricketData), delete the rest
+                entries_with_score = [e for e in entries if e["has_score"]]
+                keep = entries_with_score[0] if entries_with_score else entries[0]
+                for e in entries:
+                    if e["_id"] != keep["_id"]:
+                        await db.matches.delete_one({"_id": e["_id"]})
+                        cleanup_count += 1
+                        logger.info(f"Dedup: removed {e['home']} vs {e['away']} (kept {keep['home']} vs {keep['away']})")
             
             if cleanup_count > 0:
-                logger.info(f"Cleaned up {cleanup_count} Odds-API duplicate entries")
+                logger.info(f"Dedup: cleaned up {cleanup_count} duplicate entries")
             
             return events
             
