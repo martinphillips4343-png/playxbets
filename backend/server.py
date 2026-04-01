@@ -2766,8 +2766,13 @@ async def place_bet(bet_input: BetCreate, current_user: User = Depends(get_curre
         deduction = bet_input.stake
         potential_win = round(bet_input.stake * bet_input.odds, 2)  # Total return including stake
     
-    if not wallet or wallet["balance"] < deduction:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No wallet found. Please deposit first.")
+    
+    # Check against available balance (balance - frozen - exposure), not raw balance
+    available = wallet.get("balance", 0) - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
+    if available < deduction:
+        raise HTTPException(status_code=400, detail=f"Insufficient available balance. Available: {available:.2f}, Required: {deduction:.2f}")
     
     balance_before = wallet["balance"]
     balance_after = round(balance_before - deduction, 2)

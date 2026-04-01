@@ -1,7 +1,7 @@
 # PlayXBets - Product Requirements Document
 
 ## Original Problem Statement
-Build a premium, dark-themed sports betting application named "PlayXBets" featuring a dense, tabular betting exchange UI (Betfair-style). The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API).
+Build a premium, dark-themed sports betting application named "PlayXBets" featuring a dense, tabular betting exchange UI (Betfair-style). The platform integrates real-time cricket matches (CricketData API) and odds (The Odds API). Includes a manual wallet system (no payment gateways) where users request deposits/withdrawals and admins approve/reject them.
 
 ## Tech Stack
 - **Frontend**: React 18.2.0 + Tailwind CSS + Shadcn/UI + Lucide React icons
@@ -33,30 +33,36 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Admin Bet Settlement Panel with pending bets view
 
 ### Bookmaker Odds Engine (2026-03-31)
-1. **Margin Application**: Raw API odds converted to probability, 7% margin added (5-10% range), converted back. Total probability always > 1.0 = house always profits
-2. **Exposure Tracking**: In-memory per-match tracking of back/lay totals on both sides
-3. **Dynamic Odds Adjustment**: More money on one side -> reduce that side odds, increase opposite. Auto-balance book
+1. **Margin Application**: Raw API odds converted to probability, 7% margin added
+2. **Exposure Tracking**: In-memory per-match tracking of back/lay totals
+3. **Dynamic Odds Adjustment**: More money on one side -> reduce that side odds
 4. **No Arbitrage**: Safety checks ensure users can never profit from both sides simultaneously
-5. **Session Markets from Backend**: Over runs, fours, sixes, wickets markets calculated server-side with proper YES/NO odds + margin
-6. **Event-Driven Market Suspension**: Markets suspend only on 4/6/wicket events (not timed cycles). Auto-resume after 5 seconds
-7. **New API Endpoints**: `/match/{id}/session-markets`, `/match/{id}/bookmaker-odds`, `/match/{id}/market-status`, `/admin/match/{id}/house-profit`
+5. **Session Markets from Backend**: Over runs, fours, sixes, wickets markets
+6. **Event-Driven Market Suspension**: Markets suspend only on 4/6/wicket events
+7. **New API Endpoints**: `/match/{id}/session-markets`, `/match/{id}/bookmaker-odds`, etc.
+
+### Manual Wallet System (2026-04-01) - TESTED
+- **Deposit Flow**: User submits deposit request -> Admin approves/rejects -> Balance updated
+- **Withdrawal Flow**: User submits withdrawal (bank details required) -> Balance frozen -> Admin approves (deducts) or rejects (unfreezes)
+- **Wallet Schema**: balance, available_balance (computed), frozen_balance, exposure
+- **Admin Dashboard**: Deposit/Withdrawal management with stats, filters, approve/reject
+- **User Pages**: Recharge history, withdrawal history
+- **E2E Tested**: 17/17 backend tests passed, all frontend verified (2026-04-01)
+
+### Wallet + Betting Integration Fix (2026-04-01)
+- **Bug Fixed**: `place_bet` now checks `available_balance` (balance - frozen - exposure) instead of raw balance
+- Prevents users from betting with money frozen for pending withdrawals
 
 ### API Connection (2026-03-31)
-- Odds API quota reset and keys properly loaded from .env (no hardcoded fallbacks)
-- CricketData API quota reset to 2000 (was incorrectly limited to 100)
-- Both APIs live and syncing every 2-3 seconds for live matches
+- Odds API quota reset and keys properly loaded from .env
+- CricketData API quota reset to 2000
+- Both APIs live and syncing every 1-3 seconds for live matches
 
 ### Real-Time Optimization
 1. **API Sync**: SmartPollCoordinator prevents duplicate polls
 2. **Smart Orchestrator**: 3s tick. Live polling: odds=3s, cricket=3s. Upcoming: 60s
 3. **In-Memory TTL Cache**: match_ttl=3s, odds_ttl=5s. Delta detection
 4. **Completion Detection**: Odds API /scores + time-based (>5h)
-5. **Score Enrichment**: Odds API /scores endpoint feeds live score data
-
-### Dynamic Odds Spread
-- Formula: margin-based with exposure adjustment
-- Lay spread: max(0.02, back / 15) - wider than before for house edge
-- 3-level order book lay levels with dynamic spread
 
 ### Enhanced Betting History & Statement Download (2026-03-28)
 - Admin/User filters, P&L summary, CSV download
@@ -64,7 +70,7 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 ## Architecture
 ```
 /app/backend/
-├── server.py              # Main FastAPI app (~2700 lines)
+├── server.py              # Main FastAPI app (~3100 lines)
 ├── odds_engine.py         # BookmakerOddsEngine: margin, exposure, dynamic odds, session markets
 ├── sync_engine.py         # TTLCache, PerformanceMonitor, SmartPollCoordinator
 ├── cricket_data_service.py # CricketData API integration (quota: 2000/day)
@@ -74,27 +80,38 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 /app/frontend/src/
 ├── hooks/useWebSocket.js
 ├── pages/PublicHomepage.js
-├── pages/MatchPage.js     # Session markets from backend, event-driven suspend
-└── pages/admin/DeclareOutcomes.js
+├── pages/MatchPage.js
+├── pages/Login.js, SignUp.js
+├── pages/user/RechargeHistory.js, MyWithdrawals.js, BetHistory.js, Dashboard.js
+├── pages/admin/Dashboard.js, Deposits.js, Withdrawals.js, DeclareOutcomes.js, BetsPlaced.js
+└── App.js (Routes)
 ```
 
 ## Key API Endpoints
 - `GET /api/matches` — All active matches with margin-applied odds
 - `GET /api/match/{id}` — Single match with margin-applied odds
-- `GET /api/match/{id}/session-markets` — Backend-calculated session markets (over runs, fours, sixes, wickets)
+- `GET /api/match/{id}/session-markets` — Backend-calculated session markets
 - `GET /api/match/{id}/bookmaker-odds` — Real-time adjusted odds with exposure data
-- `GET /api/match/{id}/market-status` — Market suspension status (event-driven)
-- `GET /api/admin/match/{id}/house-profit` — House profit projection per outcome (admin)
-- `GET /api/monitoring/stats` — Performance monitoring
+- `POST /api/bets` — Place bet (checks available_balance)
+- `GET /api/wallet` — User wallet (balance, available_balance, frozen_balance, exposure)
+- `POST /api/deposits` — Create deposit request
+- `GET /api/deposits/my` — User's deposit history
+- `POST /api/withdrawals` — Create withdrawal (freezes balance)
+- `GET /api/withdrawals/my` — User's withdrawal history
+- `GET /api/admin/deposits` — All deposit requests
+- `POST /api/admin/deposits/{id}/approve` — Approve deposit
+- `POST /api/admin/deposits/{id}/reject` — Reject deposit
+- `GET /api/admin/withdrawals` — All withdrawal requests
+- `PUT /api/admin/withdrawals/{id}` — Approve/reject withdrawal
+- `GET /api/admin/wallet/stats` — Admin wallet statistics
 
 ## Upcoming Tasks
-1. **(P2)** Admin Manual Match Entry UI
+1. **(P2)** Admin Manual Match Entry UI (form to hit `/api/admin/cricket/seed`)
 2. **(P2)** Cashout Functionality for live bets
 
 ## Future/Backlog
-- User withdrawal approval system
-- Support ticket system
-- Code refactor: Break server.py into /routes, /models, /services
+- User support ticket system
+- Code refactor: Break server.py (~3100 lines) into /routes, /models, /services
 
 ## 3rd Party Integrations
 - The Odds API (Paid) - Match odds + scores - Key in .env
