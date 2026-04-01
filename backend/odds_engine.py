@@ -586,51 +586,53 @@ class BookmakerOddsEngine:
     def reapply_odds_for_serving(self, match_id: str, odds_dict: Dict) -> Dict:
         """
         Take existing odds dict from DB and reapply bookmaker margins + exposure adjustments.
-        Used when serving /matches, /matches/live, /match/{id} endpoints.
+        Preserves real Betfair Exchange lay odds when available.
         """
         if not odds_dict or not isinstance(odds_dict, dict):
             return odds_dict
 
-        raw_home = odds_dict.get("home_back") or odds_dict.get("home")
-        raw_away = odds_dict.get("away_back") or odds_dict.get("away")
+        raw_home = odds_dict.get("raw_home") or odds_dict.get("home_back") or odds_dict.get("home")
+        raw_away = odds_dict.get("raw_away") or odds_dict.get("away_back") or odds_dict.get("away")
 
         if not raw_home or not raw_away:
             return odds_dict
 
-        # Get adjusted odds (margin + exposure)
+        has_exchange_lay = odds_dict.get("exchange_lay", False)
+
+        # Get adjusted odds (margin + exposure) for back prices
         hb, hl, ab, al = self.get_adjusted_odds(match_id, raw_home, raw_away)
 
-        # Update the odds dict in-place
+        # Update back prices
         odds_dict["home"] = hb
         odds_dict["away"] = ab
         odds_dict["home_back"] = hb
-        odds_dict["home_lay"] = hl
         odds_dict["away_back"] = ab
-        odds_dict["away_lay"] = al
 
-        # Update levels if present
+        # Only override lay if no real exchange lay data
+        if not has_exchange_lay:
+            odds_dict["home_lay"] = hl
+            odds_dict["away_lay"] = al
+
+        # Update back levels
         if odds_dict.get("home_back_levels"):
             odds_dict["home_back_levels"] = [
                 hb,
                 round(max(self.MIN_ODDS, hb - 0.02), 2),
                 round(max(self.MIN_ODDS, hb - 0.04), 2),
             ]
-            odds_dict["home_lay_levels"] = [self._calculate_lay(p) for p in odds_dict["home_back_levels"]]
         if odds_dict.get("away_back_levels"):
             odds_dict["away_back_levels"] = [
                 ab,
                 round(max(self.MIN_ODDS, ab - 0.02), 2),
                 round(max(self.MIN_ODDS, ab - 0.04), 2),
             ]
-            odds_dict["away_lay_levels"] = [self._calculate_lay(p) for p in odds_dict["away_back_levels"]]
 
-        # Update bookmaker section
-        if odds_dict.get("bookmakers"):
-            for bk in odds_dict["bookmakers"]:
-                bk["home_back"] = round((hb - 1) * 100)
-                bk["home_lay"] = round((hl - 1) * 100)
-                bk["away_back"] = round((ab - 1) * 100)
-                bk["away_lay"] = round((al - 1) * 100)
+        # Only recalculate lay levels if no exchange lay
+        if not has_exchange_lay:
+            if odds_dict.get("home_back_levels"):
+                odds_dict["home_lay_levels"] = [self._calculate_lay(p) for p in odds_dict["home_back_levels"]]
+            if odds_dict.get("away_back_levels"):
+                odds_dict["away_lay_levels"] = [self._calculate_lay(p) for p in odds_dict["away_back_levels"]]
 
         odds_dict["margin_applied"] = True
         return odds_dict

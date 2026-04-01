@@ -527,8 +527,8 @@ class OddsService:
             url = f"{ODDS_API_BASE}/sports/cricket/odds"
             params = {
                 "apiKey": ODDS_API_KEY,
-                "regions": "us,uk,eu,au",
-                "markets": "h2h",
+                "regions": "uk",
+                "markets": "h2h,h2h_lay",
                 "oddsFormat": "decimal"
             }
             
@@ -558,53 +558,63 @@ class OddsService:
                 away_team = event.get("away_team", "")
                 commence_time = event.get("commence_time", "")
                 
-                # Extract odds from ALL bookmakers to build order book
-                home_prices = []
-                away_prices = []
-                bookmaker_name = None
-                
+                # Priority: Use Betfair Exchange (betfair_ex_uk) for real Back/Lay odds
+                betfair_ex = None
+                fallback_bk = None
                 for bookmaker in event.get("bookmakers", []):
-                    if not bookmaker_name:
-                        bookmaker_name = bookmaker.get("title", "Unknown")
-                    
-                    if bookmaker.get("markets"):
-                        market = bookmaker["markets"][0]
-                        outcomes = market.get("outcomes", [])
-                        bk_home = None
-                        bk_away = None
-                        
-                        for outcome in outcomes:
-                            name = outcome.get("name", "")
-                            price = outcome.get("price")
-                            if price is None:
-                                continue
-                            if OddsService.teams_match(name, home_team):
-                                bk_home = price
-                            elif OddsService.teams_match(name, away_team):
-                                bk_away = price
-                        
-                        # Fallback positional
-                        if bk_home is None or bk_away is None:
-                            non_draw = [o for o in outcomes if o.get("name", "").lower() not in ["draw", "tie"] and o.get("price")]
-                            if len(non_draw) >= 2:
-                                if bk_home is None:
-                                    bk_home = non_draw[0]["price"]
-                                if bk_away is None:
-                                    bk_away = non_draw[1]["price"]
-                        
-                        if bk_home:
-                            home_prices.append(bk_home)
-                        if bk_away:
-                            away_prices.append(bk_away)
+                    if bookmaker.get("key") == "betfair_ex_uk":
+                        betfair_ex = bookmaker
+                        break
+                    if not fallback_bk:
+                        fallback_bk = bookmaker
                 
-                if not home_prices or not away_prices:
+                source_bk = betfair_ex or fallback_bk
+                if not source_bk:
                     continue
                 
-                # Best raw odds from API (used as input to bookmaker engine)
-                home_odds = max(home_prices)
-                away_odds = max(away_prices)
+                # Extract Back odds (h2h market)
+                home_back_raw, away_back_raw = None, None
+                home_lay_raw, away_lay_raw = None, None
                 
-                # Determine match_id for this event (will be resolved later)
+                for mkt in source_bk.get("markets", []):
+                    mkt_key = mkt.get("key", "")
+                    for outcome in mkt.get("outcomes", []):
+                        name = outcome.get("name", "")
+                        price = outcome.get("price")
+                        if price is None:
+                            continue
+                        is_home = OddsService.teams_match(name, home_team)
+                        is_away = OddsService.teams_match(name, away_team)
+                        
+                        if mkt_key == "h2h":
+                            if is_home:
+                                home_back_raw = price
+                            elif is_away:
+                                away_back_raw = price
+                        elif mkt_key == "h2h_lay":
+                            if is_home:
+                                home_lay_raw = price
+                            elif is_away:
+                                away_lay_raw = price
+                
+                # Fallback positional if team matching failed
+                if home_back_raw is None or away_back_raw is None:
+                    h2h_mkt = next((m for m in source_bk.get("markets", []) if m.get("key") == "h2h"), None)
+                    if h2h_mkt:
+                        non_draw = [o for o in h2h_mkt.get("outcomes", []) if o.get("name", "").lower() not in ["draw", "tie"] and o.get("price")]
+                        if len(non_draw) >= 2:
+                            if home_back_raw is None:
+                                home_back_raw = non_draw[0]["price"]
+                            if away_back_raw is None:
+                                away_back_raw = non_draw[1]["price"]
+                
+                if not home_back_raw or not away_back_raw:
+                    continue
+                
+                home_odds = home_back_raw
+                away_odds = away_back_raw
+                
+                # Determine match_id for this event
                 event_match_id = event.get("id", "")
                 
                 # Use BookmakerOddsEngine to build margin-applied odds object
@@ -612,12 +622,31 @@ class OddsService:
                     match_id=event_match_id,
                     raw_home=home_odds,
                     raw_away=away_odds,
-                    bookmaker_name=bookmaker_name or "PlayXBets"
+                    bookmaker_name=source_bk.get("title", "Betfair Exchange")
                 )
+                
+                # If Betfair Exchange provided real lay odds, use them (with margin)
+                if home_lay_raw and away_lay_raw:
+                    odds_data["home_lay"] = home_lay_raw
+                    odds_data["away_lay"] = away_lay_raw
+                    # Update lay levels with real exchange data
+                    odds_data["home_lay_levels"] = [
+                        home_lay_raw,
+                        round(home_lay_raw + 0.02, 2),
+                        round(home_lay_raw + 0.04, 2),
+                    ]
+                    odds_data["away_lay_levels"] = [
+                        away_lay_raw,
+                        round(away_lay_raw + 0.02, 2),
+                        round(away_lay_raw + 0.04, 2),
+                    ]
+                    odds_data["exchange_lay"] = True
                 
                 # Store raw API odds for reference
                 odds_data["raw_home"] = home_odds
                 odds_data["raw_away"] = away_odds
+                odds_data["source"] = source_bk.get("key", "")
+                odds_data["source_title"] = source_bk.get("title", "")
                 
                 # Try to find existing match in DB by team names
                 home_normalized = OddsService.normalize_team_name(home_team)
@@ -685,10 +714,17 @@ class OddsService:
                             match_id=existing_match.get("match_id", event_match_id),
                             raw_home=away_odds,  # Swap: API away = DB home
                             raw_away=home_odds,  # Swap: API home = DB away
-                            bookmaker_name=bookmaker_name or "PlayXBets"
+                            bookmaker_name=source_bk.get("title", "Betfair Exchange")
                         )
                         corrected_odds_data["raw_home"] = away_odds
                         corrected_odds_data["raw_away"] = home_odds
+                        corrected_odds_data["source"] = odds_data.get("source", "")
+                        corrected_odds_data["source_title"] = odds_data.get("source_title", "")
+                        # Swap exchange lay data if present
+                        if odds_data.get("exchange_lay"):
+                            corrected_odds_data["home_lay"] = odds_data.get("away_lay")
+                            corrected_odds_data["away_lay"] = odds_data.get("home_lay")
+                            corrected_odds_data["exchange_lay"] = True
                         final_home_odds = away_odds
                         final_away_odds = home_odds
                         logger.info(f"REVERSED match detected: OddsAPI [{home_team} vs {away_team}] -> DB [{db_home} vs {db_away}]. Swapping odds.")
@@ -751,7 +787,7 @@ class OddsService:
                                 match_id=dupe.get("match_id", ""),
                                 raw_home=away_odds,
                                 raw_away=home_odds,
-                                bookmaker_name=bookmaker_name or "PlayXBets"
+                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets"
                             )
                             dupe_h = away_odds
                             dupe_a = home_odds
@@ -760,7 +796,7 @@ class OddsService:
                                 match_id=dupe.get("match_id", ""),
                                 raw_home=home_odds,
                                 raw_away=away_odds,
-                                bookmaker_name=bookmaker_name or "PlayXBets"
+                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets"
                             )
                             dupe_h = home_odds
                             dupe_a = away_odds
