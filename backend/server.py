@@ -660,12 +660,16 @@ class OddsService:
                 # Determine match_id for this event
                 event_match_id = event.get("id", "")
                 
-                # Use BookmakerOddsEngine to build margin-applied odds object
+                # Use ExchangeOddsEngine to build exchange-style odds object
+                # Pass ALL bookmakers for weighted-average normalization
                 odds_data = odds_engine.build_odds_object(
                     match_id=event_match_id,
                     raw_home=home_odds,
                     raw_away=away_odds,
-                    bookmaker_name=source_bk.get("title", "Betfair Exchange")
+                    bookmaker_name=source_bk.get("title", "Betfair Exchange"),
+                    all_bookmakers=event.get("bookmakers", []),
+                    home_team=home_team,
+                    away_team=away_team,
                 )
                 
                 # If Betfair Exchange provided real lay odds, use them (with margin)
@@ -757,7 +761,10 @@ class OddsService:
                             match_id=existing_match.get("match_id", event_match_id),
                             raw_home=away_odds,  # Swap: API away = DB home
                             raw_away=home_odds,  # Swap: API home = DB away
-                            bookmaker_name=source_bk.get("title", "Betfair Exchange")
+                            bookmaker_name=source_bk.get("title", "Betfair Exchange"),
+                            all_bookmakers=event.get("bookmakers", []),
+                            home_team=db_away,   # DB perspective: swapped
+                            away_team=db_home,
                         )
                         corrected_odds_data["raw_home"] = away_odds
                         corrected_odds_data["raw_away"] = home_odds
@@ -830,7 +837,10 @@ class OddsService:
                                 match_id=dupe.get("match_id", ""),
                                 raw_home=away_odds,
                                 raw_away=home_odds,
-                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets"
+                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets",
+                                all_bookmakers=event.get("bookmakers", []),
+                                home_team=dupe_away,
+                                away_team=dupe_home,
                             )
                             dupe_h = away_odds
                             dupe_a = home_odds
@@ -839,7 +849,10 @@ class OddsService:
                                 match_id=dupe.get("match_id", ""),
                                 raw_home=home_odds,
                                 raw_away=away_odds,
-                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets"
+                                bookmaker_name=source_bk.get("title", "Betfair Exchange") if source_bk else "PlayXBets",
+                                all_bookmakers=event.get("bookmakers", []),
+                                home_team=dupe_home,
+                                away_team=dupe_away,
                             )
                             dupe_h = home_odds
                             dupe_a = away_odds
