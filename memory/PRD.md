@@ -44,14 +44,22 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 ### Manual Wallet System (2026-04-01) - TESTED
 - **Deposit Flow**: User submits deposit request -> Admin approves/rejects -> Balance updated
 - **Withdrawal Flow**: User submits withdrawal (bank details required) -> Balance frozen -> Admin approves (deducts) or rejects (unfreezes)
-- **Wallet Schema**: balance, available_balance (computed), frozen_balance, exposure
+- **Wallet Schema**: balance, available_balance (computed), frozen_balance, exposure, withdrawable_balance (winnings only), total_winnings
+- **Withdrawable = Winnings Only**: Recharged amounts cannot be withdrawn. Only bet winnings are withdrawable. Backend enforces this check.
 - **Admin Dashboard**: Deposit/Withdrawal management with stats, filters, approve/reject
 - **User Pages**: Recharge history, withdrawal history
-- **E2E Tested**: 17/17 backend tests passed, all frontend verified (2026-04-01)
+- **E2E Tested**: 17/17 + 7/7 backend tests passed, all frontend verified (2026-04-01)
 
 ### Wallet + Betting Integration Fix (2026-04-01)
 - **Bug Fixed**: `place_bet` now checks `available_balance` (balance - frozen - exposure) instead of raw balance
 - Prevents users from betting with money frozen for pending withdrawals
+
+### Withdrawable = Winnings Only (2026-04-01) - TESTED
+- **Bug Fixed**: Wallet page showed ₹0.00 because `/api/transactions/my` was missing, causing `Promise.all` to silently fail
+- **Feature**: Only winning amounts can be withdrawn, not recharged/deposited amounts
+- `withdrawable_balance = total_winnings - approved_withdrawals - pending_withdrawals`
+- Backend enforces check on POST /api/withdrawals
+- Frontend shows "Withdrawable (Winnings)" card in cyan + withdrawal form shows limit
 
 ### API Connection (2026-03-31)
 - Odds API quota reset and keys properly loaded from .env
