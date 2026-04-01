@@ -2873,7 +2873,42 @@ async def get_wallet(current_user: User = Depends(get_current_user)):
     wallet.setdefault("frozen_balance", 0.0)
     wallet.setdefault("exposure", 0.0)
     wallet["available_balance"] = wallet["balance"] - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
+    
+    # Calculate withdrawable_balance = total winnings - total approved/pending withdrawals
+    winning_agg = await db.transactions.aggregate([
+        {"$match": {"user_id": current_user.user_id, "type": "winning"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_winnings = winning_agg[0]["total"] if winning_agg else 0.0
+    
+    withdrawn_agg = await db.transactions.aggregate([
+        {"$match": {"user_id": current_user.user_id, "type": "withdrawal"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_withdrawn = withdrawn_agg[0]["total"] if withdrawn_agg else 0.0
+    
+    # Pending withdrawal amounts (frozen but not yet deducted from transactions)
+    pending_wd = await db.withdrawals.aggregate([
+        {"$match": {"user_id": current_user.user_id, "status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_pending_wd = pending_wd[0]["total"] if pending_wd else 0.0
+    
+    withdrawable = max(0.0, total_winnings - total_withdrawn - total_pending_wd)
+    # Cap at available balance
+    wallet["withdrawable_balance"] = round(min(withdrawable, max(0, wallet["available_balance"])), 2)
+    wallet["total_winnings"] = round(total_winnings, 2)
+    
     return wallet
+
+@api_router.get("/transactions/my")
+async def get_my_transactions(current_user: User = Depends(get_current_user)):
+    """Get all transactions for current user."""
+    transactions = await db.transactions.find(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return transactions
 
 # ==================== DEPOSIT ENDPOINTS ====================
 @api_router.post("/deposits")
@@ -2928,6 +2963,31 @@ async def create_withdrawal(withdrawal_input: WithdrawalCreate, current_user: Us
     available = wallet.get("balance", 0) - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
     if available < withdrawal_input.amount:
         raise HTTPException(status_code=400, detail=f"Insufficient available balance. Available: {available:.2f}")
+    
+    # Only winnings can be withdrawn - calculate withdrawable amount
+    winning_agg = await db.transactions.aggregate([
+        {"$match": {"user_id": current_user.user_id, "type": "winning"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_winnings = winning_agg[0]["total"] if winning_agg else 0.0
+    
+    withdrawn_agg = await db.transactions.aggregate([
+        {"$match": {"user_id": current_user.user_id, "type": "withdrawal"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_withdrawn = withdrawn_agg[0]["total"] if withdrawn_agg else 0.0
+    
+    pending_wd = await db.withdrawals.aggregate([
+        {"$match": {"user_id": current_user.user_id, "status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_pending_wd = pending_wd[0]["total"] if pending_wd else 0.0
+    
+    withdrawable = max(0.0, total_winnings - total_withdrawn - total_pending_wd)
+    withdrawable = min(withdrawable, available)
+    
+    if withdrawable < withdrawal_input.amount:
+        raise HTTPException(status_code=400, detail=f"Only winning amounts can be withdrawn. Withdrawable: {withdrawable:.2f}")
     
     # Prevent duplicate pending requests
     recent = await db.withdrawals.find_one({

@@ -36,16 +36,16 @@ export default function RechargeHistory() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [wRes, dRes, wrRes, tRes] = await Promise.all([
+      const [wRes, dRes, wrRes, tRes] = await Promise.allSettled([
         api.get("/wallet"),
         api.get("/deposits/my"),
         api.get("/withdrawals/my"),
         api.get("/transactions/my"),
       ]);
-      setWallet(wRes.data);
-      setDeposits(dRes.data);
-      setWithdrawals(wrRes.data);
-      setTransactions(tRes.data);
+      if (wRes.status === "fulfilled") setWallet(wRes.value.data);
+      if (dRes.status === "fulfilled") setDeposits(dRes.value.data);
+      if (wrRes.status === "fulfilled") setWithdrawals(wrRes.value.data);
+      if (tRes.status === "fulfilled") setTransactions(tRes.value.data);
     } catch { /* ignore */ }
     setLoading(false);
   }, []);
@@ -138,10 +138,14 @@ export default function RechargeHistory() {
           <Wallet className="w-5 h-5 text-cyan-400" />
           <h2 className="text-lg font-bold text-white">My Wallet</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Available Balance</div>
             <div className="text-xl font-bold text-green-400" data-testid="available-balance">{(wallet?.available_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+          </div>
+          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+            <div className="text-[10px] text-gray-500 uppercase font-medium">Withdrawable (Winnings)</div>
+            <div className="text-xl font-bold text-cyan-400" data-testid="withdrawable-balance">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
           <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Total Balance</div>
@@ -222,7 +226,7 @@ export default function RechargeHistory() {
             <div>
               <label className="text-xs text-gray-400 block mb-1">Amount *</label>
               <input type="number" value={wdAmount} onChange={e => setWdAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-amount-input" />
-              <span className="text-[10px] text-gray-500 mt-0.5 block">Available: {(wallet?.available_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span>
+              <span className="text-[10px] text-gray-500 mt-0.5 block">Withdrawable (Winnings only): <span className="text-cyan-400 font-medium">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span></span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

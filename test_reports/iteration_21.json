@@ -1,0 +1,95 @@
+{
+  "summary": "Completed testing of withdrawable balance feature (iteration 21). All 7 backend tests passed (100%). Frontend UI verified - wallet page shows correct balances (NOT zeros), new 'Withdrawable (Winnings)' card in cyan, withdrawal form shows winnings-only limit, all tabs load correctly. Admin withdrawals page working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_withdrawable_balance.py",
+    "/app/test_reports/pytest/withdrawable_balance_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_withdrawable_balance.py"
+  ],
+  "success_rate": {
+    "backend": "100% - 7/7 tests passed",
+    "frontend": "100% - All UI features verified"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Withdrawable balance feature fully tested. Key findings: (1) GET /api/wallet now returns withdrawable_balance and total_winnings fields. (2) GET /api/transactions/my endpoint exists and returns user transactions (this was the missing endpoint causing the zero-balance bug). (3) POST /api/withdrawals validates against withdrawable_balance and returns 'Only winning amounts can be withdrawn' error if exceeded. (4) Frontend uses Promise.allSettled instead of Promise.all to prevent silent failures. (5) Wallet card grid now has 5 columns with 'Withdrawable (Winnings)' in cyan. (6) Withdrawal form shows 'Withdrawable (Winnings only)' limit. (7) User balance: 68508.50, withdrawable: 33925.70, total_winnings: 37525.70.",
+  "features_tested": {
+    "wallet_withdrawable_balance_field": {
+      "status": "PASS",
+      "details": "GET /api/wallet returns withdrawable_balance and total_winnings fields"
+    },
+    "transactions_my_endpoint": {
+      "status": "PASS",
+      "details": "GET /api/transactions/my returns user transactions (previously missing endpoint)"
+    },
+    "withdrawal_validation": {
+      "status": "PASS",
+      "details": "POST /api/withdrawals validates against withdrawable_balance, returns 'Only winning amounts can be withdrawn' error"
+    },
+    "admin_withdrawals": {
+      "status": "PASS",
+      "details": "GET /api/admin/withdrawals returns all withdrawals with username"
+    },
+    "admin_wallet_stats": {
+      "status": "PASS",
+      "details": "GET /api/admin/wallet/stats returns total_deposits, total_withdrawals, pending_withdrawals"
+    },
+    "user_deposits": {
+      "status": "PASS",
+      "details": "GET /api/deposits/my returns user's deposit history"
+    },
+    "frontend_wallet_page": {
+      "status": "PASS",
+      "details": "Wallet page shows correct balances (NOT zeros), 5 columns including Withdrawable (Winnings) in cyan"
+    },
+    "frontend_withdrawal_form": {
+      "status": "PASS",
+      "details": "Withdrawal form shows 'Withdrawable (Winnings only)' limit"
+    },
+    "frontend_transactions_tab": {
+      "status": "PASS",
+      "details": "All Transactions tab loads correctly with 47 records"
+    },
+    "frontend_admin_withdrawals": {
+      "status": "PASS",
+      "details": "Admin withdrawals page shows stats, filters, withdrawal cards with approve/reject buttons"
+    }
+  },
+  "mocked_apis": {
+    "note": "No mocked APIs - all endpoints use real data from MongoDB"
+  },
+  "screenshots_taken": [
+    ".screenshots/wallet_page_test.png - User wallet page with 5 balance cards including Withdrawable (Winnings)",
+    ".screenshots/transactions_tab.png - All Transactions tab with 47 records",
+    ".screenshots/withdrawal_form.png - Withdrawal form showing Winnings only limit",
+    ".screenshots/admin_withdrawals_page.png - Admin withdrawals with stats and pending requests"
+  ],
+  "bug_fix_verification": {
+    "zero_balance_bug": {
+      "status": "FIXED",
+      "root_cause": "/api/transactions/my endpoint was missing, causing Promise.all to fail silently",
+      "fix": "Added /api/transactions/my endpoint and changed Promise.all to Promise.allSettled in frontend"
+    },
+    "withdrawable_balance_feature": {
+      "status": "WORKING",
+      "details": "Users can only withdraw winning amounts. withdrawable_balance = total_winnings - total_withdrawn - pending_withdrawals"
+    }
+  }
+}
