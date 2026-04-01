@@ -1,123 +1,19 @@
-<analysis>**original_problem_statement**: 
-The user is building a premium sports betting application named PlayXBets featuring a tabular betting exchange UI. Recent goals focused on fixing core bugs preventing live matches from displaying correctly, implementing bet settlement logic, aggressively optimizing API usage (CricketData + Odds API) to prevent quota exhaustion via a custom caching/sync engine, implementing a dynamic odds spread formula, adding betting history/statement CSV downloads, and applying a light theme to the application layouts.
-
-**User's preferred language**: English (INSTRUCT next agent to respond in English only)
-
-**what currently exists?** 
-A full-stack React + FastAPI + MongoDB app. The backend now features a robust  that coordinates API polling, WebSockets, and caching to heavily reduce 3rd-party API calls. The app calculates a dynamic odds spread (). Admin features include a Bet Settlement panel and a Betting History view with CSV statement downloads. The frontend uses a clean light theme for its sidebars and coordinates seamlessly between WebSocket real-time updates and fallback polling.
-
-**Last working item**:
-- Last item agent was working: Implementing a TEMPORARY TEST MODE to speed up API polling specifically for testing live updates. The user requested changing live match polling to 2-3 seconds and upcoming match polling to 60 seconds, while strictly keeping duplicate API call protection active. The agent was fetching  and  to make these numerical changes when the session ended.
-- Status: IN PROGRESS
-- Agent Testing Done: N
-- Which testing method agent to use? backend manual testing by python/logs (Verify intervals are changed, supervisor restarted, and logs show fast polling without duplicate API bursts).
-- User Testing Done: N
-
-**All Pending/In progress Issue list**:
-Issue 1: Temporarily Increase API Polling Speed (TEST MODE) (P0)
-   - Attempted fixes: The agent started reading  and  to locate the interval configurations but made no edits yet.
-   - Next debug checklist: 
-     - Update  dict in  (: 3, : 60, etc.).
-     - Update the APScheduler trigger interval for  in  to match the fast cycle (e.g., ).
-   - Why fix this issue and what will be achieved with the fix? The user explicitly requested this to safely test live frontend updates. It must be a targeted fix that does not alter business logic or remove the caching locks.
-   - Status: IN PROGRESS
-   - Is recurring issue? N
-   - Should Test frontend/backend/both after fix? Backend (check supervisor logs to ensure API isn't being hammered uncontrollably due to the lowered intervals).
-
-**In progress Task List**: 
-None active apart from the issue listed above.
-
-**Upcoming and Future Tasks**
-Upcoming Tasks:
-- (P2) Admin manual match entry UI (Building the frontend form to hit the existing  endpoint).
-- (P2) Implement Cashout functionality for live bets.
-
-Future Tasks:
-- User withdrawal request approval/processing system.
-- User support ticket system.
-- Code Architecture Refactor: Break down  (>2700 lines) into modular routers (, , ).
-
-**Completed work in this session**
-- P0 Datetime Bug: Fixed offset-naive vs aware datetimes allowing scheduled matches to auto-promote to live (DONE).
-- Bet Settlement Logic: Admin can declare outcomes; winning bets pay out , lay bets deduct  liability (DONE).
-- Real-Time API Optimization: Created  to heavily reduce API calls, prioritize WebSockets, and handle 401 Quota limits smoothly (DONE).
-- Dynamic Odds Spread: Implemented formula  applied dynamically via backend post-processing (DONE).
-- Betting History & Statements: Upgraded admin and user bet history endpoints with Date/Status filters and CSV download buttons (DONE).
-- Dashboard Bug Fix: Fixed  caused by new API response structure (DONE).
-- UI Light Theme: Converted Admin and User sidebars from dark blue to clean white/light gray (DONE).
-
-**Earlier issues found/mentioned but not fixed**
-None.
-
-**Known issue recurrence from previous fork**
-- Issue recurrence in previous fork: Odds API Quota limits (401 errors) / Rate limiting.
-- Recurrence count: 3
-- Status: RESOLVED (Mitigated by , but high risk of recurring during the upcoming TEST MODE implementation if not careful).
-Note: When implementing the 2-3 second polling for the test mode, ensure the  cache locks remain perfectly intact, or the user's Odds API key will be exhausted instantly.
-
-**Code Architecture**
-
-
-**Key Technical Concepts**
-React 18, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, Thread-safe Caching ().
-
-**key DB schema**
-- : {match_id, status, commence_time, home_team, away_team, odds, ...}
-- : {bet_id, user_id, match_id, stake, odds, bet_type, status, settled_at}
-
-**changes in tech stack**
-- Introduced custom in-memory caching and request coordination via  to protect 3rd-party API quotas.
-
-**All files of reference** 
--  (Target for current TEST MODE interval changes).
--  (Target for APScheduler interval changes).
--  &  (Recently updated to light theme).
--  &  (Contains the new CSV statement logic).
-
-**Areas that need refactoring**: 
--  is critically large (>2700 lines) and desperately needs modularization into standard FastAPI routers.
-
-**key api endpoints**
--  &  (New: Validates API synchronization)
--  (Now returns all matches, dynamically applies odds spread)
--  &  (Updated: Returns )
--  (Bet settlement)
-
-**Critical Info for New Agent** 
-- **STRICT INSTRUCTION FOR CURRENT TASK**: The user wants a **TEST MODE** with 2-3s polling for live matches. Change the numbers in  and , but **DO NOT** remove the duplicate call protection (, timestamp checks). Make these interval values easy to revert later.
-- Do not refactor architecture or modify the UI for the current polling task. Keep it to localized variable changes.
-
-**documents and test reports created in this job** 
-- 
--  (Bet Settlement)
--  (Real-Time Sync Engine)
--  (Dynamic Spread & Betting History)
-
-**Last 10 User Messages and any pending HUMAN messages** 
-1. User asked for dynamic odds spread (10X difference rule) and Admin statement downloads. -> (COMPLETED)
-2. User asked where to find the statement admin page. -> (COMPLETED - Clarified by agent).
-3. User provided an image showing a frontend crash . -> (COMPLETED - Fixed API response handling).
-4. User requested to change the theme to a light color. -> (COMPLETED - Implemented light sidebars).
-5. User explicitly requested a targeted backend fix: temporarily increase API update speed for testing (Live: 2-3s, Upcoming: 60s) while strictly maintaining duplicate call protection. -> (IN PROGRESS - Agent was modifying code when session ended).
-
-**Project Health Check:**
-- Broken: None currently.
-- Mocked: None.
-
-**3rd Party Integrations** 
-- The Odds API (Match odds) — requires User API Key.
-- CricketData API (Match data) — requires User API Key.
-- MongoDB Atlas (Cloud Database) - standard user credentials mapped in .
-
-**Testing status**
-- Testing agent used after significant changes: YES (Iterations 17, 18, 19).
-- Troubleshoot agent used after agent stuck in loop: NO.
-- Test files created: 
-- Known regressions: None, but watch API quotas closely.
-
-**Credentials to test flow:**
-- Admin: , 
-- User: , 
-
-**What agent forgot to execute**
-The agent ran out of context while viewing the files to update the polling interval numbers to the requested TEST MODE speeds. The text replacement in  and  needs to be completed.</analysis>
+<analysis>betfair_ex_ukodds_engine.pybetfair_ex_uktesting_agent_v3_forkplace_betserver.pyWallet/api/admin/cricket/seedserver.py/routes/models/websocketsodds_engine.py.envukbetfair_ex_uk
+/app/
+├── backend/
+│   ├── .env
+│   ├── sync_engine.py            # Caches API responses, enforces intervals
+│   ├── odds_engine.py            # NEW: Applies margins, tracks exposure, handles session markets
+│   ├── server.py                 # Monolithic app (>3100 lines). Contains endpoints, models, wallet logic
+│   ├── cricket_data_service.py   
+└── frontend/
+    ├── src/
+    │   ├── pages/
+    │   │   ├── MatchPage.js      # Displays live scores and Betfair odds
+    │   │   ├── user/
+    │   │   │   ├── RechargeHistory.js # User deposit/wallet UI
+    │   │   │   ├── MyWithdrawals.js
+    │   │   ├── admin/
+    │   │   │   ├── Deposits.js        # Admin approval UI for deposits
+    │   │   │   ├── Withdrawals.js     # Admin approval UI for withdrawals
+matcheswalletsdepositswithdrawalstransactions/app/backend/odds_engine.py/app/backend/server.py/app/backend/sync_engine.py/app/frontend/src/pages/MatchPage.js/app/frontend/src/pages/user/RechargeHistory.js/app/frontend/src/pages/admin/Deposits.jsWithdrawals.js/app/backend/server.pyGET /api/walletPOST /api/depositsGET /api/deposits/myPOST /api/withdrawalsGET /api/withdrawals/myGET /api/admin/depositsPOST /api/admin/deposits/{id}/approveGET /api/admin/withdrawalsPOST /api/admin/withdrawals/{id}/approvebetfair_ex_uk/app/memory/PRD.md.envukbetfair_ex_uk.envusername: adminpassword: 123456username: userpassword: 123456testing_agent_v3_fork</analysis>

@@ -257,6 +257,8 @@ class Wallet(BaseModel):
     model_config = ConfigDict(extra="ignore")
     user_id: str
     balance: float = 0.0
+    frozen_balance: float = 0.0  # Frozen for pending withdrawals
+    exposure: float = 0.0  # Locked in active bets
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Transaction(BaseModel):
@@ -267,6 +269,8 @@ class Transaction(BaseModel):
     amount: float
     balance_before: float
     balance_after: float
+    reference_id: Optional[str] = None
+    description: Optional[str] = None
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -351,19 +355,58 @@ class WithdrawalRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     withdrawal_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
+    username: Optional[str] = None
     amount: float
+    account_holder: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    ifsc_code: Optional[str] = None
+    upi_id: Optional[str] = None
     note: Optional[str] = None
+    admin_note: Optional[str] = None
     status: WithdrawalStatus = WithdrawalStatus.PENDING
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WithdrawalCreate(BaseModel):
     amount: float
+    account_holder: str
+    bank_name: str
+    account_number: str
+    ifsc_code: str
+    upi_id: Optional[str] = None
     note: Optional[str] = None
 
 class WithdrawalUpdate(BaseModel):
     status: WithdrawalStatus
     admin_note: Optional[str] = None
+
+class DepositStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+class DepositRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    deposit_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    username: Optional[str] = None
+    amount: float
+    payment_method: str = "upi"  # upi, bank_transfer, cash
+    transaction_ref: Optional[str] = None
+    proof_screenshot: Optional[str] = None  # base64 encoded
+    note: Optional[str] = None
+    admin_note: Optional[str] = None
+    status: str = "pending"  # pending, approved, rejected
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DepositCreate(BaseModel):
+    amount: float
+    payment_method: str = "upi"
+    transaction_ref: Optional[str] = None
+    proof_screenshot: Optional[str] = None
+    note: Optional[str] = None
 
 class SupportTicket(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1274,14 +1317,15 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
 async def recharge_wallet(recharge: RechargeRequest, current_user: User = Depends(get_current_admin)):
     wallet = await db.wallets.find_one({"user_id": recharge.user_id}, {"_id": 0})
     if not wallet:
-        wallet = {"user_id": recharge.user_id, "balance": 0.0}
+        wallet = {"user_id": recharge.user_id, "balance": 0.0, "frozen_balance": 0.0, "exposure": 0.0}
     
-    balance_before = wallet["balance"]
+    balance_before = wallet.get("balance", 0)
     balance_after = balance_before + recharge.amount
     
     await db.wallets.update_one(
         {"user_id": recharge.user_id},
-        {"$set": {"balance": balance_after, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": {"balance": balance_after, "updated_at": datetime.now(timezone.utc)},
+         "$setOnInsert": {"frozen_balance": 0.0, "exposure": 0.0}},
         upsert=True
     )
     
@@ -1291,6 +1335,7 @@ async def recharge_wallet(recharge: RechargeRequest, current_user: User = Depend
         amount=recharge.amount,
         balance_before=balance_before,
         balance_after=balance_after,
+        description="Admin recharge",
         note=recharge.note or "Admin recharge"
     )
     
@@ -1298,45 +1343,179 @@ async def recharge_wallet(recharge: RechargeRequest, current_user: User = Depend
     
     return {"success": True, "new_balance": balance_after}
 
-@api_router.get("/admin/withdrawals", response_model=List[WithdrawalRequest])
-async def get_all_withdrawals(current_user: User = Depends(get_current_admin)):
-    withdrawals = await db.withdrawals.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [WithdrawalRequest(**w) for w in withdrawals]
+# ==================== ADMIN DEPOSIT MANAGEMENT ====================
+@api_router.get("/admin/deposits")
+async def get_all_deposits(status: Optional[str] = None, current_user: User = Depends(get_current_admin)):
+    """Get all deposit requests for admin review."""
+    query = {}
+    if status:
+        query["status"] = status
+    deposits = await db.deposits.find(query, {"_id": 0, "proof_screenshot": 0}).sort("created_at", -1).to_list(500)
+    # Attach username
+    for d in deposits:
+        if not d.get("username"):
+            user = await db.users.find_one({"user_id": d["user_id"]}, {"_id": 0, "username": 1})
+            d["username"] = user.get("username", "Unknown") if user else "Unknown"
+    return deposits
+
+@api_router.get("/admin/deposits/{deposit_id}/proof")
+async def get_deposit_proof(deposit_id: str, current_user: User = Depends(get_current_admin)):
+    """Get deposit proof screenshot."""
+    deposit = await db.deposits.find_one({"deposit_id": deposit_id}, {"_id": 0, "proof_screenshot": 1})
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    return {"proof_screenshot": deposit.get("proof_screenshot")}
+
+@api_router.post("/admin/deposits/{deposit_id}/approve")
+async def approve_deposit(deposit_id: str, current_user: User = Depends(get_current_admin)):
+    """Admin approves deposit → adds amount to user wallet."""
+    deposit = await db.deposits.find_one({"deposit_id": deposit_id}, {"_id": 0})
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    if deposit["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Deposit already {deposit['status']}")
+    
+    # Add amount to wallet
+    wallet = await db.wallets.find_one({"user_id": deposit["user_id"]}, {"_id": 0})
+    balance_before = wallet.get("balance", 0) if wallet else 0
+    balance_after = balance_before + deposit["amount"]
+    
+    await db.wallets.update_one(
+        {"user_id": deposit["user_id"]},
+        {"$set": {"balance": balance_after, "updated_at": datetime.now(timezone.utc)},
+         "$setOnInsert": {"frozen_balance": 0.0, "exposure": 0.0}},
+        upsert=True
+    )
+    
+    # Update deposit status
+    await db.deposits.update_one(
+        {"deposit_id": deposit_id},
+        {"$set": {"status": "approved", "admin_note": f"Approved by {current_user.username}", "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    # Create transaction record
+    transaction = Transaction(
+        user_id=deposit["user_id"],
+        type=TransactionType.DEPOSIT,
+        amount=deposit["amount"],
+        balance_before=balance_before,
+        balance_after=balance_after,
+        reference_id=deposit["deposit_id"],
+        description=f"Deposit approved ({deposit.get('payment_method','upi')})",
+        note=f"Ref: {deposit.get('transaction_ref', 'N/A')}"
+    )
+    await db.transactions.insert_one(transaction.model_dump())
+    
+    return {"success": True, "new_balance": balance_after}
+
+@api_router.post("/admin/deposits/{deposit_id}/reject")
+async def reject_deposit(deposit_id: str, current_user: User = Depends(get_current_admin)):
+    """Admin rejects deposit request."""
+    deposit = await db.deposits.find_one({"deposit_id": deposit_id}, {"_id": 0})
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    if deposit["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Deposit already {deposit['status']}")
+    
+    await db.deposits.update_one(
+        {"deposit_id": deposit_id},
+        {"$set": {"status": "rejected", "admin_note": f"Rejected by {current_user.username}", "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"success": True}
+
+# ==================== ADMIN WITHDRAWAL MANAGEMENT ====================
+@api_router.get("/admin/withdrawals")
+async def get_all_withdrawals(status: Optional[str] = None, current_user: User = Depends(get_current_admin)):
+    query = {}
+    if status:
+        query["status"] = status
+    withdrawals = await db.withdrawals.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for w in withdrawals:
+        if not w.get("username"):
+            user = await db.users.find_one({"user_id": w["user_id"]}, {"_id": 0, "username": 1})
+            w["username"] = user.get("username", "Unknown") if user else "Unknown"
+    return withdrawals
 
 @api_router.put("/admin/withdrawals/{withdrawal_id}")
 async def update_withdrawal(withdrawal_id: str, update: WithdrawalUpdate, current_user: User = Depends(get_current_admin)):
     withdrawal = await db.withdrawals.find_one({"withdrawal_id": withdrawal_id}, {"_id": 0})
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
+    if withdrawal.get("status") != "pending":
+        raise HTTPException(status_code=400, detail=f"Withdrawal already {withdrawal.get('status')}")
+    
+    wallet = await db.wallets.find_one({"user_id": withdrawal["user_id"]}, {"_id": 0})
+    if not wallet:
+        raise HTTPException(status_code=400, detail="User wallet not found")
     
     if update.status == WithdrawalStatus.APPROVED:
-        wallet = await db.wallets.find_one({"user_id": withdrawal["user_id"]}, {"_id": 0})
-        if wallet and wallet["balance"] >= withdrawal["amount"]:
-            balance_before = wallet["balance"]
-            balance_after = balance_before - withdrawal["amount"]
-            
-            await db.wallets.update_one(
-                {"user_id": withdrawal["user_id"]},
-                {"$set": {"balance": balance_after, "updated_at": datetime.now(timezone.utc)}}
-            )
-            
-            transaction = Transaction(
-                user_id=withdrawal["user_id"],
-                type=TransactionType.WITHDRAWAL,
-                amount=withdrawal["amount"],
-                balance_before=balance_before,
-                balance_after=balance_after,
-                note=update.admin_note or "Withdrawal approved"
-            )
-            
-            await db.transactions.insert_one(transaction.model_dump())
+        # Deduct from balance (unfreeze + deduct)
+        balance_before = wallet.get("balance", 0)
+        balance_after = balance_before - withdrawal["amount"]
+        frozen_after = max(0, wallet.get("frozen_balance", 0) - withdrawal["amount"])
+        
+        await db.wallets.update_one(
+            {"user_id": withdrawal["user_id"]},
+            {"$set": {"balance": balance_after, "frozen_balance": frozen_after, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        transaction = Transaction(
+            user_id=withdrawal["user_id"],
+            type=TransactionType.WITHDRAWAL,
+            amount=withdrawal["amount"],
+            balance_before=balance_before,
+            balance_after=balance_after,
+            reference_id=withdrawal["withdrawal_id"],
+            description="Withdrawal approved and paid",
+            note=update.admin_note or "Withdrawal approved"
+        )
+        await db.transactions.insert_one(transaction.model_dump())
+    
+    elif update.status == WithdrawalStatus.REJECTED:
+        # Unfreeze the amount (return to available)
+        frozen_after = max(0, wallet.get("frozen_balance", 0) - withdrawal["amount"])
+        await db.wallets.update_one(
+            {"user_id": withdrawal["user_id"]},
+            {"$set": {"frozen_balance": frozen_after, "updated_at": datetime.now(timezone.utc)}}
+        )
     
     await db.withdrawals.update_one(
         {"withdrawal_id": withdrawal_id},
-        {"$set": {"status": update.status.value, "updated_at": datetime.now(timezone.utc)}}
+        {"$set": {"status": update.status.value, "admin_note": update.admin_note, "updated_at": datetime.now(timezone.utc)}}
     )
     
     return {"success": True}
+
+# ==================== ADMIN WALLET STATS ====================
+@api_router.get("/admin/wallet/stats")
+async def get_wallet_stats(current_user: User = Depends(get_current_admin)):
+    """Dashboard stats: total deposits, withdrawals, pending counts."""
+    total_deposits = await db.deposits.aggregate([
+        {"$match": {"status": "approved"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_withdrawals = await db.withdrawals.aggregate([
+        {"$match": {"status": "approved"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    pending_deposits = await db.deposits.count_documents({"status": "pending"})
+    pending_withdrawals = await db.withdrawals.count_documents({"status": "pending"})
+    total_users = await db.users.count_documents({})
+    
+    # Sum all user balances
+    total_balance = await db.wallets.aggregate([
+        {"$group": {"_id": None, "total": {"$sum": "$balance"}}}
+    ]).to_list(1)
+    
+    return {
+        "total_deposits": total_deposits[0]["total"] if total_deposits else 0,
+        "total_withdrawals": total_withdrawals[0]["total"] if total_withdrawals else 0,
+        "pending_deposits": pending_deposits,
+        "pending_withdrawals": pending_withdrawals,
+        "total_users": total_users,
+        "total_user_balance": total_balance[0]["total"] if total_balance else 0,
+    }
 
 @api_router.post("/admin/cron/run")
 async def run_cron_now(current_user: User = Depends(get_current_admin)):
@@ -2684,29 +2863,108 @@ async def get_bet_history(
 async def get_wallet(current_user: User = Depends(get_current_user)):
     wallet = await db.wallets.find_one({"user_id": current_user.user_id}, {"_id": 0})
     if not wallet:
-        wallet = {"user_id": current_user.user_id, "balance": 0.0}
+        wallet = {"user_id": current_user.user_id, "balance": 0.0, "frozen_balance": 0.0, "exposure": 0.0}
+    # Ensure all fields exist
+    wallet.setdefault("frozen_balance", 0.0)
+    wallet.setdefault("exposure", 0.0)
+    wallet["available_balance"] = wallet["balance"] - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
     return wallet
 
-@api_router.post("/withdrawals", response_model=WithdrawalRequest)
+# ==================== DEPOSIT ENDPOINTS ====================
+@api_router.post("/deposits")
+async def create_deposit_request(deposit_input: DepositCreate, current_user: User = Depends(get_current_user)):
+    """User submits a deposit request (pending admin approval)."""
+    if deposit_input.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    if deposit_input.amount > 10000000:
+        raise HTTPException(status_code=400, detail="Amount exceeds maximum limit")
+    
+    # Prevent duplicate pending requests (rate limit)
+    recent = await db.deposits.find_one({
+        "user_id": current_user.user_id,
+        "status": "pending",
+        "amount": deposit_input.amount,
+        "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(minutes=5)}
+    })
+    if recent:
+        raise HTTPException(status_code=429, detail="Duplicate request. Please wait before submitting again.")
+    
+    deposit = DepositRequest(
+        user_id=current_user.user_id,
+        username=current_user.username,
+        amount=deposit_input.amount,
+        payment_method=deposit_input.payment_method,
+        transaction_ref=deposit_input.transaction_ref,
+        proof_screenshot=deposit_input.proof_screenshot,
+        note=deposit_input.note,
+    )
+    
+    await db.deposits.insert_one(deposit.model_dump())
+    
+    return {"success": True, "deposit_id": deposit.deposit_id, "status": "pending", "message": "Deposit request submitted. Awaiting admin approval."}
+
+@api_router.get("/deposits/my")
+async def get_my_deposits(current_user: User = Depends(get_current_user)):
+    """Get current user's deposit history."""
+    deposits = await db.deposits.find({"user_id": current_user.user_id}, {"_id": 0, "proof_screenshot": 0}).sort("created_at", -1).to_list(200)
+    return deposits
+
+# ==================== WITHDRAWAL ENDPOINTS (ENHANCED) ====================
+@api_router.post("/withdrawals")
 async def create_withdrawal(withdrawal_input: WithdrawalCreate, current_user: User = Depends(get_current_user)):
+    """User submits withdrawal with bank details. Amount is frozen until admin approval."""
+    if withdrawal_input.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
     wallet = await db.wallets.find_one({"user_id": current_user.user_id}, {"_id": 0})
-    if not wallet or wallet["balance"] < withdrawal_input.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No wallet found")
+    
+    available = wallet.get("balance", 0) - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
+    if available < withdrawal_input.amount:
+        raise HTTPException(status_code=400, detail=f"Insufficient available balance. Available: {available:.2f}")
+    
+    # Prevent duplicate pending requests
+    recent = await db.withdrawals.find_one({
+        "user_id": current_user.user_id,
+        "status": "pending",
+        "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(minutes=2)}
+    })
+    if recent:
+        raise HTTPException(status_code=429, detail="Please wait before submitting another withdrawal request.")
+    
+    # Validate bank details
+    if not withdrawal_input.account_holder or not withdrawal_input.bank_name:
+        raise HTTPException(status_code=400, detail="Account holder name and bank name are required")
+    if not withdrawal_input.account_number or not withdrawal_input.ifsc_code:
+        raise HTTPException(status_code=400, detail="Account number and IFSC code are required")
     
     withdrawal = WithdrawalRequest(
         user_id=current_user.user_id,
+        username=current_user.username,
         amount=withdrawal_input.amount,
-        note=withdrawal_input.note
+        account_holder=withdrawal_input.account_holder,
+        bank_name=withdrawal_input.bank_name,
+        account_number=withdrawal_input.account_number,
+        ifsc_code=withdrawal_input.ifsc_code,
+        upi_id=withdrawal_input.upi_id,
+        note=withdrawal_input.note,
     )
     
     await db.withdrawals.insert_one(withdrawal.model_dump())
     
-    return withdrawal
+    # Freeze the amount
+    await db.wallets.update_one(
+        {"user_id": current_user.user_id},
+        {"$inc": {"frozen_balance": withdrawal_input.amount}, "$set": {"updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"success": True, "withdrawal_id": withdrawal.withdrawal_id, "status": "pending", "message": "Withdrawal request submitted. Amount frozen until admin approval."}
 
-@api_router.get("/withdrawals/my", response_model=List[WithdrawalRequest])
+@api_router.get("/withdrawals/my")
 async def get_my_withdrawals(current_user: User = Depends(get_current_user)):
-    withdrawals = await db.withdrawals.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [WithdrawalRequest(**w) for w in withdrawals]
+    withdrawals = await db.withdrawals.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return withdrawals
 
 @api_router.post("/tickets", response_model=SupportTicket)
 async def create_ticket(ticket_input: TicketCreate, current_user: User = Depends(get_current_user)):
@@ -2724,11 +2982,6 @@ async def create_ticket(ticket_input: TicketCreate, current_user: User = Depends
 async def get_my_tickets(current_user: User = Depends(get_current_user)):
     tickets = await db.support_tickets.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [SupportTicket(**t) for t in tickets]
-
-@api_router.get("/transactions/my", response_model=List[Transaction])
-async def get_my_transactions(current_user: User = Depends(get_current_user)):
-    transactions = await db.transactions.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [Transaction(**t) for t in transactions]
 
 @api_router.get("/health")
 async def health_check():
