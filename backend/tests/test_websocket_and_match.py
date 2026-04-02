@@ -13,7 +13,7 @@ import os
 import json
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sports-exchange-demo.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://dynamic-odds-preview.preview.emergentagent.com')
 
 class TestWebSocketStatus:
     """Tests for WebSocket status endpoint"""

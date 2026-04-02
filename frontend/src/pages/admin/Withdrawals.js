@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/App";
-import { ArrowUpCircle, CheckCircle, XCircle, Search, Building2, CreditCard } from "lucide-react";
+import { ArrowUpCircle, CheckCircle, XCircle, Search, Building2, CreditCard, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Withdrawals() {
   const [withdrawals, setWithdrawals] = useState([]);
@@ -9,6 +10,7 @@ export default function Withdrawals() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [processing, setProcessing] = useState(null);
+  const [copiedField, setCopiedField] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -23,6 +25,33 @@ export default function Withdrawals() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const copyToClipboard = async (text, fieldId) => {
+    if (!text || text === "-") return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      toast.success("Copied to clipboard");
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const CopyButton = ({ value, fieldId }) => (
+    <button
+      onClick={(e) => { e.stopPropagation(); copyToClipboard(value, fieldId); }}
+      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors ml-1 flex-shrink-0"
+      title="Copy"
+      data-testid={`copy-${fieldId}`}
+    >
+      {copiedField === fieldId ? (
+        <Check className="w-3 h-3 text-green-600" />
+      ) : (
+        <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />
+      )}
+    </button>
+  );
 
   const handleApprove = async (withdrawalId) => {
     if (!window.confirm("Approve this withdrawal? Amount will be deducted from user wallet.")) return;
@@ -55,71 +84,90 @@ export default function Withdrawals() {
   });
 
   const fmtDate = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-";
-  const statusColors = { pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", approved: "bg-green-500/20 text-green-400 border-green-500/30", rejected: "bg-red-500/20 text-red-400 border-red-500/30" };
+  const statusColors = { pending: "bg-yellow-100 text-yellow-800 border-yellow-200", approved: "bg-green-100 text-green-800 border-green-200", rejected: "bg-red-100 text-red-800 border-red-200" };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 p-4" data-testid="admin-withdrawals-page">
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-[#161B22] rounded-lg p-4 border border-gray-700/50">
-          <div className="text-[10px] text-gray-500 uppercase">Total Withdrawals</div>
-          <div className="text-xl font-bold text-red-400">{(stats?.total_withdrawals || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="text-[10px] text-gray-500 uppercase font-medium">Total Withdrawals</div>
+          <div className="text-xl font-bold text-red-600">{(stats?.total_withdrawals || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
         </div>
-        <div className="bg-[#161B22] rounded-lg p-4 border border-gray-700/50">
-          <div className="text-[10px] text-gray-500 uppercase">Pending Withdrawals</div>
-          <div className="text-xl font-bold text-yellow-400">{stats?.pending_withdrawals || 0}</div>
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="text-[10px] text-gray-500 uppercase font-medium">Pending Withdrawals</div>
+          <div className="text-xl font-bold text-yellow-600">{stats?.pending_withdrawals || 0}</div>
         </div>
-        <div className="bg-[#161B22] rounded-lg p-4 border border-gray-700/50">
-          <div className="text-[10px] text-gray-500 uppercase">Total Deposits</div>
-          <div className="text-xl font-bold text-green-400">{(stats?.total_deposits || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="text-[10px] text-gray-500 uppercase font-medium">Total Deposits</div>
+          <div className="text-xl font-bold text-green-600">{(stats?.total_deposits || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
         </div>
-        <div className="bg-[#161B22] rounded-lg p-4 border border-gray-700/50">
-          <div className="text-[10px] text-gray-500 uppercase">User Balances</div>
-          <div className="text-xl font-bold text-white">{(stats?.total_user_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="text-[10px] text-gray-500 uppercase font-medium">User Balances</div>
+          <div className="text-xl font-bold text-gray-900">{(stats?.total_user_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-[#161B22] rounded-lg p-3 border border-gray-700/50 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 bg-[#0D1117] rounded-lg px-3 py-1.5 border border-gray-700/50 flex-1 min-w-[200px]">
-          <Search className="w-3.5 h-3.5 text-gray-500" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by username or holder..." className="bg-transparent text-white text-sm w-full outline-none" />
+      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200 flex-1 min-w-[200px]">
+          <Search className="w-3.5 h-3.5 text-gray-400" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by username or holder..." className="bg-transparent text-gray-900 text-sm w-full outline-none placeholder-gray-400" data-testid="search-input" />
         </div>
         {["all", "pending", "approved", "rejected"].map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-[#0D1117] text-gray-400 border border-gray-700/50 hover:text-white"}`}>{f.charAt(0).toUpperCase() + f.slice(1)} {f === "pending" && stats?.pending_withdrawals ? `(${stats.pending_withdrawals})` : ""}</button>
+          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100"}`} data-testid={`filter-${f}`}>{f.charAt(0).toUpperCase() + f.slice(1)} {f === "pending" && stats?.pending_withdrawals ? `(${stats.pending_withdrawals})` : ""}</button>
         ))}
       </div>
 
       {/* Withdrawals Table */}
-      <div className="bg-[#161B22] rounded-lg border border-gray-700/50 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-700/50">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><ArrowUpCircle className="w-4 h-4 text-red-400" /> Withdrawal Requests ({filtered.length})</h3>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200">
+          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><ArrowUpCircle className="w-4 h-4 text-red-500" /> Withdrawal Requests ({filtered.length})</h3>
         </div>
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-sm">No withdrawals found</div>
+          <div className="p-8 text-center text-gray-400 text-sm">No withdrawals found</div>
         ) : (
-          <div className="divide-y divide-gray-700/30">
+          <div className="divide-y divide-gray-100">
             {filtered.map((w, i) => (
-              <div key={i} className="px-4 py-3 hover:bg-[#1E2736]/50 transition-colors" data-testid={`withdrawal-row-${i}`}>
+              <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors" data-testid={`withdrawal-row-${i}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <div>
-                      <span className="text-sm text-white font-medium">{w.username}</span>
-                      <span className="text-lg font-bold text-red-400 ml-3">{w.amount?.toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span>
+                      <span className="text-sm text-gray-900 font-medium">{w.username}</span>
+                      <span className="text-lg font-bold text-red-600 ml-3">{w.amount?.toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusColors[w.status]}`}>{w.status}</span>
                   </div>
                   <div className="text-xs text-gray-500">{fmtDate(w.created_at)}</div>
                 </div>
-                {/* Bank Details */}
-                <div className="bg-[#0D1117] rounded-lg p-2.5 flex flex-wrap gap-x-6 gap-y-1 text-xs">
-                  <div className="flex items-center gap-1 text-gray-400"><Building2 className="w-3 h-3" /> <span className="text-gray-500">Bank:</span> <span className="text-white">{w.bank_name || "-"}</span></div>
-                  <div className="flex items-center gap-1 text-gray-400"><CreditCard className="w-3 h-3" /> <span className="text-gray-500">A/C:</span> <span className="text-white">{w.account_number || "-"}</span></div>
-                  <div className="text-gray-400"><span className="text-gray-500">IFSC:</span> <span className="text-white">{w.ifsc_code || "-"}</span></div>
-                  <div className="text-gray-400"><span className="text-gray-500">Holder:</span> <span className="text-white">{w.account_holder || "-"}</span></div>
-                  {w.upi_id && <div className="text-gray-400"><span className="text-gray-500">UPI:</span> <span className="text-cyan-400">{w.upi_id}</span></div>}
+                {/* Bank Details with Copy */}
+                <div className="bg-gray-50 rounded-lg p-3 flex flex-wrap gap-x-5 gap-y-2 text-xs" data-testid={`bank-details-${i}`}>
+                  <div className="flex items-center gap-1 text-gray-600">
+                    <Building2 className="w-3 h-3 text-gray-400" />
+                    <span className="text-gray-400">Name:</span>
+                    <span className="text-gray-900 font-medium">{w.account_holder || "-"}</span>
+                    <CopyButton value={w.account_holder} fieldId={`holder-${i}`} />
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600">
+                    <CreditCard className="w-3 h-3 text-gray-400" />
+                    <span className="text-gray-400">A/C:</span>
+                    <span className="text-gray-900 font-medium">{w.account_number || "-"}</span>
+                    <CopyButton value={w.account_number} fieldId={`account-${i}`} />
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600">
+                    <span className="text-gray-400">IFSC:</span>
+                    <span className="text-gray-900 font-medium">{w.ifsc_code || "-"}</span>
+                    <CopyButton value={w.ifsc_code} fieldId={`ifsc-${i}`} />
+                  </div>
+                  {w.upi_id && (
+                    <div className="flex items-center gap-1 text-gray-600">
+                      <span className="text-gray-400">UPI:</span>
+                      <span className="text-blue-600 font-medium">{w.upi_id}</span>
+                      <CopyButton value={w.upi_id} fieldId={`upi-${i}`} />
+                    </div>
+                  )}
                 </div>
                 {/* Actions */}
                 {w.status === "pending" && (
@@ -132,7 +180,7 @@ export default function Withdrawals() {
                     </button>
                   </div>
                 )}
-                {w.admin_note && <div className="text-[10px] text-cyan-400 mt-1">Admin: {w.admin_note}</div>}
+                {w.admin_note && <div className="text-[10px] text-blue-600 mt-1">Admin: {w.admin_note}</div>}
               </div>
             ))}
           </div>

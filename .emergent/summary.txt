@@ -1,19 +1,111 @@
-<analysis>betfair_ex_ukodds_engine.pybetfair_ex_uktesting_agent_v3_forkplace_betserver.pyWallet/api/admin/cricket/seedserver.py/routes/models/websocketsodds_engine.py.envukbetfair_ex_uk
-/app/
-├── backend/
-│   ├── .env
-│   ├── sync_engine.py            # Caches API responses, enforces intervals
-│   ├── odds_engine.py            # NEW: Applies margins, tracks exposure, handles session markets
-│   ├── server.py                 # Monolithic app (>3100 lines). Contains endpoints, models, wallet logic
-│   ├── cricket_data_service.py   
-└── frontend/
-    ├── src/
-    │   ├── pages/
-    │   │   ├── MatchPage.js      # Displays live scores and Betfair odds
-    │   │   ├── user/
-    │   │   │   ├── RechargeHistory.js # User deposit/wallet UI
-    │   │   │   ├── MyWithdrawals.js
-    │   │   ├── admin/
-    │   │   │   ├── Deposits.js        # Admin approval UI for deposits
-    │   │   │   ├── Withdrawals.js     # Admin approval UI for withdrawals
-matcheswalletsdepositswithdrawalstransactions/app/backend/odds_engine.py/app/backend/server.py/app/backend/sync_engine.py/app/frontend/src/pages/MatchPage.js/app/frontend/src/pages/user/RechargeHistory.js/app/frontend/src/pages/admin/Deposits.jsWithdrawals.js/app/backend/server.pyGET /api/walletPOST /api/depositsGET /api/deposits/myPOST /api/withdrawalsGET /api/withdrawals/myGET /api/admin/depositsPOST /api/admin/deposits/{id}/approveGET /api/admin/withdrawalsPOST /api/admin/withdrawals/{id}/approvebetfair_ex_uk/app/memory/PRD.md.envukbetfair_ex_uk.envusername: adminpassword: 123456username: userpassword: 123456testing_agent_v3_fork</analysis>
+<analysis>**original_problem_statement**: The user is building a premium sports betting application named PlayXBets. The app features a manual wallet system without payment gateways, requiring admin approvals for deposits and withdrawals. Recently, the user requested an upgrade to the odds generation logic to behave exactly like a **Betfair-style exchange**. PRODUCT REQUIREMENTS: The new odds engine must apply smart odds normalization (implied probability correction to remove bookmaker overround), create dynamic tight spreads (0.01 to 0.03 ticks), generate deterministic realistic liquidity (no random values), provide a 3-level order book, and ensure smooth live odds movement without sudden jumps. The API polling speed must remain at 1 second. 
+
+**User's preferred language**: English (INSTRUCT next agent to respond in English only)
+
+**what currently exists?**: A full-stack React + FastAPI + MongoDB app. The backend features a completely revamped  that processes Odds API data, strips bookmaker margins, calculates real exchange-like Back/Lay odds with 1-tick spreads, applies deterministic liquidity sizing, and maintains a 3-level depth order book. The wallet system is fully functional, including a newly added  logic ensuring users can only withdraw their winnings, not recharged deposits. 
+
+**Last working item**:
+    - Last item agent was working: Upgrading the Odds Engine () to behave like a true Betfair-style exchange.
+    - Status: COMPLETED (Agent fully implemented margin removal, 3-level order book, deterministic liquidity, and smoothed movement. Ran testing subagent successfully).
+    - Agent Testing Done: Y
+    - Which testing method agent to use? both (Testing agent  was generated)
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+None. All reported bugs and issues from this session were resolved.
+
+**In progress Task List**: 
+None.
+
+**Upcoming and Future Tasks**
+  Upcoming Tasks:
+  - (P2) Admin manual match entry UI (Build the frontend form to hit the existing  endpoint).
+  - (P2) Implement Cashout functionality for live bets.
+
+  Future Tasks:
+  - User support ticket system.
+  - Code Architecture Refactor: Break down  (>3150 lines) into modular routers (, , ).
+
+**Completed work in this session**
+- End-to-End testing and verification of the manual wallet flow (DONE)
+- Fixed critical bug in  () allowing users to bet with frozen funds (DONE)
+- Fixed Wallet UI showing empty balances due to a missing  endpoint (created endpoint, updated frontend with ) (DONE)
+- Added strict  logic: users can only withdraw winnings (total_winnings - approved withdrawals - pending withdrawals) (DONE)
+- Rewrote  to emulate a betting exchange (margin removal, Betfair tick rounding, deterministic liquidity, 3-level order book) (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+None.
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: 3rd Party API Quota Exhaustion (The Odds API / CricketData API). 
+  - Recurrence count: 6+
+  - Status: IN PROGRESS / BLOCKED (The agent noticed a  error from The Odds API in backend logs. With 1-second polling, the user's API key might be frequently running out of limits. No code changes needed, but be aware if live matches stop updating).
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+React 18, Tailwind CSS, FastAPI, MongoDB Atlas, FastAPI WebSockets, APScheduler, Betfair Exchange odds parsing, Implied Probability & Overround normalization, Deterministic Liquidity Generation.
+
+**key DB schema**
+  - : {match_id, status, commence_time, home_team, away_team, odds, score, matchEnded}
+  - : {user_id, balance, available_balance, frozen_balance, exposure, withdrawable_balance, total_winnings}
+  - : {deposit_id, user_id, amount, status, method, reference_id}
+  - : {withdrawal_id, user_id, amount, status, bank_details}
+  - : {transaction_id, user_id, type, amount, balance_before, balance_after}
+
+**changes in tech stack**
+  - None
+
+**All files of reference** 
+  -  (Massively updated to handle exchange logic, fair pricing, 3-level depth, and smoothed odds movement).
+  -  (Updated for wallet transaction endpoints, withdrawable limits, and passing raw odds to ).
+  -  (Updated to handle transaction API calls properly).
+  -  (Updated withdrawal form to enforce  limit).
+
+**Areas that need refactoring**: 
+  -  is critically large (>3150 lines) and desperately needs modularization into distinct files.
+
+**key api endpoints**
+  -  (Returns user's wallet with  and the new )
+  -  (Created to resolve UI crash, returns transaction history)
+  -  (Checks requested amount strictly against )
+
+**Critical Info for New Agent** 
+  - **Exchange Odds Logic**:  has been rewritten to emulate a real exchange. DO NOT USE  for liquidity or odds. It uses a deterministic approach based on implied probabilities, removes bookmaker margins, and applies standard Betfair tick sizes (e.g. 0.01 increments).
+  - **Withdrawable Balance**: Users can ONLY withdraw their winnings. The math implemented is: . Recharged deposit balances cannot be withdrawn.
+  - **API Rate Limits**: The app polls the APIs every 1 second. The last agent encountered 401 Quota errors for the Odds API. If the API is failing or matches aren't showing up, it's highly likely a quota issue rather than a code bug.
+
+**documents and test reports created in this job** 
+  - 
+  -  (E2E Wallet Test)
+  -  (Withdrawable Balance test)
+  -  (Odds Engine Upgrade test)
+
+**Last 10 User Messages and any pending HUMAN messages** 
+  1. User: Proceed -> Agent ran E2E testing on wallet and fixed place_bet bug.
+  2. User: I have amount 60000+ but showing empty 1. Recharge amount cant able withdraw 2. Only winning amount have to showing to user... -> Agent investigated, created missing  endpoint, and added  (winnings only) logic.
+  3. User: Gave detailed instructions to upgrade odds generation logic to behave strictly like a Betfair-style exchange (remove margin, dynamic spreads, 3-level depth, deterministic liquidity).
+  4. User: YES PROCEED WITH ALL THE UPDATES AND ONE BELOW 2. NO NEED TO UPDATE THE POLLING SPEED... -> Agent fully implemented the new , maintained the 1-second polling speed, and ran E2E tests successfully.
+
+**Project Health Check:**
+  - Broken: Odds API might be hitting 401 Quota Limits due to fast polling (Check backend logs).
+  - Mocked: None (Using real APIs, deterministic math for exchange liquidity).
+
+**3rd Party Integrations** 
+  - The Odds API (Match odds & scores) — requires User API Key.
+  - CricketData API (Match data & live scores) — requires User API Key.
+  - MongoDB Atlas (Database) — mapped in .
+
+**Testing status**
+  - Testing agent used after significant changes: YES
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None
+  - Known regressions: None
+
+**Credentials to test flow:**
+  - Admin: , 
+  - User: , 
+
+**What agent forgot to execute**
+The agent successfully implemented and tested the complex odds engine logic (iteration 22 generated), but context window filled up right before explicitly calling the  tool. The task is fully complete and verified.</analysis>

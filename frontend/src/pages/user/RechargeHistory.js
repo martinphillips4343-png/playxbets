@@ -115,49 +115,49 @@ export default function RechargeHistory() {
   };
 
   const statusBadge = (status) => {
-    const colors = { pending: "bg-yellow-500/20 text-yellow-400", approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", paid: "bg-green-500/20 text-green-400" };
-    return <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${colors[status] || "bg-gray-500/20 text-gray-400"}`}>{status}</span>;
+    const colors = { pending: "bg-yellow-100 text-yellow-800", approved: "bg-green-100 text-green-800", rejected: "bg-red-100 text-red-800", paid: "bg-green-100 text-green-800" };
+    return <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${colors[status] || "bg-gray-100 text-gray-600"}`}>{status}</span>;
   };
 
   const fmtDate = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 p-4" data-testid="wallet-page">
       {msg && (
-        <div className={`p-3 rounded-lg text-sm font-medium ${msg.type === "success" ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
+        <div className={`p-3 rounded-lg text-sm font-medium ${msg.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {msg.text}
           <button onClick={() => setMsg(null)} className="float-right text-xs opacity-60 hover:opacity-100">dismiss</button>
         </div>
       )}
 
       {/* Wallet Balance Card */}
-      <div className="bg-[#161B22] rounded-xl p-5 border border-gray-700/50" data-testid="wallet-balance-card">
+      <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm" data-testid="wallet-balance-card">
         <div className="flex items-center gap-2 mb-4">
-          <Wallet className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-bold text-white">My Wallet</h2>
+          <Wallet className="w-5 h-5 text-blue-600" />
+          <h2 className="text-lg font-bold text-gray-900">My Wallet</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Available Balance</div>
-            <div className="text-xl font-bold text-green-400" data-testid="available-balance">{(wallet?.available_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+            <div className="text-xl font-bold text-green-600" data-testid="available-balance">{(wallet?.available_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
-          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Withdrawable (Winnings)</div>
-            <div className="text-xl font-bold text-cyan-400" data-testid="withdrawable-balance">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+            <div className="text-xl font-bold text-blue-600" data-testid="withdrawable-balance">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
-          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Total Balance</div>
-            <div className="text-xl font-bold text-white">{(wallet?.balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+            <div className="text-xl font-bold text-gray-900">{(wallet?.balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
-          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Frozen (Withdrawal)</div>
-            <div className="text-xl font-bold text-yellow-400">{(wallet?.frozen_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+            <div className="text-xl font-bold text-yellow-600">{(wallet?.frozen_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
-          <div className="bg-[#0D1117] rounded-lg p-3 border border-gray-700/30">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div className="text-[10px] text-gray-500 uppercase font-medium">Exposure (Bets)</div>
-            <div className="text-xl font-bold text-orange-400">{(wallet?.exposure || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
+            <div className="text-xl font-bold text-orange-600">{(wallet?.exposure || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</div>
           </div>
         </div>
         <div className="flex gap-3 mt-4">
@@ -175,44 +175,44 @@ export default function RechargeHistory() {
 
       {/* Deposit Form */}
       {showDepositForm && (
-        <div className="bg-[#161B22] rounded-xl p-5 border border-green-500/30" data-testid="deposit-form">
-          <h3 className="text-base font-bold text-green-400 mb-3 flex items-center gap-2"><ArrowDownCircle className="w-4 h-4" /> Deposit Request</h3>
+        <div className="bg-white rounded-xl p-5 border border-green-200 shadow-sm" data-testid="deposit-form">
+          <h3 className="text-base font-bold text-green-700 mb-3 flex items-center gap-2"><ArrowDownCircle className="w-4 h-4" /> Deposit Request</h3>
           <form onSubmit={submitDeposit} className="space-y-3">
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Amount *</label>
-              <input type="number" value={depAmount} onChange={e => setDepAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="dep-amount-input" />
+              <label className="text-xs text-gray-600 font-medium block mb-1">Amount *</label>
+              <input type="number" value={depAmount} onChange={e => setDepAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" required data-testid="dep-amount-input" />
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Payment Method *</label>
-              <select value={depMethod} onChange={e => setDepMethod(e.target.value)} className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" data-testid="dep-method-select">
+              <label className="text-xs text-gray-600 font-medium block mb-1">Payment Method *</label>
+              <select value={depMethod} onChange={e => setDepMethod(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" data-testid="dep-method-select">
                 <option value="upi">UPI</option>
                 <option value="bank_transfer">Bank Transfer</option>
                 <option value="cash">Cash</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Transaction Reference ID (optional)</label>
-              <input type="text" value={depRef} onChange={e => setDepRef(e.target.value)} placeholder="e.g. UTR number" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" data-testid="dep-ref-input" />
+              <label className="text-xs text-gray-600 font-medium block mb-1">Transaction Reference ID (optional)</label>
+              <input type="text" value={depRef} onChange={e => setDepRef(e.target.value)} placeholder="e.g. UTR number" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" data-testid="dep-ref-input" />
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Upload Screenshot (optional)</label>
+              <label className="text-xs text-gray-600 font-medium block mb-1">Upload Screenshot (optional)</label>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-gray-400 text-sm cursor-pointer hover:border-cyan-500 transition-colors">
+                <label className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-500 text-sm cursor-pointer hover:border-green-400 transition-colors">
                   <Upload className="w-4 h-4" /> {depScreenshot ? "Uploaded" : "Choose file"}
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" data-testid="dep-screenshot-input" />
                 </label>
-                {depScreenshot && <span className="text-green-400 text-xs">File attached</span>}
+                {depScreenshot && <span className="text-green-600 text-xs font-medium">File attached</span>}
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Note (optional)</label>
-              <input type="text" value={depNote} onChange={e => setDepNote(e.target.value)} placeholder="Any note for admin" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" />
+              <label className="text-xs text-gray-600 font-medium block mb-1">Note (optional)</label>
+              <input type="text" value={depNote} onChange={e => setDepNote(e.target.value)} placeholder="Any note for admin" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" />
             </div>
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={submitting} className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium" data-testid="dep-submit-btn">
                 {submitting ? "Submitting..." : "Submit Deposit Request"}
               </button>
-              <button type="button" onClick={() => setShowDepositForm(false)} className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm">Cancel</button>
+              <button type="button" onClick={() => setShowDepositForm(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm">Cancel</button>
             </div>
           </form>
         </div>
@@ -220,78 +220,78 @@ export default function RechargeHistory() {
 
       {/* Withdrawal Form */}
       {showWithdrawForm && (
-        <div className="bg-[#161B22] rounded-xl p-5 border border-red-500/30" data-testid="withdrawal-form">
-          <h3 className="text-base font-bold text-red-400 mb-3 flex items-center gap-2"><ArrowUpCircle className="w-4 h-4" /> Withdrawal Request</h3>
+        <div className="bg-white rounded-xl p-5 border border-red-200 shadow-sm" data-testid="withdrawal-form">
+          <h3 className="text-base font-bold text-red-700 mb-3 flex items-center gap-2"><ArrowUpCircle className="w-4 h-4" /> Withdrawal Request</h3>
           <form onSubmit={submitWithdrawal} className="space-y-3">
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Amount *</label>
-              <input type="number" value={wdAmount} onChange={e => setWdAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-amount-input" />
-              <span className="text-[10px] text-gray-500 mt-0.5 block">Withdrawable (Winnings only): <span className="text-cyan-400 font-medium">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span></span>
+              <label className="text-xs text-gray-600 font-medium block mb-1">Amount *</label>
+              <input type="number" value={wdAmount} onChange={e => setWdAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none" required data-testid="wd-amount-input" />
+              <span className="text-[10px] text-gray-500 mt-0.5 block">Withdrawable (Winnings only): <span className="text-blue-600 font-medium">{(wallet?.withdrawable_balance || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span></span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Account Holder *</label>
-                <input type="text" value={wdHolder} onChange={e => setWdHolder(e.target.value)} placeholder="Full name" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-holder-input" />
+                <label className="text-xs text-gray-600 font-medium block mb-1">Account Holder *</label>
+                <input type="text" value={wdHolder} onChange={e => setWdHolder(e.target.value)} placeholder="Full name" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" required data-testid="wd-holder-input" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Bank Name *</label>
-                <input type="text" value={wdBank} onChange={e => setWdBank(e.target.value)} placeholder="e.g. HDFC Bank" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-bank-input" />
+                <label className="text-xs text-gray-600 font-medium block mb-1">Bank Name *</label>
+                <input type="text" value={wdBank} onChange={e => setWdBank(e.target.value)} placeholder="e.g. HDFC Bank" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" required data-testid="wd-bank-input" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Account Number *</label>
-                <input type="text" value={wdAccount} onChange={e => setWdAccount(e.target.value)} placeholder="Account number" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-account-input" />
+                <label className="text-xs text-gray-600 font-medium block mb-1">Account Number *</label>
+                <input type="text" value={wdAccount} onChange={e => setWdAccount(e.target.value)} placeholder="Account number" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" required data-testid="wd-account-input" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">IFSC Code *</label>
-                <input type="text" value={wdIfsc} onChange={e => setWdIfsc(e.target.value)} placeholder="e.g. HDFC0001234" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" required data-testid="wd-ifsc-input" />
+                <label className="text-xs text-gray-600 font-medium block mb-1">IFSC Code *</label>
+                <input type="text" value={wdIfsc} onChange={e => setWdIfsc(e.target.value)} placeholder="e.g. HDFC0001234" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" required data-testid="wd-ifsc-input" />
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">UPI ID (optional)</label>
-              <input type="text" value={wdUpi} onChange={e => setWdUpi(e.target.value)} placeholder="e.g. name@upi" className="w-full bg-[#0D1117] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm" data-testid="wd-upi-input" />
+              <label className="text-xs text-gray-600 font-medium block mb-1">UPI ID (optional)</label>
+              <input type="text" value={wdUpi} onChange={e => setWdUpi(e.target.value)} placeholder="e.g. name@upi" className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm" data-testid="wd-upi-input" />
             </div>
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={submitting} className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium" data-testid="wd-submit-btn">
                 {submitting ? "Submitting..." : "Submit Withdrawal Request"}
               </button>
-              <button type="button" onClick={() => setShowWithdrawForm(false)} className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm">Cancel</button>
+              <button type="button" onClick={() => setShowWithdrawForm(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg text-sm">Cancel</button>
             </div>
           </form>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#161B22] rounded-lg p-1 border border-gray-700/50">
+      <div className="flex gap-1 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
         {[
           { id: "deposit", label: "Deposits", icon: ArrowDownCircle },
           { id: "withdrawal", label: "Withdrawals", icon: ArrowUpCircle },
           { id: "transactions", label: "All Transactions", icon: History },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${tab === t.id ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white"}`} data-testid={`tab-${t.id}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${tab === t.id ? "bg-blue-100 text-blue-700 border border-blue-200" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"}`} data-testid={`tab-${t.id}`}>
             <t.icon className="w-3.5 h-3.5" /> {t.label}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      <div className="bg-[#161B22] rounded-xl border border-gray-700/50 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {tab === "deposit" && (
           <>
-            <div className="px-4 py-3 border-b border-gray-700/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Deposit History</h3>
-              <span className="text-[10px] text-gray-500">{deposits.length} records</span>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Deposit History</h3>
+              <span className="text-[10px] text-gray-400">{deposits.length} records</span>
             </div>
             {deposits.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">No deposit requests yet</div>
+              <div className="p-8 text-center text-gray-400 text-sm">No deposit requests yet</div>
             ) : (
-              <div className="divide-y divide-gray-700/30">
+              <div className="divide-y divide-gray-100">
                 {deposits.map((d, i) => (
-                  <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-[#1E2736]/50 transition-colors">
+                  <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
                     <div>
-                      <div className="text-sm font-medium text-white flex items-center gap-2">
-                        <IndianRupee className="w-3.5 h-3.5 text-green-400" />
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                        <IndianRupee className="w-3.5 h-3.5 text-green-600" />
                         {d.amount?.toLocaleString("en-IN")}
                         {statusBadge(d.status)}
                       </div>
@@ -306,19 +306,19 @@ export default function RechargeHistory() {
 
         {tab === "withdrawal" && (
           <>
-            <div className="px-4 py-3 border-b border-gray-700/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Withdrawal History</h3>
-              <span className="text-[10px] text-gray-500">{withdrawals.length} records</span>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Withdrawal History</h3>
+              <span className="text-[10px] text-gray-400">{withdrawals.length} records</span>
             </div>
             {withdrawals.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">No withdrawal requests yet</div>
+              <div className="p-8 text-center text-gray-400 text-sm">No withdrawal requests yet</div>
             ) : (
-              <div className="divide-y divide-gray-700/30">
+              <div className="divide-y divide-gray-100">
                 {withdrawals.map((w, i) => (
-                  <div key={i} className="px-4 py-3 hover:bg-[#1E2736]/50 transition-colors">
+                  <div key={i} className="px-4 py-3 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium text-white flex items-center gap-2">
-                        <IndianRupee className="w-3.5 h-3.5 text-red-400" />
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                        <IndianRupee className="w-3.5 h-3.5 text-red-500" />
                         {w.amount?.toLocaleString("en-IN")}
                         {statusBadge(w.status)}
                       </div>
@@ -328,7 +328,7 @@ export default function RechargeHistory() {
                       {w.bank_name} | A/C: {w.account_number?.slice(-4)?.padStart(w.account_number?.length || 4, "*")} | IFSC: {w.ifsc_code}
                       {w.upi_id ? ` | UPI: ${w.upi_id}` : ""}
                     </div>
-                    {w.admin_note && <div className="text-[10px] text-cyan-400 mt-0.5">Admin: {w.admin_note}</div>}
+                    {w.admin_note && <div className="text-[10px] text-blue-600 mt-0.5">Admin: {w.admin_note}</div>}
                   </div>
                 ))}
               </div>
@@ -338,28 +338,28 @@ export default function RechargeHistory() {
 
         {tab === "transactions" && (
           <>
-            <div className="px-4 py-3 border-b border-gray-700/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Transaction History</h3>
-              <span className="text-[10px] text-gray-500">{transactions.length} records</span>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Transaction History</h3>
+              <span className="text-[10px] text-gray-400">{transactions.length} records</span>
             </div>
             {transactions.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 text-sm">No transactions yet</div>
+              <div className="p-8 text-center text-gray-400 text-sm">No transactions yet</div>
             ) : (
-              <div className="divide-y divide-gray-700/30">
+              <div className="divide-y divide-gray-100">
                 {transactions.map((t, i) => (
-                  <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-[#1E2736]/50 transition-colors">
+                  <div key={i} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
                     <div>
-                      <div className="text-sm font-medium text-white flex items-center gap-2">
-                        {t.type === "deposit" ? <ArrowDownCircle className="w-3.5 h-3.5 text-green-400" /> : t.type === "withdrawal" ? <ArrowUpCircle className="w-3.5 h-3.5 text-red-400" /> : <IndianRupee className="w-3.5 h-3.5 text-yellow-400" />}
-                        <span className={t.type === "deposit" || t.type === "win" ? "text-green-400" : "text-red-400"}>
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                        {t.type === "deposit" ? <ArrowDownCircle className="w-3.5 h-3.5 text-green-600" /> : t.type === "withdrawal" ? <ArrowUpCircle className="w-3.5 h-3.5 text-red-500" /> : <IndianRupee className="w-3.5 h-3.5 text-yellow-600" />}
+                        <span className={t.type === "deposit" || t.type === "win" ? "text-green-600" : "text-red-600"}>
                           {t.type === "deposit" || t.type === "win" ? "+" : "-"}{t.amount?.toLocaleString("en-IN")}
                         </span>
-                        <span className="text-[10px] text-gray-500 uppercase">{t.type}</span>
+                        <span className="text-[10px] text-gray-400 uppercase">{t.type}</span>
                       </div>
                       <div className="text-[10px] text-gray-500 mt-0.5">{t.description || t.note || ""} | {fmtDate(t.created_at)}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-gray-400">Bal: {t.balance_after?.toLocaleString("en-IN")}</div>
+                      <div className="text-xs text-gray-500">Bal: {t.balance_after?.toLocaleString("en-IN")}</div>
                     </div>
                   </div>
                 ))}

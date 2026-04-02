@@ -40,7 +40,7 @@ export default function Login({ onLogin, onSwitchToSignUp, isModal = false }) {
 
   const containerClass = isModal
     ? "bg-white rounded-lg p-8 w-full max-w-md"
-    : "min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900";
+    : "min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-blue-50 to-gray-100";
 
   return (
     <div className={containerClass}>
