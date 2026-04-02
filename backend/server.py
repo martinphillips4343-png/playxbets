@@ -498,25 +498,37 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
     return current_user
 
 def _extract_best_h2h_odds(bookmakers, home_team, away_team):
-    """Extract the best (highest) h2h odds per team across all bookmakers — raw, no processing."""
-    best_home = None
-    best_away = None
+    """Extract h2h odds from the PRIMARY bookmaker (Betfair preferred, else first).
+    Returns (first_team_name, first_team_odds, second_team_name, second_team_odds)
+    in the exact order the bookmaker lists them (outcome order)."""
+    # Prefer Betfair exchange, then any Betfair, then first bookmaker
+    primary_bk = None
     for bk in (bookmakers or []):
-        for mkt in bk.get("markets", []):
-            if mkt.get("key") != "h2h":
-                continue
-            for outcome in mkt.get("outcomes", []):
-                price = outcome.get("price")
-                name = outcome.get("name", "")
-                if not price or price <= 1:
-                    continue
-                if OddsService.teams_match(name, home_team):
-                    if best_home is None or price > best_home:
-                        best_home = price
-                elif OddsService.teams_match(name, away_team):
-                    if best_away is None or price > best_away:
-                        best_away = price
-    return best_home, best_away
+        if bk.get("key") == "betfair_ex_uk":
+            primary_bk = bk
+            break
+    if not primary_bk:
+        for bk in (bookmakers or []):
+            if "betfair" in bk.get("key", "").lower():
+                primary_bk = bk
+                break
+    if not primary_bk and bookmakers:
+        primary_bk = bookmakers[0]
+    if not primary_bk:
+        return None, None, None, None
+
+    for mkt in primary_bk.get("markets", []):
+        if mkt.get("key") != "h2h":
+            continue
+        outcomes = mkt.get("outcomes", [])
+        if len(outcomes) >= 2:
+            t1_name = outcomes[0].get("name", "")
+            t1_odds = outcomes[0].get("price")
+            t2_name = outcomes[1].get("name", "")
+            t2_odds = outcomes[1].get("price")
+            if t1_odds and t1_odds > 1 and t2_odds and t2_odds > 1:
+                return t1_name, t1_odds, t2_name, t2_odds
+    return None, None, None, None
 
 
 # ==================== ODDS API SERVICE ====================
@@ -699,11 +711,13 @@ class OddsService:
                     away_team=away_team,
                 )
 
-                # Store raw best h2h odds directly (no processing)
-                best_home, best_away = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
-                if best_home and best_away:
-                    odds_data["home"] = best_home
-                    odds_data["away"] = best_away
+                # Store exact odds from primary bookmaker (Betfair preferred) + team order
+                t1_name, t1_odds, t2_name, t2_odds = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                if t1_odds and t2_odds:
+                    odds_data["home"] = t1_odds
+                    odds_data["away"] = t2_odds
+                    odds_data["first_team"] = t1_name
+                    odds_data["second_team"] = t2_name
                 
                 # If Betfair Exchange provided real lay odds, use them (with margin)
                 if home_lay_raw and away_lay_raw:
@@ -799,11 +813,13 @@ class OddsService:
                             home_team=db_away,   # DB perspective: swapped
                             away_team=db_home,
                         )
-                        # Overwrite home/away with raw best odds (swapped for reversed)
-                        best_h, best_a = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
-                        if best_h and best_a:
-                            corrected_odds_data["home"] = best_a  # swapped
-                            corrected_odds_data["away"] = best_h  # swapped
+                        # Overwrite with primary bookmaker odds + order
+                        t1_name, t1_odds, t2_name, t2_odds = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                        if t1_odds and t2_odds:
+                            corrected_odds_data["home"] = t1_odds
+                            corrected_odds_data["away"] = t2_odds
+                            corrected_odds_data["first_team"] = t1_name
+                            corrected_odds_data["second_team"] = t2_name
                         corrected_odds_data["raw_home"] = away_odds
                         corrected_odds_data["raw_away"] = home_odds
                         corrected_odds_data["source"] = odds_data.get("source", "")
@@ -884,6 +900,12 @@ class OddsService:
                             if best_h and best_a:
                                 dupe_odds["home"] = best_a
                                 dupe_odds["away"] = best_h
+                            t1n, t1o, t2n, t2o = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                            if t1o and t2o:
+                                dupe_odds["home"] = t1o
+                                dupe_odds["away"] = t2o
+                                dupe_odds["first_team"] = t1n
+                                dupe_odds["second_team"] = t2n
                             dupe_h = away_odds
                             dupe_a = home_odds
                         else:
@@ -896,10 +918,12 @@ class OddsService:
                                 home_team=dupe_home,
                                 away_team=dupe_away,
                             )
-                            best_h, best_a = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
-                            if best_h and best_a:
-                                dupe_odds["home"] = best_h
-                                dupe_odds["away"] = best_a
+                            t1n, t1o, t2n, t2o = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                            if t1o and t2o:
+                                dupe_odds["home"] = t1o
+                                dupe_odds["away"] = t2o
+                                dupe_odds["first_team"] = t1n
+                                dupe_odds["second_team"] = t2n
                             dupe_h = home_odds
                             dupe_a = away_odds
                         

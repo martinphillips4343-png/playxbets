@@ -41,6 +41,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const [awayOdds, setAwayOdds] = useState(null);
   const [suspended, setSuspended] = useState(false);
   const [suspendEvent, setSuspendEvent] = useState(null);
+  const [firstTeam, setFirstTeam] = useState(null);
+  const [secondTeam, setSecondTeam] = useState(null);
 
   // Bet placement
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -65,6 +67,9 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     const a = odds.away || odds.away_back || data.away_odds;
     if (h && h > 1) setHomeOdds(parseFloat(h.toFixed(2)));
     if (a && a > 1) setAwayOdds(parseFloat(a.toFixed(2)));
+    // Use bookmaker's team order if available
+    if (odds.first_team) setFirstTeam(odds.first_team);
+    if (odds.second_team) setSecondTeam(odds.second_team);
   }, []);
 
   // ==================== SYNC WS ====================
@@ -359,10 +364,10 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 {/* Divider bar */}
                 <div className="mx-4 h-[3px] bg-[#2a3a4e] rounded mb-1" />
 
-                {/* Team Rows */}
+                {/* Team Rows — use bookmaker's outcome order */}
                 {[
-                  { team: homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
-                  { team: awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
+                  { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
+                  { team: secondTeam || awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
                 ].map(({ team, odds, flash, poolTotal, testId }) => (
                   <div key={testId}>
                     <div
