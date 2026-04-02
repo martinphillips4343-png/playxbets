@@ -497,6 +497,28 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+def _extract_best_h2h_odds(bookmakers, home_team, away_team):
+    """Extract the best (highest) h2h odds per team across all bookmakers — raw, no processing."""
+    best_home = None
+    best_away = None
+    for bk in (bookmakers or []):
+        for mkt in bk.get("markets", []):
+            if mkt.get("key") != "h2h":
+                continue
+            for outcome in mkt.get("outcomes", []):
+                price = outcome.get("price")
+                name = outcome.get("name", "")
+                if not price or price <= 1:
+                    continue
+                if OddsService.teams_match(name, home_team):
+                    if best_home is None or price > best_home:
+                        best_home = price
+                elif OddsService.teams_match(name, away_team):
+                    if best_away is None or price > best_away:
+                        best_away = price
+    return best_home, best_away
+
+
 # ==================== ODDS API SERVICE ====================
 class OddsService:
     """
@@ -676,6 +698,12 @@ class OddsService:
                     home_team=home_team,
                     away_team=away_team,
                 )
+
+                # Store raw best h2h odds directly (no processing)
+                best_home, best_away = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                if best_home and best_away:
+                    odds_data["home"] = best_home
+                    odds_data["away"] = best_away
                 
                 # If Betfair Exchange provided real lay odds, use them (with margin)
                 if home_lay_raw and away_lay_raw:
@@ -771,6 +799,11 @@ class OddsService:
                             home_team=db_away,   # DB perspective: swapped
                             away_team=db_home,
                         )
+                        # Overwrite home/away with raw best odds (swapped for reversed)
+                        best_h, best_a = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                        if best_h and best_a:
+                            corrected_odds_data["home"] = best_a  # swapped
+                            corrected_odds_data["away"] = best_h  # swapped
                         corrected_odds_data["raw_home"] = away_odds
                         corrected_odds_data["raw_away"] = home_odds
                         corrected_odds_data["source"] = odds_data.get("source", "")
@@ -847,6 +880,10 @@ class OddsService:
                                 home_team=dupe_away,
                                 away_team=dupe_home,
                             )
+                            best_h, best_a = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                            if best_h and best_a:
+                                dupe_odds["home"] = best_a
+                                dupe_odds["away"] = best_h
                             dupe_h = away_odds
                             dupe_a = home_odds
                         else:
@@ -859,6 +896,10 @@ class OddsService:
                                 home_team=dupe_home,
                                 away_team=dupe_away,
                             )
+                            best_h, best_a = _extract_best_h2h_odds(event.get("bookmakers", []), home_team, away_team)
+                            if best_h and best_a:
+                                dupe_odds["home"] = best_h
+                                dupe_odds["away"] = best_a
                             dupe_h = home_odds
                             dupe_a = away_odds
                         
