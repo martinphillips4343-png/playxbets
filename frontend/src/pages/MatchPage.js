@@ -343,7 +343,10 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               data-testid="match-odds-header"
             >
               <span className="text-white font-bold text-sm tracking-wide">MATCH_ODDS</span>
-              <ChevronLeft className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${oddsCollapsed ? "rotate-[-90deg]" : "rotate-90"}`} />
+              <div className="flex items-center gap-3">
+                <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">Winner</span>
+                <ChevronLeft className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${oddsCollapsed ? "rotate-[-90deg]" : "rotate-90"}`} />
+              </div>
             </button>
 
             {!oddsCollapsed && (
@@ -371,7 +374,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       data-testid={`${testId}-team-row`}
                     >
                       {/* Team Name */}
-                      <span className="text-white text-base md:text-lg font-semibold flex-1" data-testid={`${testId}-team-name`}>
+                      <span className="text-white text-lg md:text-xl font-bold flex-1" data-testid={`${testId}-team-name`}>
                         {team}
                       </span>
 
