@@ -148,3 +148,17 @@ code {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+
+
+/* Winner card flash */
+.flash-up { animation: flashGreenCard 0.8s ease-out; }
+.flash-down { animation: flashRedCard 0.8s ease-out; }
+
+@keyframes flashGreenCard {
+  0% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); }
+  100% { box-shadow: none; }
+}
+@keyframes flashRedCard {
+  0% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
+  100% { box-shadow: none; }
+}

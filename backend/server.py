@@ -351,6 +351,11 @@ class BetCreate(BaseModel):
     bet_type: str = "back"  # "back" or "lay"
     market_type: str = "match"  # "match", "ball", "session", "over", etc.
 
+class P2PBetCreate(BaseModel):
+    match_id: str
+    selected_team: str
+    stake: float
+
 class WithdrawalRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     withdrawal_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -571,7 +576,7 @@ class OddsService:
             params = {
                 "apiKey": ODDS_API_KEY,
                 "regions": "uk",
-                "markets": "h2h,h2h_lay",
+                "markets": "h2h",
                 "oddsFormat": "decimal"
             }
             
@@ -1736,7 +1741,10 @@ async def declare_outcome(match_id: str, winner: str, current_user: User = Depen
     # Settle all pending bets for this match
     settled = await settle_match_bets(match_id, winner)
     
-    return {"success": True, **settled}
+    # Also settle P2P bets
+    p2p_settled = await settle_p2p_bets(match_id, winner)
+    
+    return {"success": True, **settled, "p2p": p2p_settled}
 
 
 async def settle_match_bets(match_id: str, winner: str) -> dict:
@@ -1798,6 +1806,219 @@ async def settle_match_bets(match_id: str, winner: str) -> dict:
     
     logger.info(f"Settled {len(bets)} bets for match {match_id}: {won_count} won, {lost_count} lost, total payout={total_payout}")
     return {"total_bets": len(bets), "won": won_count, "lost": lost_count, "total_payout": total_payout}
+
+
+# ==================== P2P BETTING ENGINE ====================
+
+async def run_p2p_matching(match_id: str, new_bet_id: str, selected_team: str):
+    """Match a new bet against opposing pending bets (FIFO, partial matching)."""
+    new_bet = await db.p2p_bets.find_one({"bet_id": new_bet_id}, {"_id": 0})
+    if not new_bet or new_bet["unmatched_amount"] <= 0:
+        return 0
+
+    opposing_bets = await db.p2p_bets.find({
+        "match_id": match_id,
+        "selected_team": {"$ne": selected_team},
+        "unmatched_amount": {"$gt": 0},
+        "status": {"$in": ["pending", "partially_matched"]},
+        "user_id": {"$ne": new_bet["user_id"]},
+    }, {"_id": 0}).sort("placed_at", 1).to_list(100)
+
+    total_matched = 0
+    remaining = new_bet["unmatched_amount"]
+
+    for opp in opposing_bets:
+        if remaining <= 0:
+            break
+        match_amount = round(min(remaining, opp["unmatched_amount"]), 2)
+        new_opp_matched = round(opp["matched_amount"] + match_amount, 2)
+        new_opp_unmatched = round(opp["unmatched_amount"] - match_amount, 2)
+        opp_status = "fully_matched" if new_opp_unmatched <= 0.01 else "partially_matched"
+
+        await db.p2p_bets.update_one(
+            {"bet_id": opp["bet_id"]},
+            {"$set": {"matched_amount": new_opp_matched, "unmatched_amount": max(0, new_opp_unmatched), "status": opp_status},
+             "$push": {"matches": {"counter_bet_id": new_bet_id, "amount": match_amount}}}
+        )
+        remaining = round(remaining - match_amount, 2)
+        total_matched = round(total_matched + match_amount, 2)
+        await db.p2p_bets.update_one(
+            {"bet_id": new_bet_id},
+            {"$push": {"matches": {"counter_bet_id": opp["bet_id"], "amount": match_amount}}}
+        )
+
+    new_matched = round(new_bet["matched_amount"] + total_matched, 2)
+    new_unmatched = round(new_bet["unmatched_amount"] - total_matched, 2)
+    new_status = "fully_matched" if new_unmatched <= 0.01 else ("partially_matched" if total_matched > 0 else "pending")
+
+    await db.p2p_bets.update_one(
+        {"bet_id": new_bet_id},
+        {"$set": {"matched_amount": new_matched, "unmatched_amount": max(0, new_unmatched), "status": new_status}}
+    )
+    return total_matched
+
+
+async def settle_p2p_bets(match_id: str, winner: str) -> dict:
+    """Settle all P2P bets. Winners get 2x matched + unmatched refund. Losers get unmatched refund."""
+    bets = await db.p2p_bets.find({
+        "match_id": match_id,
+        "status": {"$in": ["pending", "partially_matched", "fully_matched"]}
+    }, {"_id": 0}).to_list(1000)
+
+    won_count = lost_count = 0
+    total_payout = 0.0
+
+    for bet in bets:
+        is_winner = odds_engine._teams_match(bet["selected_team"], winner)
+        matched = bet.get("matched_amount", 0)
+        unmatched = bet.get("unmatched_amount", 0)
+
+        if is_winner:
+            payout = round(matched * 2 + unmatched, 2)
+            if payout > 0:
+                wallet = await db.wallets.find_one({"user_id": bet["user_id"]}, {"_id": 0})
+                if wallet:
+                    bal_before = wallet["balance"]
+                    bal_after = round(bal_before + payout, 2)
+                    winnings_inc = matched  # Net profit = matched amount won from opponents
+                    await db.wallets.update_one(
+                        {"user_id": bet["user_id"]},
+                        {"$set": {"balance": bal_after, "updated_at": datetime.now(timezone.utc)},
+                         "$inc": {"exposure": -bet["stake"], "total_winnings": winnings_inc}}
+                    )
+                    await db.transactions.insert_one(Transaction(
+                        user_id=bet["user_id"], type=TransactionType.WINNING,
+                        amount=payout, balance_before=bal_before, balance_after=bal_after,
+                        note=f"P2P bet won: {bet['selected_team']} (matched: {matched})"
+                    ).model_dump())
+                    total_payout += payout
+            await db.p2p_bets.update_one({"bet_id": bet["bet_id"]}, {"$set": {"status": "won", "settled_at": datetime.now(timezone.utc)}})
+            won_count += 1
+        else:
+            refund = round(unmatched, 2)
+            if refund > 0:
+                wallet = await db.wallets.find_one({"user_id": bet["user_id"]}, {"_id": 0})
+                if wallet:
+                    bal_before = wallet["balance"]
+                    bal_after = round(bal_before + refund, 2)
+                    await db.wallets.update_one(
+                        {"user_id": bet["user_id"]},
+                        {"$set": {"balance": bal_after, "updated_at": datetime.now(timezone.utc)},
+                         "$inc": {"exposure": -bet["stake"]}}
+                    )
+                    await db.transactions.insert_one(Transaction(
+                        user_id=bet["user_id"], type=TransactionType.WINNING,
+                        amount=refund, balance_before=bal_before, balance_after=bal_after,
+                        note=f"P2P bet refund (unmatched): {bet['selected_team']}"
+                    ).model_dump())
+                    total_payout += refund
+            await db.p2p_bets.update_one({"bet_id": bet["bet_id"]}, {"$set": {"status": "lost", "settled_at": datetime.now(timezone.utc)}})
+            lost_count += 1
+
+    logger.info(f"P2P settled {len(bets)} bets for {match_id}: {won_count} won, {lost_count} lost, payout={total_payout}")
+    return {"total_bets": len(bets), "won": won_count, "lost": lost_count, "total_payout": total_payout}
+
+
+@api_router.post("/p2p/bet")
+async def place_p2p_bet(bet_input: P2PBetCreate, current_user: User = Depends(get_current_user)):
+    match = await db.matches.find_one({"match_id": bet_input.match_id}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if match.get("status") == "completed" or match.get("matchEnded"):
+        raise HTTPException(status_code=400, detail="Match has ended")
+
+    market_status = odds_engine.get_market_status(bet_input.match_id)
+    if market_status.get("suspended"):
+        raise HTTPException(status_code=400, detail="Market is SUSPENDED. Try again shortly.")
+
+    if bet_input.stake <= 0 or bet_input.stake > 10000000:
+        raise HTTPException(status_code=400, detail="Invalid stake amount")
+
+    odds_obj = match.get("odds", {})
+    home_team = match.get("home_team", "")
+    away_team = match.get("away_team", "")
+    is_home = odds_engine._teams_match(bet_input.selected_team, home_team)
+    is_away = odds_engine._teams_match(bet_input.selected_team, away_team)
+    if not is_home and not is_away:
+        raise HTTPException(status_code=400, detail="Invalid team selection")
+
+    odds_at_time = odds_obj.get("home", odds_obj.get("home_back", 2.0)) if is_home else odds_obj.get("away", odds_obj.get("away_back", 2.0))
+
+    wallet = await db.wallets.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No wallet found. Please deposit first.")
+    available = wallet.get("balance", 0) - wallet.get("frozen_balance", 0) - wallet.get("exposure", 0)
+    if available < bet_input.stake:
+        raise HTTPException(status_code=400, detail=f"Insufficient balance. Available: {available:.2f}")
+
+    bal_before = wallet["balance"]
+    bal_after = round(bal_before - bet_input.stake, 2)
+    await db.wallets.update_one(
+        {"user_id": current_user.user_id},
+        {"$set": {"balance": bal_after, "updated_at": datetime.now(timezone.utc)},
+         "$inc": {"exposure": bet_input.stake}}
+    )
+    await db.transactions.insert_one(Transaction(
+        user_id=current_user.user_id, type=TransactionType.BET,
+        amount=bet_input.stake, balance_before=bal_before, balance_after=bal_after,
+        note=f"P2P bet on {bet_input.selected_team}"
+    ).model_dump())
+
+    bet_id = str(uuid.uuid4())
+    await db.p2p_bets.insert_one({
+        "bet_id": bet_id, "user_id": current_user.user_id, "username": current_user.username,
+        "match_id": bet_input.match_id, "selected_team": bet_input.selected_team,
+        "stake": bet_input.stake, "matched_amount": 0.0, "unmatched_amount": bet_input.stake,
+        "odds_at_time": odds_at_time, "status": "pending", "matches": [],
+        "placed_at": datetime.now(timezone.utc), "settled_at": None,
+    })
+
+    await run_p2p_matching(bet_input.match_id, bet_id, bet_input.selected_team)
+    updated = await db.p2p_bets.find_one({"bet_id": bet_id}, {"_id": 0})
+
+    return {
+        "bet_id": bet_id, "selected_team": bet_input.selected_team,
+        "stake": bet_input.stake, "odds_at_time": odds_at_time,
+        "matched_amount": updated.get("matched_amount", 0),
+        "unmatched_amount": updated.get("unmatched_amount", bet_input.stake),
+        "status": updated.get("status", "pending"),
+    }
+
+
+@api_router.get("/p2p/bets/{match_id}/my")
+async def get_my_p2p_bets(match_id: str, current_user: User = Depends(get_current_user)):
+    bets = await db.p2p_bets.find(
+        {"match_id": match_id, "user_id": current_user.user_id}, {"_id": 0}
+    ).sort("placed_at", -1).to_list(50)
+    return bets
+
+
+@api_router.get("/p2p/pool/{match_id}")
+async def get_p2p_pool(match_id: str):
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0, "home_team": 1, "away_team": 1})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    pipeline = [
+        {"$match": {"match_id": match_id, "status": {"$nin": ["cancelled", "refunded"]}}},
+        {"$group": {
+            "_id": "$selected_team",
+            "total_stake": {"$sum": "$stake"},
+            "total_matched": {"$sum": "$matched_amount"},
+            "total_unmatched": {"$sum": "$unmatched_amount"},
+            "bet_count": {"$sum": 1},
+        }}
+    ]
+    results = await db.p2p_bets.aggregate(pipeline).to_list(10)
+    pool = {"home_team": match["home_team"], "away_team": match["away_team"]}
+    for r in results:
+        is_home = odds_engine._teams_match(r["_id"], match["home_team"])
+        prefix = "home" if is_home else "away"
+        pool[f"{prefix}_total"] = round(r["total_stake"], 2)
+        pool[f"{prefix}_matched"] = round(r["total_matched"], 2)
+        pool[f"{prefix}_pending"] = round(r["total_unmatched"], 2)
+        pool[f"{prefix}_bets"] = r["bet_count"]
+    return pool
 
 
 @api_router.get("/admin/settlement/pending")
