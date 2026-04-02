@@ -113,6 +113,20 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - `PUT /api/admin/withdrawals/{id}` — Approve/reject withdrawal
 - `GET /api/admin/wallet/stats` — Admin wallet statistics
 
+### Light Theme Conversion (2026-04-02) - TESTED
+- Converted all User and Admin panel pages from dark to light theme
+- Global body background changed from `#050505` to `#F9FAFB`
+- Pages converted: Admin Withdrawals, Admin Deposits, User RechargeHistory, User MyWithdrawals
+- Pages already light: Admin Dashboard, ManageBettors, ManageGames, BetsPlaced, DeclareOutcomes, SupportTickets, User Dashboard, MyTickets, BettingExchange, MatchDetail
+- Public-facing pages (Homepage, MatchPage) intentionally remain dark-themed
+- Login page background changed from dark gradient to light gradient
+
+### Admin Withdrawals Copy Feature (2026-04-02) - TESTED
+- Added single-click copy buttons for Name, Bank Account, IFSC, and UPI fields on Admin Withdrawals page
+- Each field has a dedicated copy icon button with clipboard API integration
+- Visual feedback: icon changes to checkmark on successful copy, toast notification shown
+- data-testid attributes: `copy-holder-{i}`, `copy-account-{i}`, `copy-ifsc-{i}`, `copy-upi-{i}`
+
 ## Upcoming Tasks
 1. **(P2)** Admin Manual Match Entry UI (form to hit `/api/admin/cricket/seed`)
 2. **(P2)** Cashout Functionality for live bets
