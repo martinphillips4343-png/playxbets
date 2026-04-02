@@ -46,6 +46,8 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [stake, setStake] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [activeTab, setActiveTab] = useState("odds");
+  const [oddsCollapsed, setOddsCollapsed] = useState(false);
 
   // My bets + pool
   const [myBets, setMyBets] = useState([]);
@@ -175,6 +177,12 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
 
   // ==================== STATUS HELPERS ====================
   const fmtCurrency = (v) => (v || 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+  const fmtLiquidity = (v) => {
+    if (!v || v === 0) return "0";
+    if (v >= 100000) return `${(v / 100000).toFixed(1)}L`;
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+    return v.toLocaleString("en-IN");
+  };
   const statusColors = {
     pending: "text-yellow-400 bg-yellow-400/10",
     partially_matched: "text-blue-400 bg-blue-400/10",
@@ -286,15 +294,38 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
         </div>
       </div>
 
-      {/* ==================== WINNER SECTION ==================== */}
+      {/* ==================== MATCH_ODDS SECTION ==================== */}
       <div className="max-w-3xl mx-auto px-4 py-6">
-        {/* Winner Header */}
-        <div className="text-center mb-4">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest" data-testid="winner-header">Winner</h2>
-          {user && <div className="text-xs text-gray-500 mt-1">Balance: <span className="text-cyan-400 font-bold">{fmtCurrency(balance)}</span></div>}
+        {/* Balance bar */}
+        {user && (
+          <div className="mb-3 text-right">
+            <span className="text-xs text-gray-500">Balance: </span>
+            <span className="text-sm text-cyan-400 font-bold">{fmtCurrency(balance)}</span>
+          </div>
+        )}
+
+        {/* ODDS | MATCHED BET Tabs */}
+        <div className="flex items-center gap-6 mb-5" data-testid="odds-tabs">
+          <button
+            onClick={() => setActiveTab("odds")}
+            className={`relative pb-2 text-base font-bold uppercase tracking-wide transition-colors ${activeTab === "odds" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+            data-testid="tab-odds"
+          >
+            ODDS
+            {activeTab === "odds" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-cyan-400 rounded-full" />}
+          </button>
+          <div className="w-px h-5 bg-gray-600" />
+          <button
+            onClick={() => setActiveTab("matched")}
+            className={`relative pb-2 text-base font-bold uppercase tracking-wide transition-colors ${activeTab === "matched" ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+            data-testid="tab-matched"
+          >
+            MATCHED BET
+            {activeTab === "matched" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-cyan-400 rounded-full" />}
+          </button>
         </div>
 
-        {/* SUSPENDED overlay */}
+        {/* SUSPENDED banner */}
         {suspended && (
           <div className="mb-4 flex items-center justify-center gap-2 bg-red-600/20 border border-red-500/30 rounded-lg py-3 px-4 animate-pulse" data-testid="suspended-banner">
             <AlertTriangle className="w-5 h-5 text-red-400" />
@@ -302,67 +333,103 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
           </div>
         )}
 
-        {/* Two Team Cards */}
-        <div className="grid grid-cols-2 gap-3 md:gap-4" data-testid="team-cards">
-          {/* Home Team Card */}
-          <button
-            onClick={() => selectTeam(homeTeam)}
-            disabled={suspended || isCompleted}
-            className={`relative rounded-xl p-5 md:p-6 transition-all duration-200 border-2 text-center
-              ${selectedTeam === homeTeam
-                ? "bg-cyan-600/20 border-cyan-500 shadow-lg shadow-cyan-500/20"
-                : "bg-[#161B22] border-gray-700/50 hover:border-gray-500"
-              }
-              ${suspended || isCompleted ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.98]"}
-              ${homeFlash === "flash-up" ? "ring-2 ring-green-500/50" : homeFlash === "flash-down" ? "ring-2 ring-red-500/50" : ""}
-            `}
-            data-testid="home-team-card"
-          >
-            {selectedTeam === homeTeam && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-cyan-400 rounded-full animate-pulse" />}
-            <div className={`text-3xl md:text-4xl font-black mb-3 ${homeOdds ? "text-cyan-400" : "text-gray-600"}`} data-testid="home-odds">
-              {homeOdds ? homeOdds.toFixed(2) : "—"}
-            </div>
-            <div className="text-xs md:text-sm font-bold text-white uppercase tracking-wide leading-tight" data-testid="home-team-name">
-              {homeTeam}
-            </div>
-            {pool && (
-              <div className="mt-3 text-[10px] text-gray-500">
-                {pool.home_bets || 0} bets | {fmtCurrency(pool.home_total || 0)}
-              </div>
-            )}
-          </button>
+        {/* ==== ODDS TAB ==== */}
+        {activeTab === "odds" && (
+          <div className="bg-[#1C2B3A] rounded-lg overflow-hidden" data-testid="match-odds-card">
+            {/* MATCH_ODDS Header */}
+            <button
+              onClick={() => setOddsCollapsed(!oddsCollapsed)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-[#243447] hover:bg-[#2a3c50] transition-colors"
+              data-testid="match-odds-header"
+            >
+              <span className="text-white font-bold text-sm tracking-wide">MATCH_ODDS</span>
+              <ChevronLeft className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${oddsCollapsed ? "rotate-[-90deg]" : "rotate-90"}`} />
+            </button>
 
-          {/* Away Team Card */}
-          <button
-            onClick={() => selectTeam(awayTeam)}
-            disabled={suspended || isCompleted}
-            className={`relative rounded-xl p-5 md:p-6 transition-all duration-200 border-2 text-center
-              ${selectedTeam === awayTeam
-                ? "bg-cyan-600/20 border-cyan-500 shadow-lg shadow-cyan-500/20"
-                : "bg-[#161B22] border-gray-700/50 hover:border-gray-500"
-              }
-              ${suspended || isCompleted ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.98]"}
-              ${awayFlash === "flash-up" ? "ring-2 ring-green-500/50" : awayFlash === "flash-down" ? "ring-2 ring-red-500/50" : ""}
-            `}
-            data-testid="away-team-card"
-          >
-            {selectedTeam === awayTeam && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-cyan-400 rounded-full animate-pulse" />}
-            <div className={`text-3xl md:text-4xl font-black mb-3 ${awayOdds ? "text-cyan-400" : "text-gray-600"}`} data-testid="away-odds">
-              {awayOdds ? awayOdds.toFixed(2) : "—"}
+            {!oddsCollapsed && (
+              <>
+                {/* Max label */}
+                <div className="px-4 pt-3 pb-2">
+                  <span className="text-cyan-400 text-sm font-medium" data-testid="max-label">Max: 1L</span>
+                </div>
+
+                {/* Divider bar */}
+                <div className="mx-4 h-[3px] bg-[#2a3a4e] rounded mb-1" />
+
+                {/* Team Rows */}
+                {[
+                  { team: homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
+                  { team: awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
+                ].map(({ team, odds, flash, poolTotal, testId }) => (
+                  <div key={testId}>
+                    <div
+                      className={`flex items-center justify-between px-4 py-4 transition-colors cursor-pointer hover:bg-[#223344]
+                        ${selectedTeam === team ? "bg-[#1a3050]" : ""}
+                        ${suspended || isCompleted ? "opacity-50 pointer-events-none" : ""}
+                      `}
+                      onClick={() => selectTeam(team)}
+                      data-testid={`${testId}-team-row`}
+                    >
+                      {/* Team Name */}
+                      <span className="text-white text-base md:text-lg font-semibold flex-1" data-testid={`${testId}-team-name`}>
+                        {team}
+                      </span>
+
+                      {/* Blue Odds Box */}
+                      <div
+                        className={`min-w-[100px] md:min-w-[140px] bg-[#2563EB] hover:bg-[#3B82F6] rounded py-3 px-4 text-center transition-all
+                          ${selectedTeam === team ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-[#1C2B3A]" : ""}
+                          ${flash === "flash-up" ? "ring-2 ring-green-400" : flash === "flash-down" ? "ring-2 ring-red-400" : ""}
+                        `}
+                        data-testid={`${testId}-odds-box`}
+                      >
+                        <div className="text-white text-xl md:text-2xl font-black" data-testid={`${testId}-odds`}>
+                          {odds ? odds.toFixed(2) : "—"}
+                        </div>
+                        <div className="text-blue-200 text-xs mt-0.5" data-testid={`${testId}-liquidity`}>
+                          {fmtLiquidity(poolTotal)}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Row divider */}
+                    <div className="mx-4 h-px bg-[#2a3a4e]" />
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ==== MATCHED BET TAB ==== */}
+        {activeTab === "matched" && (
+          <div className="bg-[#1C2B3A] rounded-lg overflow-hidden" data-testid="matched-bet-tab">
+            <div className="px-4 py-3 bg-[#243447]">
+              <span className="text-white font-bold text-sm tracking-wide">MATCHED BETS</span>
             </div>
-            <div className="text-xs md:text-sm font-bold text-white uppercase tracking-wide leading-tight" data-testid="away-team-name">
-              {awayTeam}
-            </div>
-            {pool && (
-              <div className="mt-3 text-[10px] text-gray-500">
-                {pool.away_bets || 0} bets | {fmtCurrency(pool.away_total || 0)}
+            {myBets.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 text-sm">No bets placed yet</div>
+            ) : (
+              <div>
+                {myBets.map((b, i) => (
+                  <div key={b.bet_id || i} className="px-4 py-3 border-b border-[#2a3a4e] flex items-center justify-between" data-testid={`matched-bet-${i}`}>
+                    <div>
+                      <div className="text-sm text-white font-medium">{b.selected_team}</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">
+                        Stake: {fmtCurrency(b.stake)} | Matched: {fmtCurrency(b.matched_amount)} | Pending: {fmtCurrency(b.unmatched_amount)}
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${statusColors[b.status] || "text-gray-400 bg-gray-700/30"}`}>
+                      {b.status?.replace("_", " ")}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
-          </button>
-        </div>
+          </div>
+        )}
 
         {/* ==================== BET PLACEMENT FORM ==================== */}
-        {selectedTeam && (
+        {selectedTeam && activeTab === "odds" && (
           <div className="mt-4 bg-[#161B22] rounded-xl border border-cyan-500/30 p-4 animate-in slide-in-from-bottom duration-200" data-testid="bet-form">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -408,47 +475,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 If {selectedTeam} wins, you receive <span className="text-green-400 font-bold">{fmtCurrency(parseFloat(stake) * 2)}</span> (matched portion)
               </div>
             )}
-          </div>
-        )}
-
-        {/* ==================== MY BETS ==================== */}
-        {myBets.length > 0 && (
-          <div className="mt-6" data-testid="my-bets-section">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">My Bets</h3>
-            <div className="space-y-2">
-              {myBets.map((b, i) => (
-                <div key={b.bet_id || i} className="bg-[#161B22] rounded-lg p-3 border border-gray-700/50 flex items-center justify-between" data-testid={`my-bet-${i}`}>
-                  <div>
-                    <div className="text-sm text-white font-medium">{b.selected_team}</div>
-                    <div className="text-[10px] text-gray-500 mt-0.5">
-                      Stake: {fmtCurrency(b.stake)} | Matched: {fmtCurrency(b.matched_amount)} | Pending: {fmtCurrency(b.unmatched_amount)}
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${statusColors[b.status] || "text-gray-400 bg-gray-700/30"}`}>
-                    {b.status?.replace("_", " ")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ==================== POOL STATS (compact) ==================== */}
-        {pool && (pool.home_bets > 0 || pool.away_bets > 0) && (
-          <div className="mt-6 bg-[#161B22] rounded-lg p-4 border border-gray-700/50" data-testid="pool-stats">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Betting Pool</h3>
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">{homeTeam}</div>
-                <div className="text-base font-bold text-cyan-400">{fmtCurrency(pool.home_total || 0)}</div>
-                <div className="text-[10px] text-gray-500">{pool.home_bets || 0} bets</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">{awayTeam}</div>
-                <div className="text-base font-bold text-cyan-400">{fmtCurrency(pool.away_total || 0)}</div>
-                <div className="text-[10px] text-gray-500">{pool.away_bets || 0} bets</div>
-              </div>
-            </div>
           </div>
         )}
 
