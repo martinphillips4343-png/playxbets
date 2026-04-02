@@ -20,12 +20,18 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Matches show real odds (blue/red) or "Odds N/A" when unavailable
 - WebSocket "Real-time" green badge indicator
 
-### Betfair-Style Match Betting Page
-- Single Back/Lay per team (no bookmaker sections)
-- User Exposure Panel, Matched Bets Tab
-- Session/Tied bright blue/red colors with SUSPENDED state
-- Bet Slip with profit/loss preview
-- Real-time odds flash green/red on change
+### Betfair-Style Match Betting Page → **Upgraded to Winner P2P UI (2026-04-02)**
+- **NEW**: Minimal "Winner" UI with two large team cards (single odds per team)
+- **NEW**: P2P betting engine (user vs user, no back/lay)
+- **NEW**: Partial matching (FIFO) — if ₹1000 bet on Team A, only ₹400 on Team B → match ₹400, keep ₹600 pending
+- **NEW**: Quick stake buttons (100, 500, 1K, 5K, 10K)
+- **NEW**: Betting Pool stats per team (total stake, matched, pending, bet count)
+- **NEW**: My Bets section showing status (pending/partially_matched/fully_matched/won/lost)
+- Suspend detection on 4/6/wicket via score comparison (CricketData API)
+- Dark theme for match page, real-time 1s polling
+- Settlement: winners get 2× matched + unmatched refund; losers lose matched, get unmatched refund
+- Removed: All session markets, tied match, over runs, wicket markets, extra widgets
+- Removed: Back/Lay system, bet slip sidebar
 
 ### Bet Settlement Logic (2026-03-28)
 - Back bets: win when team wins, payout = stake * odds
@@ -96,11 +102,12 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 ```
 
 ## Key API Endpoints
-- `GET /api/matches` — All active matches with margin-applied odds
-- `GET /api/match/{id}` — Single match with margin-applied odds
-- `GET /api/match/{id}/session-markets` — Backend-calculated session markets
-- `GET /api/match/{id}/bookmaker-odds` — Real-time adjusted odds with exposure data
-- `POST /api/bets` — Place bet (checks available_balance)
+- `GET /api/matches` — All active matches with odds
+- `GET /api/match/{id}` — Single match with odds
+- `GET /api/match/{id}/market-status` — Suspend state (4/6/wicket detection)
+- `POST /api/p2p/bet` — Place P2P bet (select team + stake, auto-matching)
+- `GET /api/p2p/bets/{id}/my` — User's P2P bets for a match
+- `GET /api/p2p/pool/{id}` — P2P pool stats per team
 - `GET /api/wallet` — User wallet (balance, available_balance, frozen_balance, exposure)
 - `POST /api/deposits` — Create deposit request
 - `GET /api/deposits/my` — User's deposit history
