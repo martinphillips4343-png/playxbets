@@ -32,16 +32,16 @@ DAILY_QUOTA_LIMIT = 2000
 QUOTA_WARNING_THRESHOLD = 0.9  # 90% = 90 requests
 
 # Cache TTL in seconds - OPTIMIZED FOR REAL-TIME LIVE UPDATES
-CACHE_TTL_LIVE = 10  # 10 seconds for live data - near real-time updates
+CACHE_TTL_LIVE = 2  # 2 seconds for live data - near instant updates
 CACHE_TTL_SCHEDULED = 300  # 5 minutes for scheduled matches
 CACHE_TTL_FALLBACK = 60  # 1 minute fallback when API unavailable
 
 # Polling intervals (in seconds for live, minutes for idle)
-POLL_INTERVAL_LIVE_SECONDS = 15  # Every 15 seconds when live matches exist
+POLL_INTERVAL_LIVE_SECONDS = 2  # Every 2 seconds when live matches exist
 POLL_INTERVAL_IDLE = 30  # Every 30 min when no live matches
 
 # API rate limit handling
-RATE_LIMIT_RETRY_SECONDS = 30  # Wait 30 seconds after 429 (reduced for faster recovery)
+RATE_LIMIT_RETRY_SECONDS = 10  # Wait 10 seconds after 429
 RATE_LIMIT_COOLDOWN_UNTIL = None  # Track when we can retry after 429
 
 
@@ -284,7 +284,7 @@ class CricketDataService:
         
         try:
             await self.quota_manager.increment_request()
-            response = requests.get(url, params=request_params, timeout=15)
+            response = requests.get(url, params=request_params, timeout=8)
             
             # Handle rate limiting (429)
             if response.status_code == 429:

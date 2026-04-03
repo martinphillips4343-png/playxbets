@@ -389,6 +389,6 @@ class SyncValidator:
 
 # Module-level singletons
 monitor = PerformanceMonitor()
-cache = TTLCache(match_ttl_sec=3.0, odds_ttl_sec=5.0)
+cache = TTLCache(match_ttl_sec=1.0, odds_ttl_sec=1.0)
 coordinator = SmartPollCoordinator()
 sync_validator = SyncValidator()

@@ -1064,7 +1064,7 @@ async def api_call_with_retry(func, source: str, max_retries: int = 3, timeout_s
             logger.warning(f"[{source}] Error on attempt {attempt}/{max_retries}: {e}")
 
         if attempt < max_retries:
-            await asyncio.sleep(1.5 * attempt)  # Backoff
+            await asyncio.sleep(0.5)  # Fast retry
 
     exhausted = await coordinator.mark_failed(source)
     if exhausted:
@@ -1100,21 +1100,22 @@ async def smart_orchestrator():
                 logger.info(f"Auto-promoted to LIVE: {sm.get('home_team')} vs {sm.get('away_team')}")
                 has_live = True
 
-        # ── Phase 2: Odds API fetch (deduped) ──
+        # ── Phase 2 & 3: Odds API + Cricket Data — RUN IN PARALLEL for speed ──
+        poll_tasks = []
         if await coordinator.should_poll("odds_live", has_live):
-            await api_call_with_retry(
+            poll_tasks.append(api_call_with_retry(
                 lambda: scheduled_odds_fetch_async(),
                 source="odds_live",
-                timeout_sec=30
-            )
-
-        # ── Phase 3: Cricket Data API fetch (deduped) ──
+                timeout_sec=20
+            ))
         if await coordinator.should_poll("cricket_live", has_live):
-            await api_call_with_retry(
+            poll_tasks.append(api_call_with_retry(
                 lambda: smart_cricket_poll(),
                 source="cricket_live",
-                timeout_sec=30
-            )
+                timeout_sec=20
+            ))
+        if poll_tasks:
+            await asyncio.gather(*poll_tasks, return_exceptions=True)
 
         # ── Phase 4: Live match completion detection ──
         if has_live and await coordinator.should_poll("live_check", True):
