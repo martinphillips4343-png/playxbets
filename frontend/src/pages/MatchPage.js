@@ -365,10 +365,19 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 <div className="mx-4 h-[3px] bg-[#2a3a4e] rounded mb-1" />
 
                 {/* Team Rows — use bookmaker's outcome order */}
-                {[
-                  { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
-                  { team: secondTeam || awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
-                ].map(({ team, odds, flash, poolTotal, testId }) => (
+                {(() => {
+                  const rows = [
+                    { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
+                    { team: secondTeam || awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
+                  ];
+                  const o1 = rows[0].odds || 0;
+                  const o2 = rows[1].odds || 0;
+                  return rows.map(({ team, odds, flash, poolTotal, testId }, idx) => {
+                    const isHigher = odds && ((idx === 0 && o1 > o2) || (idx === 1 && o2 > o1));
+                    const isLower = odds && ((idx === 0 && o1 < o2) || (idx === 1 && o2 < o1));
+                    const boxBg = isHigher ? "bg-green-600 hover:bg-green-500" : isLower ? "bg-red-600 hover:bg-red-500" : "bg-[#2563EB] hover:bg-[#3B82F6]";
+                    const subText = isHigher ? "text-green-200" : isLower ? "text-red-200" : "text-blue-200";
+                    return (
                   <div key={testId}>
                     <div
                       className={`flex items-center justify-between px-4 py-4 transition-colors cursor-pointer hover:bg-[#223344]
@@ -383,9 +392,9 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                         {team}
                       </span>
 
-                      {/* Blue Odds Box */}
+                      {/* Odds Box — GREEN for higher, RED for lower */}
                       <div
-                        className={`min-w-[100px] md:min-w-[140px] bg-[#2563EB] hover:bg-[#3B82F6] rounded py-3 px-4 text-center transition-all
+                        className={`min-w-[100px] md:min-w-[140px] ${boxBg} rounded py-3 px-4 text-center transition-all
                           ${selectedTeam === team ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-[#1C2B3A]" : ""}
                           ${flash === "flash-up" ? "ring-2 ring-green-400" : flash === "flash-down" ? "ring-2 ring-red-400" : ""}
                         `}
@@ -394,7 +403,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                         <div className="text-white text-xl md:text-2xl font-black" data-testid={`${testId}-odds`}>
                           {odds ? odds.toFixed(2) : "—"}
                         </div>
-                        <div className="text-blue-200 text-xs mt-0.5" data-testid={`${testId}-liquidity`}>
+                        <div className={`${subText} text-xs mt-0.5`} data-testid={`${testId}-liquidity`}>
                           {fmtLiquidity(poolTotal)}
                         </div>
                       </div>
@@ -402,7 +411,9 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                     {/* Row divider */}
                     <div className="mx-4 h-px bg-[#2a3a4e]" />
                   </div>
-                ))}
+                    );
+                  });
+                })()}
               </>
             )}
           </div>
