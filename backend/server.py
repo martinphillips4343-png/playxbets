@@ -1260,37 +1260,36 @@ def run_smart_orchestrator():
         logger.error(f"Error in orchestrator wrapper: {e}")
 
 def start_scheduler():
-    """Start the scheduler with a SINGLE smart orchestrator job."""
+    """Start the scheduler — ALL API polling DISABLED per user request."""
 
-    # Initial fetch at startup
-    scheduler.add_job(
-        run_smart_orchestrator,
-        'date',
-        run_date=datetime.now() + timedelta(seconds=5),
-        id='initial_fetch',
-        replace_existing=True
-    )
+    # Initial fetch DISABLED
+    # scheduler.add_job(
+    #     run_smart_orchestrator,
+    #     'date',
+    #     run_date=datetime.now() + timedelta(seconds=5),
+    #     id='initial_fetch',
+    #     replace_existing=True
+    # )
 
-    # Football/Soccer odds — daily at Indian midnight
-    scheduler.add_job(
-        run_smart_orchestrator,
-        'cron',
-        hour=18, minute=30, second=1,
-        id='fetch_odds_daily',
-        replace_existing=True
-    )
+    # Football/Soccer odds DISABLED
+    # scheduler.add_job(
+    #     run_smart_orchestrator,
+    #     'cron',
+    #     hour=18, minute=30, second=1,
+    #     id='fetch_odds_daily',
+    #     replace_existing=True
+    # )
 
-    # Orchestrator tick every 1s — actual API calls gated by coordinator intervals
-    scheduler.add_job(
-        run_smart_orchestrator,
-        IntervalTrigger(seconds=1),
-        id='smart_orchestrator',
-        replace_existing=True
-    )
+    # Orchestrator DISABLED — API polling stopped per user request
+    # scheduler.add_job(
+    #     run_smart_orchestrator,
+    #     IntervalTrigger(seconds=1),
+    #     id='smart_orchestrator',
+    #     replace_existing=True
+    # )
 
     scheduler.start()
-    logger.info("Scheduler started — Smart Orchestrator every 1s")
-    logger.info("  Live: 1s per API call | Upcoming: 60s per API call")
+    logger.info("Scheduler started — API polling DISABLED (orchestrator stopped)")
 
 
 # ==================== AUTH ROUTES ====================
