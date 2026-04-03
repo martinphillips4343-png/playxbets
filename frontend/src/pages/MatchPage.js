@@ -398,13 +398,16 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                       `}
                       data-testid={`${testId}-team-row`}
                     >
-                      {/* Team Name with favorite/underdog indicator */}
+                      {/* Team Name + Bet Amount (colored by indicator) */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isHigher ? "bg-green-500" : "bg-red-500"}`} />
                           <span className="text-white text-base md:text-lg font-bold truncate" data-testid={`${testId}-team-name`}>
                             {team}
                           </span>
+                        </div>
+                        <div className={`text-sm font-bold mt-1 ml-4 ${isHigher ? "text-green-400" : "text-red-400"}`} data-testid={`${testId}-liquidity`}>
+                          {poolTotal > 0 ? `₹${fmtLiquidity(poolTotal)}` : "—"}
                         </div>
                       </div>
 
@@ -424,10 +427,6 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                         >
                           {odds ? odds.toFixed(2) : "—"}
                         </button>
-                        {/* Real P2P pool liquidity below button */}
-                        <div className="text-gray-400 text-xs mt-1.5 font-medium" data-testid={`${testId}-liquidity`}>
-                          {poolTotal > 0 ? `₹${fmtLiquidity(poolTotal)}` : "—"}
-                        </div>
                       </div>
                     </div>
                     {/* Row divider */}
