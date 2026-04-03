@@ -134,13 +134,22 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Visual feedback: icon changes to checkmark on successful copy, toast notification shown
 - data-testid attributes: `copy-holder-{i}`, `copy-account-{i}`, `copy-ifsc-{i}`, `copy-upi-{i}`
 
+### Blue Button Odds UI + Real P2P Liquidity (2026-04-03) - TESTED
+- Replaced old American odds format with **large clickable Blue Buttons** (bg-blue-600, white text, decimal odds)
+- Real P2P pool liquidity displayed below each button (from `/api/p2p/pool/{match_id}` — no fake data)
+- Green dot = underdog (higher odds), Red dot = favorite (lower odds)
+- Pool data mapped correctly by team name (handles first_team/second_team vs home_team/away_team mismatch)
+- Bet form opens on button click, quick stake buttons, bet placement verified
+- E2E tested: 12/12 features passed (iteration_25)
+
 ## Upcoming Tasks
 1. **(P2)** Admin Manual Match Entry UI (form to hit `/api/admin/cricket/seed`)
 2. **(P2)** Cashout Functionality for live bets
+3. **(P3)** Fix WebSocket connection warning (console: WebSocket closed before established)
 
 ## Future/Backlog
 - User support ticket system
-- Code refactor: Break server.py (~3100 lines) into /routes, /models, /services
+- Code refactor: Break server.py (~3400 lines) into /routes, /models, /services
 
 ## 3rd Party Integrations
 - The Odds API (Paid) - Match odds + scores - Key in .env
