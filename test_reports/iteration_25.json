@@ -1,0 +1,95 @@
+{
+  "summary": "Completed testing of MatchPage UI upgrade with blue odds buttons, real P2P pool liquidity, and green/red dot indicators. All features working correctly. 11/12 backend tests passed (1 transient 502 error). Frontend UI verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/p2p/pool/{match_id}", "issue": "Transient 502 error during first test run (resolved on retry)"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_match_page_ui.py",
+    "/app/test_reports/pytest/match_page_ui_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_match_page_ui.py"
+  ],
+  "success_rate": {
+    "backend": "92% - 11/12 tests passed (1 transient 502)",
+    "frontend": "100% - All UI features verified"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "P2P bets created during testing: Scotland ₹100 (test bet)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "MatchPage UI upgrade fully tested. Key findings: (1) Blue odds buttons with white text showing decimal odds (1.52, 2.90). (2) Real P2P pool liquidity displayed below buttons from /api/p2p/pool endpoint. (3) Green dot for underdog (higher odds), Red dot for favorite (lower odds). (4) Login modal appears when clicking odds button while not logged in. (5) Bet form shows team name, odds, stake input, and quick stake buttons (100, 500, 1K, 5K, 10K). (6) MATCHED BET tab shows user's bets with status. (7) Pool liquidity updates after bet placement. (8) Test match: Scotland vs Oman (ID: 3855c9b2-312c-4e93-9cc9-51e6c7d25af1).",
+  "features_tested": {
+    "blue_odds_buttons": {
+      "status": "PASS",
+      "details": "Large clickable blue buttons with white text showing decimal odds (Scotland: 1.52, Oman: 2.90)"
+    },
+    "real_p2p_pool_liquidity": {
+      "status": "PASS",
+      "details": "Real aggregated P2P bet pool liquidity displayed below each blue button from /api/p2p/pool endpoint (Scotland: ₹200)"
+    },
+    "green_red_dot_indicators": {
+      "status": "PASS",
+      "details": "Green dot for underdog (higher odds - Oman 2.90), Red dot for favorite (lower odds - Scotland 1.52)"
+    },
+    "team_ordering": {
+      "status": "PASS",
+      "details": "Team names displayed correctly (Scotland, Oman) matching API data"
+    },
+    "login_prompt_when_not_logged_in": {
+      "status": "PASS",
+      "details": "Login modal appears when clicking odds button while not logged in"
+    },
+    "bet_form_with_quick_stakes": {
+      "status": "PASS",
+      "details": "Bet form shows team name, odds, stake input, and 5 quick stake buttons (100, 500, 1K, 5K, 10K)"
+    },
+    "bet_placement": {
+      "status": "PASS",
+      "details": "Bet placed successfully with 'Bet placed! Pending matching...' toast"
+    },
+    "matched_bet_tab": {
+      "status": "PASS",
+      "details": "MATCHED BET tab shows user's bets with status (pending/partially_matched/fully_matched)"
+    },
+    "pool_liquidity_updates": {
+      "status": "PASS",
+      "details": "Pool liquidity updated from ₹100 to ₹200 after bet placement"
+    },
+    "p2p_pool_api": {
+      "status": "PASS",
+      "details": "GET /api/p2p/pool/{match_id} returns correct structure: home_team, away_team, home_total, home_matched, home_pending, home_bets"
+    },
+    "match_odds_api": {
+      "status": "PASS",
+      "details": "GET /api/match/{match_id} returns odds object with home/away decimal odds"
+    },
+    "market_status_api": {
+      "status": "PASS",
+      "details": "GET /api/match/{match_id}/market-status returns suspended flag"
+    }
+  },
+  "mocked_apis": {
+    "note": "No mocked APIs - all endpoints use real data (The Odds API for odds, CricketData for live scores)"
+  },
+  "screenshots_taken": [
+    ".screenshots/match_page_blue_buttons.png - Match page with blue odds buttons and liquidity",
+    ".screenshots/match_page_logged_in.png - Match page after login showing balance",
+    ".screenshots/bet_form_with_stake.png - Bet form with quick stake buttons",
+    ".screenshots/after_bet_placement.png - After bet placement with updated liquidity",
+    ".screenshots/matched_bets_tab.png - MATCHED BET tab showing user's bets"
+  ]
+}

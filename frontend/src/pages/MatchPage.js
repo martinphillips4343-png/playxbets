@@ -188,10 +188,16 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
     return v.toLocaleString("en-IN");
   };
-  const decimalToAmerican = (d) => {
-    if (!d || d <= 1) return "—";
-    if (d >= 2.0) return `+${Math.round((d - 1) * 100)}`;
-    return `${Math.round(-100 / (d - 1))}`;
+  // Map pool totals by team name (not by home/away position)
+  const getPoolForTeam = (teamName) => {
+    if (!pool || !teamName) return 0;
+    if (pool.home_team === teamName) return pool.home_total || 0;
+    if (pool.away_team === teamName) return pool.away_total || 0;
+    // Fuzzy fallback: check if team name is contained
+    const lower = teamName.toLowerCase();
+    if (pool.home_team && pool.home_team.toLowerCase().includes(lower)) return pool.home_total || 0;
+    if (pool.away_team && pool.away_team.toLowerCase().includes(lower)) return pool.away_total || 0;
+    return 0;
   };
   const statusColors = {
     pending: "text-yellow-400 bg-yellow-400/10",
@@ -369,46 +375,58 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 {/* Divider bar */}
                 <div className="mx-4 h-[3px] bg-[#2a3a4e] rounded mb-1" />
 
-                {/* Team Rows — bookmaker outcome order, American odds format */}
+                {/* Team Rows — Blue Button odds with real P2P liquidity */}
                 {(() => {
                   const rows = [
-                    { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
-                    { team: secondTeam || awayTeam, odds: awayOdds, flash: awayFlash, poolTotal: pool?.away_total || 0, testId: "away" },
+                    { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, testId: "home" },
+                    { team: secondTeam || awayTeam, odds: awayOdds, flash: awayFlash, testId: "away" },
                   ];
                   const o1 = rows[0].odds || 0;
                   const o2 = rows[1].odds || 0;
-                  return rows.map(({ team, odds, flash, poolTotal, testId }, idx) => {
+                  return rows.map(({ team, odds, flash, testId }, idx) => {
                     const isHigher = odds && ((idx === 0 && o1 > o2) || (idx === 1 && o2 > o1));
-                    const oddsColor = isHigher ? "text-green-400" : "text-red-400";
-                    const american = decimalToAmerican(odds);
+                    const poolTotal = getPoolForTeam(team);
+                    const selected = selectedTeam === team;
+                    const disabled = suspended || isCompleted;
                     return (
                   <div key={testId}>
                     <div
-                      className={`flex items-center justify-between px-4 py-4 transition-colors cursor-pointer hover:bg-[#223344]
-                        ${selectedTeam === team ? "bg-[#1a3050] border-l-4 border-cyan-400" : "border-l-4 border-transparent"}
-                        ${suspended || isCompleted ? "opacity-50 pointer-events-none" : ""}
+                      className={`flex items-center justify-between px-4 py-4 transition-colors
+                        ${selected ? "bg-[#1a3050] border-l-4 border-cyan-400" : "border-l-4 border-transparent"}
+                        ${disabled ? "opacity-50 pointer-events-none" : ""}
                         ${flash === "flash-up" ? "ring-1 ring-inset ring-green-500/40" : flash === "flash-down" ? "ring-1 ring-inset ring-red-500/40" : ""}
                       `}
-                      onClick={() => selectTeam(team)}
                       data-testid={`${testId}-team-row`}
                     >
-                      {/* Team Name + American Odds below */}
-                      <div className="flex-1">
-                        <div className="text-white text-lg md:text-xl font-bold" data-testid={`${testId}-team-name`}>
-                          {team}
-                        </div>
-                        <div className={`text-2xl md:text-3xl font-black mt-1 ${oddsColor}`} data-testid={`${testId}-odds`}>
-                          {american}
+                      {/* Team Name with favorite/underdog indicator */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isHigher ? "bg-green-500" : "bg-red-500"}`} />
+                          <span className="text-white text-base md:text-lg font-bold truncate" data-testid={`${testId}-team-name`}>
+                            {team}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Decimal odds + pool on right */}
-                      <div className="text-right ml-4">
-                        <div className="text-gray-400 text-sm font-medium" data-testid={`${testId}-decimal-odds`}>
+                      {/* Large Blue Odds Button */}
+                      <div className="flex flex-col items-center ml-4">
+                        <button
+                          onClick={() => selectTeam(team)}
+                          disabled={disabled}
+                          className={`min-w-[90px] md:min-w-[110px] px-5 py-3 rounded-lg text-xl md:text-2xl font-black transition-all duration-150
+                            ${selected
+                              ? "bg-blue-700 text-white ring-2 ring-cyan-400 shadow-lg shadow-blue-500/30 scale-105"
+                              : "bg-blue-600 text-white hover:bg-blue-500 hover:shadow-md hover:shadow-blue-500/20 active:scale-95"
+                            }
+                            ${disabled ? "cursor-not-allowed" : "cursor-pointer"}
+                          `}
+                          data-testid={`${testId}-odds-btn`}
+                        >
                           {odds ? odds.toFixed(2) : "—"}
-                        </div>
-                        <div className="text-gray-500 text-[10px] mt-0.5" data-testid={`${testId}-liquidity`}>
-                          {fmtLiquidity(poolTotal)}
+                        </button>
+                        {/* Real P2P pool liquidity below button */}
+                        <div className="text-gray-400 text-xs mt-1.5 font-medium" data-testid={`${testId}-liquidity`}>
+                          {poolTotal > 0 ? `₹${fmtLiquidity(poolTotal)}` : "—"}
                         </div>
                       </div>
                     </div>
@@ -458,7 +476,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
               <div>
                 <span className="text-xs text-gray-400">Betting on</span>
                 <span className="text-sm text-cyan-400 font-bold ml-2">{selectedTeam}</span>
-                <span className="text-xs text-gray-500 ml-2">@ {(selectedTeam === homeTeam ? homeOdds : awayOdds)?.toFixed(2) || "—"}</span>
+                <span className="text-xs text-gray-500 ml-2">@ {(selectedTeam === (firstTeam || homeTeam) ? homeOdds : awayOdds)?.toFixed(2) || "—"}</span>
               </div>
               <button onClick={() => { setSelectedTeam(null); setStake(""); }} className="text-gray-500 hover:text-white" data-testid="close-bet-form">
                 <X className="w-4 h-4" />
