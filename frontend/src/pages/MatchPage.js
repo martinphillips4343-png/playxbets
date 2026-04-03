@@ -188,6 +188,11 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
     if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
     return v.toLocaleString("en-IN");
   };
+  const decimalToAmerican = (d) => {
+    if (!d || d <= 1) return "—";
+    if (d >= 2.0) return `+${Math.round((d - 1) * 100)}`;
+    return `${Math.round(-100 / (d - 1))}`;
+  };
   const statusColors = {
     pending: "text-yellow-400 bg-yellow-400/10",
     partially_matched: "text-blue-400 bg-blue-400/10",
@@ -364,7 +369,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 {/* Divider bar */}
                 <div className="mx-4 h-[3px] bg-[#2a3a4e] rounded mb-1" />
 
-                {/* Team Rows — use bookmaker's outcome order */}
+                {/* Team Rows — bookmaker outcome order, American odds format */}
                 {(() => {
                   const rows = [
                     { team: firstTeam || homeTeam, odds: homeOdds, flash: homeFlash, poolTotal: pool?.home_total || 0, testId: "home" },
@@ -374,36 +379,35 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                   const o2 = rows[1].odds || 0;
                   return rows.map(({ team, odds, flash, poolTotal, testId }, idx) => {
                     const isHigher = odds && ((idx === 0 && o1 > o2) || (idx === 1 && o2 > o1));
-                    const isLower = odds && ((idx === 0 && o1 < o2) || (idx === 1 && o2 < o1));
-                    const boxBg = isHigher ? "bg-green-600 hover:bg-green-500" : isLower ? "bg-red-600 hover:bg-red-500" : "bg-[#2563EB] hover:bg-[#3B82F6]";
-                    const subText = isHigher ? "text-green-200" : isLower ? "text-red-200" : "text-blue-200";
+                    const oddsColor = isHigher ? "text-green-400" : "text-red-400";
+                    const american = decimalToAmerican(odds);
                     return (
                   <div key={testId}>
                     <div
                       className={`flex items-center justify-between px-4 py-4 transition-colors cursor-pointer hover:bg-[#223344]
-                        ${selectedTeam === team ? "bg-[#1a3050]" : ""}
+                        ${selectedTeam === team ? "bg-[#1a3050] border-l-4 border-cyan-400" : "border-l-4 border-transparent"}
                         ${suspended || isCompleted ? "opacity-50 pointer-events-none" : ""}
+                        ${flash === "flash-up" ? "ring-1 ring-inset ring-green-500/40" : flash === "flash-down" ? "ring-1 ring-inset ring-red-500/40" : ""}
                       `}
                       onClick={() => selectTeam(team)}
                       data-testid={`${testId}-team-row`}
                     >
-                      {/* Team Name */}
-                      <span className="text-white text-lg md:text-xl font-bold flex-1" data-testid={`${testId}-team-name`}>
-                        {team}
-                      </span>
+                      {/* Team Name + American Odds below */}
+                      <div className="flex-1">
+                        <div className="text-white text-lg md:text-xl font-bold" data-testid={`${testId}-team-name`}>
+                          {team}
+                        </div>
+                        <div className={`text-2xl md:text-3xl font-black mt-1 ${oddsColor}`} data-testid={`${testId}-odds`}>
+                          {american}
+                        </div>
+                      </div>
 
-                      {/* Odds Box — GREEN for higher, RED for lower */}
-                      <div
-                        className={`min-w-[100px] md:min-w-[140px] ${boxBg} rounded py-3 px-4 text-center transition-all
-                          ${selectedTeam === team ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-[#1C2B3A]" : ""}
-                          ${flash === "flash-up" ? "ring-2 ring-green-400" : flash === "flash-down" ? "ring-2 ring-red-400" : ""}
-                        `}
-                        data-testid={`${testId}-odds-box`}
-                      >
-                        <div className="text-white text-xl md:text-2xl font-black" data-testid={`${testId}-odds`}>
+                      {/* Decimal odds + pool on right */}
+                      <div className="text-right ml-4">
+                        <div className="text-gray-400 text-sm font-medium" data-testid={`${testId}-decimal-odds`}>
                           {odds ? odds.toFixed(2) : "—"}
                         </div>
-                        <div className={`${subText} text-xs mt-0.5`} data-testid={`${testId}-liquidity`}>
+                        <div className="text-gray-500 text-[10px] mt-0.5" data-testid={`${testId}-liquidity`}>
                           {fmtLiquidity(poolTotal)}
                         </div>
                       </div>
