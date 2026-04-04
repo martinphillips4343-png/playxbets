@@ -1,0 +1,98 @@
+{
+  "summary": "Completed testing of SUSPENDED state feature for 4/6/Wicket cricket events. All 12 backend tests passed (1 transient 502 on first run, passed on retry). Frontend UI verified via Playwright - SUSPENDED banner appears correctly with event type, team rows disabled with opacity-50 and pointer-events-none.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/match/{match_id}/market-status", "issue": "Transient 502 error on first test run (environment startup), passed on retry"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_suspended_state.py",
+    "/app/test_reports/pytest/suspended_state_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_suspended_state.py"
+  ],
+  "success_rate": {
+    "backend": "100% - 12/12 tests passed (1 transient 502 on first run, passed on retry)",
+    "frontend": "100% - All UI features verified"
+  },
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "123456"},
+    "user": {"username": "user", "password": "123456"}
+  },
+  "seed_data_creation": "None - used existing match 306aeb5b-4d70-4085-98ca-eb312e9f7ffc (Leicestershire vs Sussex)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "SUSPENDED state feature fully tested. Key findings: (1) /api/admin/match/{match_id}/test-suspend?event_type=four|six|wicket triggers suspended=true in odds_engine. (2) /api/match/{match_id}/market-status returns suspended flag and last_event. (3) Frontend polls market-status every 5000ms (ODDS_POLL_MS). (4) SUSPENDED banner (data-testid=suspended-banner) appears above odds section with event type (FOUR (4), SIX (6), WICKET). (5) Team rows get opacity-50 and pointer-events-none during suspension. (6) Odds buttons disabled during suspension. (7) P2P bet placement blocked with 400 'Market is SUSPENDED' error. (8) Suspension auto-clears after 15 seconds. (9) Consecutive events reset the 15s timer.",
+  "features_tested": {
+    "test_suspend_four_event": {
+      "status": "PASS",
+      "details": "POST /api/admin/match/{match_id}/test-suspend?event_type=four triggers suspended=true with last_event='four'"
+    },
+    "test_suspend_six_event": {
+      "status": "PASS",
+      "details": "POST /api/admin/match/{match_id}/test-suspend?event_type=six triggers suspended=true with last_event='six'"
+    },
+    "test_suspend_wicket_event": {
+      "status": "PASS",
+      "details": "POST /api/admin/match/{match_id}/test-suspend?event_type=wicket triggers suspended=true with last_event='wicket'"
+    },
+    "market_status_returns_suspended": {
+      "status": "PASS",
+      "details": "GET /api/match/{match_id}/market-status returns suspended=true after test-suspend triggered"
+    },
+    "p2p_bet_blocked_during_suspension": {
+      "status": "PASS",
+      "details": "POST /api/p2p/bet returns 400 'Market is SUSPENDED' during suspension"
+    },
+    "suspension_auto_clears_after_15s": {
+      "status": "PASS",
+      "details": "market-status returns suspended=false after 15+ seconds"
+    },
+    "consecutive_events_keep_suspended": {
+      "status": "PASS",
+      "details": "Triggering another event within 15s resets timer and keeps market suspended"
+    },
+    "invalid_event_type_rejected": {
+      "status": "PASS",
+      "details": "Invalid event_type returns 400 error"
+    },
+    "test_suspend_requires_admin": {
+      "status": "PASS",
+      "details": "Non-admin users get 403 Forbidden"
+    },
+    "frontend_suspended_banner": {
+      "status": "PASS",
+      "details": "SUSPENDED banner (data-testid=suspended-banner) appears with red background, warning icons, and event type"
+    },
+    "frontend_event_type_display": {
+      "status": "PASS",
+      "details": "Event type shown as 'FOUR (4)', 'SIX (6)', or 'WICKET' in banner"
+    },
+    "frontend_team_rows_disabled": {
+      "status": "PASS",
+      "details": "Team rows have opacity-50 and pointer-events-none classes during suspension"
+    },
+    "frontend_odds_buttons_disabled": {
+      "status": "PASS",
+      "details": "Odds buttons show '—' and are disabled during suspension"
+    }
+  },
+  "mocked_apis": {
+    "note": "test-suspend endpoint simulates events for testing, but real suspend detection is wired to cricket polling via odds_engine.update_score()"
+  },
+  "screenshots_taken": [
+    ".screenshots/suspended_initial_state.png - Match page before suspension",
+    ".screenshots/suspended_state_active.png - SUSPENDED banner with FOUR (4) event",
+    ".screenshots/suspended_state_six.png - SUSPENDED banner with SIX (6) event",
+    ".screenshots/suspended_state_wicket.png - SUSPENDED banner with WICKET event"
+  ]
+}

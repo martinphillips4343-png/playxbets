@@ -341,13 +341,13 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
           </button>
         </div>
 
-        {/* SUSPENDED banner — large, prominent with event type */}
+        {/* SUSPENDED banner — large, prominent with event type, blinking */}
         {suspended && (
-          <div className="mb-4 bg-red-600 rounded-lg py-4 px-5" data-testid="suspended-banner">
+          <div className="mb-4 bg-red-600 rounded-lg py-4 px-5 animate-pulse" data-testid="suspended-banner">
             <div className="flex items-center justify-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-white animate-bounce" />
-              <span className="text-white font-black text-lg md:text-xl tracking-wide">SUSPENDED</span>
-              <AlertTriangle className="w-6 h-6 text-white animate-bounce" />
+              <AlertTriangle className="w-6 h-6 text-white" />
+              <span className="text-white font-black text-lg md:text-xl tracking-wide" style={{animation: 'blink 1s step-end infinite'}}>SUSPENDED</span>
+              <AlertTriangle className="w-6 h-6 text-white" />
             </div>
             {suspendEvent && (
               <div className="text-center mt-2">
@@ -356,6 +356,7 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
                 </span>
               </div>
             )}
+            <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
           </div>
         )}
 

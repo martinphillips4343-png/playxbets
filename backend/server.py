@@ -1179,6 +1179,27 @@ async def scheduled_odds_fetch_async():
                                 {"match_id": db_match["match_id"]},
                                 {"$set": {"score": scores, "updated_at": datetime.now(timezone.utc)}}
                             )
+                            # === EVENT DETECTION: Parse Odds API score for 4/6/Wicket suspend ===
+                            try:
+                                for sc in scores:
+                                    sc_str = sc.get("score", "") if isinstance(sc, dict) else str(sc)
+                                    if sc_str:
+                                        import re as _re
+                                        m = _re.match(r"(\d+)/(\d+)\s*(?:\((\d+\.?\d*)\))?", sc_str)
+                                        if m:
+                                            sr = int(m.group(1))
+                                            sw = int(m.group(2))
+                                            so = float(m.group(3)) if m.group(3) else 0
+                                            event = odds_engine.update_score(
+                                                match_id=db_match["match_id"],
+                                                runs=sr, wickets=sw, overs=so,
+                                                fours=0, sixes=0
+                                            )
+                                            if event:
+                                                logger.info(f"SUSPEND EVENT (OddsAPI) for {h} vs {a}: {event}")
+                                            break
+                            except Exception:
+                                pass
     except Exception as e:
         logger.debug(f"Score enrichment skipped: {e}")
 
@@ -2349,6 +2370,25 @@ async def smart_cricket_poll():
                 upsert=True
             )
             
+            # === EVENT DETECTION: Parse score and call update_score for 4/6/Wicket suspend ===
+            try:
+                score_data = match.get("score", [])
+                if score_data and isinstance(score_data, list):
+                    active_innings = score_data[-1] if score_data else None
+                    if active_innings and isinstance(active_innings, dict):
+                        sr = int(active_innings.get("r", 0) or 0)
+                        sw = int(active_innings.get("w", 0) or 0)
+                        so = float(active_innings.get("o", 0) or 0)
+                        event = odds_engine.update_score(
+                            match_id=match["match_id"],
+                            runs=sr, wickets=sw, overs=so,
+                            fours=0, sixes=0
+                        )
+                        if event:
+                            logger.info(f"SUSPEND EVENT detected for {match.get('home_team')} vs {match.get('away_team')}: {event}")
+            except Exception as e:
+                logger.debug(f"Score event detection error: {e}")
+            
             # Broadcast individual match update to subscribers
             ws_count = ws_manager.get_connection_count()
             if ws_count > 0:
@@ -2869,15 +2909,85 @@ async def get_session_markets(match_id: str):
 async def get_market_status(match_id: str):
     """
     Get current market suspension status for a match.
-    Returns whether markets are suspended due to 4/6/wicket events.
+    Also refreshes score state from DB to ensure event detection works
+    even if this endpoint is the only one being polled.
     """
+    # Fetch latest score from DB and feed it to the engine for event detection
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0, "score": 1, "status": 1})
+    if match and match.get("status") == "live":
+        score_data = match.get("score", [])
+        if score_data and isinstance(score_data, list):
+            active_innings = score_data[-1] if score_data else None
+            if active_innings:
+                try:
+                    if isinstance(active_innings, dict):
+                        sr = int(active_innings.get("r", 0) or 0)
+                        sw = int(active_innings.get("w", 0) or 0)
+                        so = float(active_innings.get("o", 0) or 0)
+                    elif isinstance(active_innings, str):
+                        import re as _re
+                        m = _re.match(r"(\d+)/(\d+)\s*(?:\((\d+\.?\d*)\))?", active_innings)
+                        if m:
+                            sr = int(m.group(1))
+                            sw = int(m.group(2))
+                            so = float(m.group(3)) if m.group(3) else 0
+                        else:
+                            sr, sw, so = 0, 0, 0
+                    else:
+                        sr, sw, so = 0, 0, 0
+                    odds_engine.update_score(
+                        match_id=match_id,
+                        runs=sr, wickets=sw, overs=so,
+                        fours=0, sixes=0
+                    )
+                except Exception:
+                    pass
+
     status = odds_engine.get_market_status(match_id)
     return {
         "match_id": match_id,
         **status
     }
 
-# ==================== HOUSE PROFIT ENDPOINT (ADMIN) ====================
+# ==================== TEST SUSPEND (Admin only) ====================
+@api_router.post("/admin/match/{match_id}/test-suspend")
+async def test_suspend_event(match_id: str, event_type: str = "four", current_user: User = Depends(get_current_admin)):
+    """Admin-only: Simulate a suspend event for testing. event_type: four, six, wicket"""
+    if event_type not in ("four", "six", "wicket"):
+        raise HTTPException(status_code=400, detail="event_type must be four, six, or wicket")
+    # Get current score from DB
+    match = await db.matches.find_one({"match_id": match_id}, {"_id": 0, "score": 1})
+    score_data = match.get("score", []) if match else []
+    current_runs, current_wickets, current_overs = 100, 2, 10.0
+    if score_data and isinstance(score_data, list):
+        last = score_data[-1]
+        if isinstance(last, dict):
+            current_runs = int(last.get("r", 100) or 100)
+            current_wickets = int(last.get("w", 2) or 2)
+            current_overs = float(last.get("o", 10.0) or 10.0)
+    # First ensure baseline exists
+    odds_engine.update_score(match_id=match_id, runs=current_runs, wickets=current_wickets, overs=current_overs)
+    import time; time.sleep(0.05)
+    # Simulate the event with new score
+    if event_type == "wicket":
+        new_runs, new_wickets, new_overs = current_runs, current_wickets + 1, current_overs + 0.1
+    elif event_type == "six":
+        new_runs, new_wickets, new_overs = current_runs + 6, current_wickets, current_overs + 0.1
+    else:
+        new_runs, new_wickets, new_overs = current_runs + 4, current_wickets, current_overs + 0.1
+    # Update DB score to match simulated state (prevents cricket poll from overwriting)
+    if score_data and isinstance(score_data, list):
+        new_score = list(score_data)
+        last_inning = new_score[-1] if new_score else {}
+        if isinstance(last_inning, dict):
+            updated_inning = {**last_inning, "r": new_runs, "w": new_wickets, "o": new_overs}
+            new_score[-1] = updated_inning
+        else:
+            new_score.append({"r": new_runs, "w": new_wickets, "o": new_overs, "inning": "Test"})
+        await db.matches.update_one({"match_id": match_id}, {"$set": {"score": new_score}})
+    odds_engine.update_score(match_id=match_id, runs=new_runs, wickets=new_wickets, overs=new_overs)
+    new_status = odds_engine.get_market_status(match_id)
+    return {"triggered": event_type, "market_status": new_status}
 @api_router.get("/admin/match/{match_id}/house-profit")
 async def get_house_profit(match_id: str, current_user: User = Depends(get_current_admin)):
     """

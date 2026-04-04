@@ -501,9 +501,11 @@ class BookmakerOddsEngine:
                 run_diff = runs - prev.get("runs", 0)
                 if wicket_diff > 0:
                     detected_event = "wicket"
-                elif six_diff > 0 or run_diff == 6:
+                elif six_diff > 0 or run_diff in (6, 7, 8):
+                    # 6 exact, or 6+1nb, or 6+2nb — likely a six
                     detected_event = "six"
-                elif four_diff > 0 or run_diff == 4:
+                elif four_diff > 0 or run_diff in (4, 5):
+                    # 4 exact, or 4+1nb — likely a four
                     detected_event = "four"
                 if detected_event:
                     new_state["last_event"] = detected_event
@@ -512,6 +514,7 @@ class BookmakerOddsEngine:
                     logger.info(f"Match {match_id}: Event '{detected_event}' "
                                 f"(runs {prev.get('runs',0)}->{runs}, w {prev.get('wickets',0)}->{wickets})")
                 else:
+                    # Keep suspended if still within the 15s window
                     if prev.get("suspended") and (now_ts - prev.get("event_time", 0)) < 15:
                         new_state["suspended"] = True
                         new_state["last_event"] = prev.get("last_event")
