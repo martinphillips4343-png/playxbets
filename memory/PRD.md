@@ -134,7 +134,15 @@ Build a premium, dark-themed sports betting application named "PlayXBets" featur
 - Visual feedback: icon changes to checkmark on successful copy, toast notification shown
 - data-testid attributes: `copy-holder-{i}`, `copy-account-{i}`, `copy-ifsc-{i}`, `copy-upi-{i}`
 
-### Blue Button Odds UI + Real P2P Liquidity (2026-04-03) - TESTED
+### Suspend Feature Fix (2026-04-04) - TESTED
+- **Root cause fixed**: `odds_engine.update_score()` was never called during polling. Wired it into cricket polling loop AND market-status endpoint AND Odds API score enrichment
+- Large red blinking **SUSPENDED** banner above odds section showing event type (FOUR/SIX/WICKET)
+- Odds buttons disabled, team rows locked (opacity-50, pointer-events-none) during suspension
+- P2P bets blocked with 400 "Market is SUSPENDED" during active suspension
+- 15-second auto-clear, consecutive events reset timer
+- Admin test endpoint: `POST /api/admin/match/{match_id}/test-suspend?event_type=four|six|wicket`
+- Polling intervals: 5s (was 1s) to conserve API quotas
+- E2E tested: 12/12 backend + all frontend passed (iteration_26)
 - Replaced old American odds format with **large clickable Blue Buttons** (bg-blue-600, white text, decimal odds)
 - Real P2P pool liquidity displayed below each button (from `/api/p2p/pool/{match_id}` — no fake data)
 - Green dot = underdog (higher odds), Red dot = favorite (lower odds)
