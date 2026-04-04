@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const ODDS_POLL_MS = 1000;
+const ODDS_POLL_MS = 5000;
 
 // ==================== ODDS FLASH HOOK ====================
 const useOddsFlash = (current) => {
@@ -341,11 +341,21 @@ export default function MatchPage({ user, onShowAuth, onLogout }) {
           </button>
         </div>
 
-        {/* SUSPENDED banner */}
+        {/* SUSPENDED banner — large, prominent with event type */}
         {suspended && (
-          <div className="mb-4 flex items-center justify-center gap-2 bg-red-600/20 border border-red-500/30 rounded-lg py-3 px-4 animate-pulse" data-testid="suspended-banner">
-            <AlertTriangle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400 font-bold text-sm uppercase">SUSPENDED {suspendEvent ? `(${suspendEvent})` : ""}</span>
+          <div className="mb-4 bg-red-600 rounded-lg py-4 px-5" data-testid="suspended-banner">
+            <div className="flex items-center justify-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-white animate-bounce" />
+              <span className="text-white font-black text-lg md:text-xl tracking-wide">SUSPENDED</span>
+              <AlertTriangle className="w-6 h-6 text-white animate-bounce" />
+            </div>
+            {suspendEvent && (
+              <div className="text-center mt-2">
+                <span className="inline-block bg-white/20 text-white font-bold text-base md:text-lg px-4 py-1 rounded-full uppercase tracking-wider">
+                  {suspendEvent === "four" ? "FOUR (4)" : suspendEvent === "six" ? "SIX (6)" : suspendEvent === "wicket" ? "WICKET" : suspendEvent}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

@@ -234,11 +234,11 @@ class SmartPollCoordinator:
 
     # Minimum intervals in seconds
     INTERVALS = {
-        "odds_live": 1,           # Live matches odds: every 1s
-        "odds_upcoming": 30,      # Upcoming matches odds: every 30s
-        "cricket_live": 1,        # Live cricket data: every 1s
+        "odds_live": 5,           # Live matches odds: every 5s
+        "odds_upcoming": 60,      # Upcoming matches odds: every 60s
+        "cricket_live": 5,        # Live cricket data: every 5s
         "cricket_upcoming": 120,  # Upcoming cricket data: every 2 min
-        "live_check": 30,         # Completion check: every 30s (not needed as fast)
+        "live_check": 30,         # Completion check: every 30s
     }
     MAX_RETRIES = 3
 
@@ -389,6 +389,6 @@ class SyncValidator:
 
 # Module-level singletons
 monitor = PerformanceMonitor()
-cache = TTLCache(match_ttl_sec=1.0, odds_ttl_sec=1.0)
+cache = TTLCache(match_ttl_sec=5.0, odds_ttl_sec=5.0)
 coordinator = SmartPollCoordinator()
 sync_validator = SyncValidator()

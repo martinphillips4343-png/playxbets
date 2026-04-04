@@ -512,7 +512,7 @@ class BookmakerOddsEngine:
                     logger.info(f"Match {match_id}: Event '{detected_event}' "
                                 f"(runs {prev.get('runs',0)}->{runs}, w {prev.get('wickets',0)}->{wickets})")
                 else:
-                    if prev.get("suspended") and (now_ts - prev.get("event_time", 0)) < 5:
+                    if prev.get("suspended") and (now_ts - prev.get("event_time", 0)) < 15:
                         new_state["suspended"] = True
                         new_state["last_event"] = prev.get("last_event")
                         new_state["event_time"] = prev.get("event_time", now_ts)
@@ -525,7 +525,7 @@ class BookmakerOddsEngine:
             now_ts = time.monotonic()
             event_time = state.get("event_time", 0)
             is_suspended = state.get("suspended", False)
-            if is_suspended and (now_ts - event_time) >= 5:
+            if is_suspended and (now_ts - event_time) >= 15:
                 state["suspended"] = False
                 is_suspended = False
             return {
